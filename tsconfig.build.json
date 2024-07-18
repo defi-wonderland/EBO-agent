@@ -1,4 +1,3 @@
-/* Based on total-typescript no-dom app config */
 {
     "extends": "./tsconfig.base.json",
     "compilerOptions": {
