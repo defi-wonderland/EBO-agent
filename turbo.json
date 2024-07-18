@@ -1,41 +1,10 @@
 {
-  "$schema": "https://turbo.build/schema.json",
-  "tasks": {
-    "//#lint": {
-      "inputs": [
-        "!.git/**",
-        "!node_modules/**",
-        "!packages/**"
-      ]
+    "$schema": "https://turbo.build/schema.json",
+    "tasks": {
+        "lint": {},
+        "lint:fix": {},
+        "format": {},
+        "format:fix": {}
     },
-    "//#lint:fix": {
-      "inputs": [
-        "!.git/**",
-        "!node_modules/**",
-        "!packages/**"
-      ]
-    },
-    "//#format": {
-      "inputs": [
-        "!.git/**",
-        "!node_modules/**",
-        "!packages/**"
-      ]
-    },
-    "//#format:fix": {
-      "inputs": [
-        "!.git/**",
-        "!node_modules/**",
-        "!packages/**"
-      ]
-    },
-    "lint": {},
-    "lint:fix": {},
-    "format": {},
-    "format:fix": {}
-  },
-  "globalDependencies": [
-    ".eslintrc",
-    ".prettierrc"
-  ]
+    "globalDependencies": [".eslintrc", ".prettierrc"]
 }

@@ -5,7 +5,9 @@
     "main": "index.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "prepare": "husky"
+        "prepare": "husky",
+        "lint": "turbo run lint",
+        "format": "turbo run format"
     },
     "keywords": [],
     "author": "",
