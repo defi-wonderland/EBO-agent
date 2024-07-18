@@ -16,9 +16,6 @@ importers:
             "@ianvs/prettier-plugin-sort-imports":
                 specifier: 4.3.1
                 version: 4.3.1(prettier@3.3.3)
-            "@total-typescript/tsconfig":
-                specifier: 1.0.4
-                version: 1.0.4
             "@types/node":
                 specifier: 20.14.11
                 version: 20.14.11
@@ -53,7 +50,7 @@ importers:
                 specifier: 5.5.3
                 version: 5.5.3
             vitest:
-                specifier: ^2.0.3
+                specifier: 2.0.3
                 version: 2.0.3(@types/node@20.14.11)
 
 packages:
@@ -793,12 +790,6 @@ packages:
             }
         cpu: [x64]
         os: [win32]
-
-    "@total-typescript/tsconfig@1.0.4":
-        resolution:
-            {
-                integrity: sha512-fO4ctMPGz1kOFOQ4RCPBRBfMy3gDn+pegUfrGyUFRMv/Rd0ZM3/SHH3hFCYG4u6bPLG8OlmOGcBLDexvyr3A5w==,
-            }
 
     "@types/conventional-commits-parser@5.0.0":
         resolution:
@@ -3335,8 +3326,6 @@ snapshots:
 
     "@rollup/rollup-win32-x64-msvc@4.18.1":
         optional: true
-
-    "@total-typescript/tsconfig@1.0.4": {}
 
     "@types/conventional-commits-parser@5.0.0":
         dependencies:
