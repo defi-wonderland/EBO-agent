@@ -4,10 +4,13 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
+        "build": "turbo run build",
+        "test": "turbo run test",
         "prepare": "husky",
         "lint": "turbo run lint",
-        "format": "turbo run format"
+        "lint:fix": "turbo run lint:fix",
+        "format": "turbo run format",
+        "format:fix": "turbo run format:fix"
     },
     "keywords": [],
     "author": "",
