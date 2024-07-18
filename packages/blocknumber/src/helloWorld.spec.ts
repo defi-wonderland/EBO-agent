@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import foo from "./helloWorld";
+
 describe("test", () => {
     it("pass", () => {
-        expect(1).toBe(1);
+        const result = foo();
+
+        expect(result).toBe("bar");
     });
 });
