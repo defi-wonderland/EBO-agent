@@ -1,26 +1,23 @@
+/* Based on total-typescript no-dom app config */
 {
-    "extends": "@total-typescript/tsconfig/tsc/no-dom/library-monorepo",
     "compilerOptions": {
-        "module": "commonjs",
-        "declaration": true,
-        "removeComments": true,
-        "emitDecoratorMetadata": true,
-        "experimentalDecorators": true,
-        "allowSyntheticDefaultImports": true,
-        "target": "ES2022",
-        "sourceMap": true,
-        "outDir": "./dist",
-        "baseUrl": "./",
-        "incremental": true,
+        /* Base Options: */
+        "esModuleInterop": true,
         "skipLibCheck": true,
-        "strictNullChecks": true,
-        "noImplicitAny": true,
-        "strictBindCallApply": true,
-        "forceConsistentCasingInFileNames": true,
-        "noFallthroughCasesInSwitch": true,
-        "paths": {
-            // Add paths here
-        },
-        "verbatimModuleSyntax": false
+        "target": "es2022",
+        "allowJs": true,
+        "resolveJsonModule": true,
+        "moduleDetection": "force",
+        "isolatedModules": true,
+        "verbatimModuleSyntax": true,
+        /* Strictness */
+        "strict": true,
+        "noUncheckedIndexedAccess": true,
+        "noImplicitOverride": true,
+        /* If transpiling with TypeScript: */
+        "module": "NodeNext",
+        "sourceMap": true,
+        /* If your code doesn't run in the DOM: */
+        "lib": ["es2022"]
     }
 }
