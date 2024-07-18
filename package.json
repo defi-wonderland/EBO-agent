@@ -1,25 +1,34 @@
 {
-  "name": "ebo-agent",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "turbo run lint",
-    "format": "turbo run format"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "@ianvs/prettier-plugin-sort-imports": "4.3.1",
-    "@typescript-eslint/eslint-plugin": "7.16.1",
-    "@typescript-eslint/parser": "7.16.1",
-    "eslint": "8.57.0",
-    "eslint-config-prettier": "9.1.0",
-    "eslint-plugin-prettier": "5.2.1",
-    "prettier": "3.3.3",
-    "turbo": "2.0.7"
-  },
-  "packageManager": "pnpm@9.5.0+sha512.140036830124618d624a2187b50d04289d5a087f326c9edfc0ccd733d76c4f52c3a313d4fc148794a2a9d81553016004e6742e8cf850670268a7387fc220c903"
+    "name": "ebo-agent",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "prepare": "husky",
+        "lint": "turbo run lint",
+        "format": "turbo run format"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+        "@commitlint/cli": "19.3.0",
+        "@commitlint/config-conventional": "19.2.2",
+        "@ianvs/prettier-plugin-sort-imports": "4.3.1",
+        "@typescript-eslint/eslint-plugin": "7.16.1",
+        "@typescript-eslint/parser": "7.16.1",
+        "eslint": "8.57.0",
+        "eslint-config-prettier": "9.1.0",
+        "eslint-plugin-prettier": "5.2.1",
+        "husky": "9.1.0",
+        "lint-staged": "15.2.7",
+        "prettier": "3.3.3",
+        "turbo": "2.0.7"
+    },
+    "lint-staged": {
+        "*": "prettier --write --ignore-unknown",
+        "*.js,*.ts": "eslint --fix"
+    },
+    "packageManager": "pnpm@9.5.0+sha512.140036830124618d624a2187b50d04289d5a087f326c9edfc0ccd733d76c4f52c3a313d4fc148794a2a9d81553016004e6742e8cf850670268a7387fc220c903"
 }
