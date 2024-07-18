@@ -1,6 +1,6 @@
 # ebo-agent
 
-The Epoch Block Oracle (EBO) is an open-source tool designed to monitor indexed blockchains, track their latest blocks, and suggest updates for the corresponding block in each chain epoch.
+The Epoch Block Oracle (EBO) introduces the use of an optimistic oracle ([Prophet](https://docs.prophet.tech/)), enabling any off-chain agent to interact with it by creating requests, proposing responses, or disputing responses in a permissionless manner. This document outlines a comprehensive implementation strategy for the agent responsible for automating all workflows associated with EBO. Within this document, you will find a detailed presentation of the high-level architecture, code design, process flows, technology stack, and project estimations.
 
 ## Table of contents
 
@@ -11,7 +11,8 @@ The Epoch Block Oracle (EBO) is an open-source tool designed to monitor indexed 
 
 ## Background
 
-The EBO Agent consumes blocks metadata from indexed chains and interacts with other agents through contracts run in the protocol chain.
+The EBO agent is an open-source tool designed to poll events from the relevant on-chain smart contracts on the Protocol chain (Arbitrum) and respond to these events with specific actions tailored to the flow requirements. Additionally, the agent will interface with blockchains supported by The Graph and perform block computations for each epoch as necessary. These computations are required for various scenarios, such as responding to a request, validating a proposal, and revalidating a proposal during a dispute.
+
 
 ```mermaid
 flowchart LR;
