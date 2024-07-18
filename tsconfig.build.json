@@ -1,5 +1,8 @@
 /* Based on total-typescript no-dom app config */
 {
     "extends": "./tsconfig.base.json",
-    "include": ["**/*", ".*.js"]
+    "compilerOptions": {
+        "incremental": false,
+        "noEmit": false
+    }
 }
