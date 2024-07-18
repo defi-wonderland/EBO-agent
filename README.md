@@ -4,15 +4,14 @@ The Epoch Block Oracle (EBO) introduces the use of an optimistic oracle ([Prophe
 
 ## Table of contents
 
-* Background
-* Install
-* Usage
-* Contributing
+-   Background
+-   Install
+-   Usage
+-   Contributing
 
 ## Background
 
 The EBO agent is an open-source tool designed to poll events from the relevant on-chain smart contracts on the Protocol chain (Arbitrum) and respond to these events with specific actions tailored to the flow requirements. Additionally, the agent will interface with blockchains supported by The Graph and perform block computations for each epoch as necessary. These computations are required for various scenarios, such as responding to a request, validating a proposal, and revalidating a proposal during a dispute.
-
 
 ```mermaid
 flowchart LR;
@@ -32,6 +31,7 @@ flowchart LR;
 ```
 
 ## Install
+
 ```
 $ pnpm install
 ```
