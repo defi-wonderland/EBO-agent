@@ -5,7 +5,8 @@
         "lint:fix": {},
         "format": {},
         "format:fix": {},
-        "test": {}
+        "test": {},
+        "build": {}
     },
     "globalDependencies": [".eslintrc", ".prettierrc"]
 }
