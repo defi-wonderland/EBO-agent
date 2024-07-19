@@ -8,6 +8,7 @@ export default defineConfig({
         include: ["src/**/*.spec.ts"], // Include test files
         exclude: ["node_modules", "dist"], // Exclude certain directories
         coverage: {
+            provider: "v8",
             reporter: ["text", "json", "html"], // Coverage reporters
             exclude: ["node_modules", "dist", "src/**/*.d.ts"], // Files to exclude from coverage
         },

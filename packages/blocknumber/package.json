@@ -10,7 +10,8 @@
         "lint:fix": "pnpm lint --fix",
         "format": "prettier --check .",
         "format:fix": "prettier --write .",
-        "test": "vitest run"
+        "test": "vitest run",
+        "coverage": "vitest run --coverage"
     },
     "keywords": [],
     "author": "",

@@ -6,6 +6,7 @@
     "scripts": {
         "build": "turbo run build",
         "test": "turbo run test",
+        "coverage": "turbo run coverage",
         "prepare": "husky",
         "lint": "turbo run lint",
         "lint:fix": "turbo run lint:fix",
@@ -21,6 +22,7 @@
         "@ianvs/prettier-plugin-sort-imports": "4.3.1",
         "@typescript-eslint/eslint-plugin": "7.16.1",
         "@typescript-eslint/parser": "7.16.1",
+        "@vitest/coverage-v8": "^2.0.3",
         "eslint": "8.57.0",
         "eslint-config-prettier": "9.1.0",
         "eslint-plugin-prettier": "5.2.1",
