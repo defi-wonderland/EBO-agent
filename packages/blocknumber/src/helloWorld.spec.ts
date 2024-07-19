@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import foo from "./helloWorld";
+import foo from "./helloWorld.js";
 
 describe("test", () => {
     it("pass", () => {
