@@ -33,7 +33,7 @@ export class ChainId {
      * Parses a CAIP-2 compliant string.
      *
      * @param chainId {string} a CAIP-2 compliant string
-     * @returns an object containing the namespace and the reference of the chain id
+     * @returns an object containing the namespace and the reference of the chain id.
      */
     public static parse(chainId: string): ChainIdParams {
         const elements = chainId.split(":");
