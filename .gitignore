@@ -3,3 +3,9 @@ node_modules/
 
 # Turbo
 .turbo/
+
+# Build
+dist/
+
+# Coverage
+coverage/

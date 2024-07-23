@@ -1,0 +1,19 @@
+{
+    "name": "blocknumber",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.ts",
+    "type": "module",
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json",
+        "lint": "eslint .",
+        "lint:fix": "pnpm lint --fix",
+        "format": "prettier --check .",
+        "format:fix": "prettier --write .",
+        "test": "vitest run",
+        "coverage": "vitest run --coverage"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC"
+}
