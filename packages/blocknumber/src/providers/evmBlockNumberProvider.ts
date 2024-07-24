@@ -12,7 +12,7 @@ const BINARY_SEARCH_DELTA_MULTIPLIER = 2n;
 
 type BlockWithNumber = Omit<Block, "number"> & { number: bigint };
 
-export class EvmProvider implements BlockNumberProvider {
+export class EvmBlockNumberProvider implements BlockNumberProvider {
     client: PublicClient;
 
     constructor(client: PublicClient) {

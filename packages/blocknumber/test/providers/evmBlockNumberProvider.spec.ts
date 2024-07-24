@@ -5,11 +5,11 @@ import { describe, expect, it, vi } from "vitest";
 import { TimestampNotFound } from "../../src/exceptions/timestampNotFound.js";
 import { UnsupportedBlockNumber } from "../../src/exceptions/unsupportedBlockNumber.js";
 import { UnsupportedBlockTimestamps } from "../../src/exceptions/unsupportedBlockTimestamps.js";
-import { EvmProvider } from "../../src/providers/evmProvider.js";
+import { EvmBlockNumberProvider } from "../../src/providers/evmBlockNumberProvider.js";
 
-describe("EvmProvider", () => {
+describe("EvmBlockNumberProvider", () => {
     describe("getEpochBlockNumber", () => {
-        let evmProvider: EvmProvider;
+        let evmProvider: EvmBlockNumberProvider;
 
         it("returns the first of two consecutive blocks when their timestamp contains the searched timestamp", async () => {
             const blockNumber = 10n;
@@ -17,7 +17,7 @@ describe("EvmProvider", () => {
             const endTimestamp = Date.UTC(2024, 1, 11, 0, 0, 0, 0);
             const rpcProvider = mockRpcProvider(blockNumber, startTimestamp, endTimestamp);
 
-            evmProvider = new EvmProvider(rpcProvider);
+            evmProvider = new EvmBlockNumberProvider(rpcProvider);
 
             const day5 = Date.UTC(2024, 1, 5, 2, 0, 0, 0);
             const epochBlockNumber = await evmProvider.getEpochBlockNumber(day5, {
@@ -33,7 +33,7 @@ describe("EvmProvider", () => {
             const endTimestamp = Date.UTC(2024, 1, 1, 0, 0, 11, 0);
             const rpcProvider = mockRpcProvider(lastBlockNumber, startTimestamp, endTimestamp);
 
-            evmProvider = new EvmProvider(rpcProvider);
+            evmProvider = new EvmBlockNumberProvider(rpcProvider);
 
             const exactDay5 = Date.UTC(2024, 1, 1, 0, 0, 5, 0);
             const epochBlockNumber = await evmProvider.getEpochBlockNumber(exactDay5, {
@@ -49,7 +49,7 @@ describe("EvmProvider", () => {
             const endTimestamp = Date.UTC(2024, 1, 1, 0, 0, 11, 0);
             const rpcProvider = mockRpcProvider(lastBlockNumber, startTimestamp, endTimestamp);
 
-            evmProvider = new EvmProvider(rpcProvider);
+            evmProvider = new EvmBlockNumberProvider(rpcProvider);
 
             const futureTimestamp = Date.UTC(2025, 1, 1, 0, 0, 0, 0);
 
@@ -66,7 +66,7 @@ describe("EvmProvider", () => {
             const endTimestamp = Date.UTC(2024, 1, 1, 0, 0, 11, 0);
             const rpcProvider = mockRpcProvider(lastBlockNumber, startTimestamp, endTimestamp);
 
-            evmProvider = new EvmProvider(rpcProvider);
+            evmProvider = new EvmBlockNumberProvider(rpcProvider);
 
             const futureTimestamp = Date.UTC(1970, 1, 1, 0, 0, 0, 0);
 
@@ -88,7 +88,7 @@ describe("EvmProvider", () => {
                 { number: 4n, timestamp: afterTimestamp },
             ]);
 
-            evmProvider = new EvmProvider(rpcProvider);
+            evmProvider = new EvmBlockNumberProvider(rpcProvider);
 
             expect(
                 evmProvider.getEpochBlockNumber(Number(timestamp), { blocksLookback: 2n }),
@@ -101,7 +101,7 @@ describe("EvmProvider", () => {
                 { number: null, timestamp: BigInt(timestamp) },
             ]);
 
-            evmProvider = new EvmProvider(rpcProvider);
+            evmProvider = new EvmBlockNumberProvider(rpcProvider);
 
             expect(
                 evmProvider.getEpochBlockNumber(Number(timestamp), { blocksLookback: 2n }),
@@ -113,7 +113,7 @@ describe("EvmProvider", () => {
 
             client.getBlock = vi.fn().mockRejectedValue(null);
 
-            evmProvider = new EvmProvider(client);
+            evmProvider = new EvmBlockNumberProvider(client);
             const timestamp = Date.UTC(2024, 1, 1, 0, 0, 0, 0);
 
             expect(
