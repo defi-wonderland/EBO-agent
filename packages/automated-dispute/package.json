@@ -1,5 +1,5 @@
 {
-    "name": "@ebo-agent/blocknumber",
+    "name": "@ebo-agent/automated-dispute",
     "version": "1.0.0",
     "description": "",
     "main": "index.ts",
@@ -15,5 +15,8 @@
     },
     "keywords": [],
     "author": "",
-    "license": "ISC"
+    "license": "ISC",
+    "dependencies": {
+        "viem": "2.17.11"
+    }
 }
