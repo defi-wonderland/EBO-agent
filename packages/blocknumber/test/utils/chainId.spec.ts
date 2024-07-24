@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { ChainId, InvalidChainId } from "../../src/utils/chainId.js";
+import { InvalidChainId } from "../../src/exceptions/invalidChain.js";
+import { ChainId } from "../../src/utils/chainId.js";
 
 describe("ChainId", () => {
     describe("constructor", () => {

@@ -1,5 +1,7 @@
 // Based on https://github.com/ChainAgnostic/CAIPs/blob/main/CAIPs/caip-2.md
 
+import { InvalidChainId } from "../exceptions/invalidChain.js";
+
 type ChainNamespace = string;
 type ChainReference = string;
 
@@ -10,14 +12,6 @@ interface ChainIdParams {
 
 const NAMESPACE_FORMAT = /^[-a-z0-9]{3,8}$/;
 const REFERENCE_FORMAT = /^[-_a-zA-Z0-9]{1,32}$/;
-
-export class InvalidChainId extends Error {
-    constructor(message: string) {
-        super(message);
-
-        this.name = "InvalidChainId";
-    }
-}
 
 export class ChainId {
     private namespace: string;
