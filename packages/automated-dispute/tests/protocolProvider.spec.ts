@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, Mock, vi } from "vitest";
 
 import { epochManagerAbi } from "../src/abis/epochManager.js";
 import { oracleAbi } from "../src/abis/oracle.js";
+import { RpcUrlsEmptyException } from "../src/exceptions/rpcUrlsEmpty.exception.js";
 import { ProtocolProvider } from "../src/index.js";
 import { ProtocolContractsAddresses } from "../src/types/index.js";
 
@@ -48,7 +49,7 @@ describe("ProtocolProvider", () => {
     });
 
     describe("constructor", () => {
-        it("should create a new ProtocolProvider instance successfully", () => {
+        it("create a new ProtocolProvider instance successfully", () => {
             const protocolProvider = new ProtocolProvider(mockRpcUrls, mockContractAddress);
 
             expect(createPublicClient).toHaveBeenCalledWith({
@@ -65,6 +66,11 @@ describe("ProtocolProvider", () => {
                 abi: epochManagerAbi,
                 client: protocolProvider["client"],
             });
+        });
+        it("throws if rpcUrls are empty", () => {
+            expect(() => new ProtocolProvider([], mockContractAddress)).toThrowError(
+                RpcUrlsEmptyException,
+            );
         });
     });
     describe("getCurrentEpoch", () => {
