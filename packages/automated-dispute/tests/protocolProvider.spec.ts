@@ -49,7 +49,7 @@ describe("ProtocolProvider", () => {
     });
 
     describe("constructor", () => {
-        it("create a new ProtocolProvider instance successfully", () => {
+        it("creates a new ProtocolProvider instance successfully", () => {
             const protocolProvider = new ProtocolProvider(mockRpcUrls, mockContractAddress);
 
             expect(createPublicClient).toHaveBeenCalledWith({
@@ -72,7 +72,7 @@ describe("ProtocolProvider", () => {
         });
     });
     describe("getCurrentEpoch", () => {
-        it("should return currentEpoch and currentEpochBlock successfully", async () => {
+        it("returns currentEpoch and currentEpochBlock successfully", async () => {
             const protocolProvider = new ProtocolProvider(mockRpcUrls, mockContractAddress);
 
             const mockEpoch = BigInt(1);
@@ -89,6 +89,48 @@ describe("ProtocolProvider", () => {
 
             expect(result.currentEpoch).toBe(mockEpoch);
             expect(result.currentEpochBlock).toBe(mockEpochBlock);
+        });
+        it("throws when current epoch request fails", async () => {
+            const protocolProvider = new ProtocolProvider(mockRpcUrls, mockContractAddress);
+            const error = new Error("Failed to get current epoch");
+            const mockEpochBlock = BigInt(12345);
+
+            (protocolProvider["epochManagerContract"].read.currentEpoch as Mock).mockRejectedValue(
+                error,
+            );
+            (
+                protocolProvider["epochManagerContract"].read.currentEpochBlock as Mock
+            ).mockResolvedValue(mockEpochBlock);
+
+            await expect(protocolProvider.getCurrentEpoch()).rejects.toThrow(error);
+        });
+        it("throws when current epoch block request fails", async () => {
+            const protocolProvider = new ProtocolProvider(mockRpcUrls, mockContractAddress);
+            const error = new Error("Failed to get current epoch block");
+            const mockEpoch = BigInt(12345);
+
+            (protocolProvider["epochManagerContract"].read.currentEpoch as Mock).mockResolvedValue(
+                mockEpoch,
+            );
+            (
+                protocolProvider["epochManagerContract"].read.currentEpochBlock as Mock
+            ).mockRejectedValue(error);
+
+            await expect(protocolProvider.getCurrentEpoch()).rejects.toThrow(error);
+        });
+        it("throws when current epoch block request fails", async () => {
+            const protocolProvider = new ProtocolProvider(mockRpcUrls, mockContractAddress);
+            const currentEpochError = new Error("Failed to get current epoch");
+            const currentEpochBlockError = new Error("Failed to get current epoch block");
+
+            (protocolProvider["epochManagerContract"].read.currentEpoch as Mock).mockRejectedValue(
+                currentEpochError,
+            );
+            (
+                protocolProvider["epochManagerContract"].read.currentEpochBlock as Mock
+            ).mockRejectedValue(currentEpochBlockError);
+
+            await expect(protocolProvider.getCurrentEpoch()).rejects.toThrow(currentEpochError);
         });
     });
 });
