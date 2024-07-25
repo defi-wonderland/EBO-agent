@@ -1,4 +1,5 @@
 export * from "./invalidChain.js";
+export * from "./invalidTimestamp.js";
 export * from "./lastBlockEpoch.js";
 export * from "./timestampNotFound.js";
 export * from "./unexpectedSearchRange.js";

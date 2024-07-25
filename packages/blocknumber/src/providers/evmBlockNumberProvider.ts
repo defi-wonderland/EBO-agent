@@ -1,6 +1,7 @@
 import { Block, PublicClient } from "viem";
 
 import {
+    InvalidTimestamp,
     LastBlockEpoch,
     TimestampNotFound,
     UnexpectedSearchRange,
@@ -69,7 +70,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
 
         const firstBlock = await this.getFirstBlock();
 
-        if (_timestamp < firstBlock.timestamp) throw new TimestampNotFound(_timestamp);
+        if (_timestamp < firstBlock.timestamp) throw new InvalidTimestamp(_timestamp);
         if (_timestamp >= upperBoundBlock.timestamp) throw new LastBlockEpoch(upperBoundBlock);
 
         // Reduces the search space by estimating a lower bound for the binary search.

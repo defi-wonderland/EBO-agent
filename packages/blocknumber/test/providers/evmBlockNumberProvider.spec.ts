@@ -2,10 +2,12 @@ import { Block, createPublicClient, GetBlockParameters, http } from "viem";
 import { mainnet } from "viem/chains";
 import { describe, expect, it, vi } from "vitest";
 
-import { LastBlockEpoch } from "../../src/exceptions/lastBlockEpoch.js";
-import { TimestampNotFound } from "../../src/exceptions/timestampNotFound.js";
-import { UnsupportedBlockNumber } from "../../src/exceptions/unsupportedBlockNumber.js";
-import { UnsupportedBlockTimestamps } from "../../src/exceptions/unsupportedBlockTimestamps.js";
+import {
+    InvalidTimestamp,
+    LastBlockEpoch,
+    UnsupportedBlockNumber,
+    UnsupportedBlockTimestamps,
+} from "../../src/exceptions/index.js";
 import { EvmBlockNumberProvider } from "../../src/providers/evmBlockNumberProvider.js";
 
 describe("EvmBlockNumberProvider", () => {
@@ -67,7 +69,7 @@ describe("EvmBlockNumberProvider", () => {
             const futureTimestamp = Date.UTC(1970, 1, 1, 0, 0, 0, 0);
 
             expect(evmProvider.getEpochBlockNumber(futureTimestamp)).rejects.toBeInstanceOf(
-                TimestampNotFound,
+                InvalidTimestamp,
             );
         });
 
