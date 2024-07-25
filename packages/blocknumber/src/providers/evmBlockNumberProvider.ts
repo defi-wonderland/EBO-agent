@@ -1,12 +1,12 @@
-import { Block, fromBlobs, PublicClient } from "viem";
+import { Block, PublicClient } from "viem";
 
 import {
+    LastBlockEpoch,
     TimestampNotFound,
+    UnexpectedSearchRange,
     UnsupportedBlockNumber,
     UnsupportedBlockTimestamps,
 } from "../exceptions/index.js";
-import { LastBlockEpoch } from "../exceptions/lastBlockEpoch.js";
-import { UnexpectedSearchRange } from "../exceptions/unexpectedSearchRange.js";
 import logger from "../utils/logger.js";
 import { BlockNumberProvider } from "./blockNumberProvider.js";
 
@@ -31,7 +31,7 @@ interface SearchConfig {
 export class EvmBlockNumberProvider implements BlockNumberProvider {
     private client: PublicClient;
     private searchConfig: SearchConfig;
-    private firstBlock: Block;
+    private firstBlock: Block | null;
 
     /**
      * Creates a new instance of PublicClient.
@@ -51,6 +51,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
             blocksLookback: searchConfig.blocksLookback ?? BINARY_SEARCH_BLOCKS_LOOKBACK,
             deltaMultiplier: searchConfig.deltaMultiplier ?? BINARY_SEARCH_DELTA_MULTIPLIER,
         };
+        this.firstBlock = null;
     }
 
     async getEpochBlockNumber(timestamp: number): Promise<bigint> {
@@ -89,7 +90,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
      * @returns the chain's first block
      */
     private async getFirstBlock(): Promise<Block> {
-        if (this.firstBlock !== undefined) return this.firstBlock;
+        if (this.firstBlock !== null) return this.firstBlock;
 
         this.firstBlock = await this.client.getBlock({ blockNumber: 0n });
 
