@@ -2,6 +2,7 @@ import { Block, createPublicClient, GetBlockParameters, http } from "viem";
 import { mainnet } from "viem/chains";
 import { describe, expect, it, vi } from "vitest";
 
+import { LastBlockEpoch } from "../../src/exceptions/lastBlockEpoch.js";
 import { TimestampNotFound } from "../../src/exceptions/timestampNotFound.js";
 import { UnsupportedBlockNumber } from "../../src/exceptions/unsupportedBlockNumber.js";
 import { UnsupportedBlockTimestamps } from "../../src/exceptions/unsupportedBlockTimestamps.js";
@@ -9,6 +10,7 @@ import { EvmBlockNumberProvider } from "../../src/providers/evmBlockNumberProvid
 
 describe("EvmBlockNumberProvider", () => {
     describe("getEpochBlockNumber", () => {
+        const searchConfig = { blocksLookback: 2n, deltaMultiplier: 2n };
         let evmProvider: EvmBlockNumberProvider;
 
         it("returns the first of two consecutive blocks when their timestamp contains the searched timestamp", async () => {
@@ -17,12 +19,10 @@ describe("EvmBlockNumberProvider", () => {
             const endTimestamp = Date.UTC(2024, 1, 11, 0, 0, 0, 0);
             const rpcProvider = mockRpcProvider(blockNumber, startTimestamp, endTimestamp);
 
-            evmProvider = new EvmBlockNumberProvider(rpcProvider);
+            evmProvider = new EvmBlockNumberProvider(rpcProvider, searchConfig);
 
             const day5 = Date.UTC(2024, 1, 5, 2, 0, 0, 0);
-            const epochBlockNumber = await evmProvider.getEpochBlockNumber(day5, {
-                blocksLookback: 2n,
-            });
+            const epochBlockNumber = await evmProvider.getEpochBlockNumber(day5);
 
             expect(epochBlockNumber).toEqual(4n);
         });
@@ -33,31 +33,27 @@ describe("EvmBlockNumberProvider", () => {
             const endTimestamp = Date.UTC(2024, 1, 1, 0, 0, 11, 0);
             const rpcProvider = mockRpcProvider(lastBlockNumber, startTimestamp, endTimestamp);
 
-            evmProvider = new EvmBlockNumberProvider(rpcProvider);
+            evmProvider = new EvmBlockNumberProvider(rpcProvider, searchConfig);
 
             const exactDay5 = Date.UTC(2024, 1, 1, 0, 0, 5, 0);
-            const epochBlockNumber = await evmProvider.getEpochBlockNumber(exactDay5, {
-                blocksLookback: 2n,
-            });
+            const epochBlockNumber = await evmProvider.getEpochBlockNumber(exactDay5);
 
             expect(epochBlockNumber).toEqual(4n);
         });
 
-        it("returns the last block if timestamp is after the block's timestamp", async () => {
+        it("throws if the search timestamp is after the last block's timestamp", async () => {
             const lastBlockNumber = 10n;
             const startTimestamp = Date.UTC(2024, 1, 1, 0, 0, 0, 0);
             const endTimestamp = Date.UTC(2024, 1, 1, 0, 0, 11, 0);
             const rpcProvider = mockRpcProvider(lastBlockNumber, startTimestamp, endTimestamp);
 
-            evmProvider = new EvmBlockNumberProvider(rpcProvider);
+            evmProvider = new EvmBlockNumberProvider(rpcProvider, searchConfig);
 
             const futureTimestamp = Date.UTC(2025, 1, 1, 0, 0, 0, 0);
 
-            const blockNumber = await evmProvider.getEpochBlockNumber(futureTimestamp, {
-                blocksLookback: 2n,
-            });
-
-            expect(blockNumber).toEqual(lastBlockNumber);
+            expect(evmProvider.getEpochBlockNumber(futureTimestamp)).rejects.toBeInstanceOf(
+                LastBlockEpoch,
+            );
         });
 
         it("fails if the timestamp is before the first block", async () => {
@@ -66,15 +62,13 @@ describe("EvmBlockNumberProvider", () => {
             const endTimestamp = Date.UTC(2024, 1, 1, 0, 0, 11, 0);
             const rpcProvider = mockRpcProvider(lastBlockNumber, startTimestamp, endTimestamp);
 
-            evmProvider = new EvmBlockNumberProvider(rpcProvider);
+            evmProvider = new EvmBlockNumberProvider(rpcProvider, searchConfig);
 
             const futureTimestamp = Date.UTC(1970, 1, 1, 0, 0, 0, 0);
 
-            expect(
-                evmProvider.getEpochBlockNumber(futureTimestamp, {
-                    blocksLookback: 2n,
-                }),
-            ).rejects.toBeInstanceOf(TimestampNotFound);
+            expect(evmProvider.getEpochBlockNumber(futureTimestamp)).rejects.toBeInstanceOf(
+                TimestampNotFound,
+            );
         });
 
         it("fails when finding multiple blocks with the same timestamp", () => {
@@ -88,11 +82,11 @@ describe("EvmBlockNumberProvider", () => {
                 { number: 4n, timestamp: afterTimestamp },
             ]);
 
-            evmProvider = new EvmBlockNumberProvider(rpcProvider);
+            evmProvider = new EvmBlockNumberProvider(rpcProvider, searchConfig);
 
-            expect(
-                evmProvider.getEpochBlockNumber(Number(timestamp), { blocksLookback: 2n }),
-            ).rejects.toBeInstanceOf(UnsupportedBlockTimestamps);
+            expect(evmProvider.getEpochBlockNumber(Number(timestamp))).rejects.toBeInstanceOf(
+                UnsupportedBlockTimestamps,
+            );
         });
 
         it("fails when finding a block with no number", () => {
@@ -101,11 +95,11 @@ describe("EvmBlockNumberProvider", () => {
                 { number: null, timestamp: BigInt(timestamp) },
             ]);
 
-            evmProvider = new EvmBlockNumberProvider(rpcProvider);
+            evmProvider = new EvmBlockNumberProvider(rpcProvider, searchConfig);
 
-            expect(
-                evmProvider.getEpochBlockNumber(Number(timestamp), { blocksLookback: 2n }),
-            ).rejects.toBeInstanceOf(UnsupportedBlockNumber);
+            expect(evmProvider.getEpochBlockNumber(Number(timestamp))).rejects.toBeInstanceOf(
+                UnsupportedBlockNumber,
+            );
         });
 
         it("fails when the data provider fails", () => {
@@ -113,15 +107,11 @@ describe("EvmBlockNumberProvider", () => {
 
             client.getBlock = vi.fn().mockRejectedValue(null);
 
-            evmProvider = new EvmBlockNumberProvider(client);
+            evmProvider = new EvmBlockNumberProvider(client, searchConfig);
             const timestamp = Date.UTC(2024, 1, 1, 0, 0, 0, 0);
 
-            expect(
-                evmProvider.getEpochBlockNumber(timestamp, { blocksLookback: 2n }),
-            ).rejects.toBeDefined();
+            expect(evmProvider.getEpochBlockNumber(timestamp)).rejects.toBeDefined();
         });
-
-        it("fails when the chain did not reach to the block yet", async () => {});
     });
 });
 
