@@ -11,7 +11,7 @@ import {
 import { arbitrum } from "viem/chains";
 
 import { epochManagerAbi, oracleAbi } from "./abis/index.js";
-import { RpcUrlsEmptyException } from "./exceptions/rpcUrlsEmpty.exception.js";
+import { RpcUrlsEmpty } from "./exceptions/rpcUrlsEmpty.exception.js";
 import { ProtocolContractsAddresses } from "./types/protocolProvider.js";
 
 export class ProtocolProvider {
@@ -34,7 +34,7 @@ export class ProtocolProvider {
      */
     constructor(rpcUrls: string[], contracts: ProtocolContractsAddresses) {
         if (rpcUrls.length === 0) {
-            throw new RpcUrlsEmptyException();
+            throw new RpcUrlsEmpty();
         }
         this.client = createPublicClient({
             chain: arbitrum,

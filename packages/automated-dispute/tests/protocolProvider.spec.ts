@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, Mock, vi } from "vitest";
 
 import { epochManagerAbi } from "../src/abis/epochManager.js";
 import { oracleAbi } from "../src/abis/oracle.js";
-import { RpcUrlsEmptyException } from "../src/exceptions/rpcUrlsEmpty.exception.js";
+import { RpcUrlsEmpty } from "../src/exceptions/rpcUrlsEmpty.exception.js";
 import { ProtocolProvider } from "../src/index.js";
 import { ProtocolContractsAddresses } from "../src/types/index.js";
 
@@ -68,9 +68,7 @@ describe("ProtocolProvider", () => {
             });
         });
         it("throws if rpcUrls are empty", () => {
-            expect(() => new ProtocolProvider([], mockContractAddress)).toThrowError(
-                RpcUrlsEmptyException,
-            );
+            expect(() => new ProtocolProvider([], mockContractAddress)).toThrowError(RpcUrlsEmpty);
         });
     });
     describe("getCurrentEpoch", () => {
