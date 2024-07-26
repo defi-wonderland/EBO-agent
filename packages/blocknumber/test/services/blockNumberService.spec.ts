@@ -1,7 +1,11 @@
-import { createPublicClient, createTestClient, fallback, http } from "viem";
+import { createPublicClient, fallback, http } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { EmptyRpcUrls, NoProvider, UnsupportedChain } from "../../src/exceptions/index.js";
+import {
+    ChainWithoutProvider,
+    EmptyRpcUrls,
+    UnsupportedChain,
+} from "../../src/exceptions/index.js";
 import { EvmBlockNumberProvider } from "../../src/providers/evmBlockNumberProvider.js";
 import { BlockNumberService } from "../../src/services/index.js";
 import { Caip2ChainId } from "../../src/types.js";
@@ -116,7 +120,7 @@ describe("BlockNumberService", () => {
             const epochChains = [caip2Chains.mainnet, caip2Chains.arbitrum];
 
             expect(service.getEpochBlockNumbers(timestamp, epochChains)).rejects.toThrow(
-                NoProvider,
+                ChainWithoutProvider,
             );
         });
 
