@@ -1,4 +1,4 @@
-import { Block, PublicClient } from "viem";
+import { Block, FallbackTransport, HttpTransport, PublicClient } from "viem";
 
 import {
     InvalidTimestamp,
@@ -30,7 +30,7 @@ interface SearchConfig {
 }
 
 export class EvmBlockNumberProvider implements BlockNumberProvider {
-    private client: PublicClient;
+    private client: PublicClient<FallbackTransport<HttpTransport[]>>;
     private searchConfig: SearchConfig;
     private firstBlock: Block | null;
 
@@ -44,7 +44,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
      *  while scanning blocks backwards during lower bound search. Defaults to 2.
      */
     constructor(
-        client: PublicClient,
+        client: PublicClient<FallbackTransport<HttpTransport[]>>,
         searchConfig: { blocksLookback?: bigint; deltaMultiplier?: bigint },
     ) {
         this.client = client;
