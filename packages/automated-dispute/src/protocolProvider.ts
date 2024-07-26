@@ -1,4 +1,5 @@
 import {
+    Address,
     createPublicClient,
     fallback,
     FallbackTransport,
@@ -16,15 +17,11 @@ import { ProtocolContractsAddresses } from "./types/protocolProvider.js";
 
 export class ProtocolProvider {
     private client: PublicClient<FallbackTransport<HttpTransport[]>>;
-    private oracleContract: GetContractReturnType<
-        typeof oracleAbi,
-        typeof this.client,
-        `0x${string}`
-    >;
+    private oracleContract: GetContractReturnType<typeof oracleAbi, typeof this.client, Address>;
     private epochManagerContract: GetContractReturnType<
         typeof epochManagerAbi,
         typeof this.client,
-        `0x${string}`
+        Address
     >;
 
     /**
