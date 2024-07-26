@@ -1,41 +1,27 @@
 // Based on https://github.com/ChainAgnostic/CAIPs/blob/main/CAIPs/caip-2.md
 
-import { InvalidChainId } from "../exceptions/invalidChain.js";
-
-type ChainNamespace = string;
-type ChainReference = string;
-
-interface ChainIdParams {
-    namespace: ChainNamespace;
-    reference: ChainReference;
-}
+import { InvalidChainId } from "../../exceptions/invalidChain.js";
+import { Caip2ChainId } from "../../types.js";
 
 const NAMESPACE_FORMAT = /^[-a-z0-9]{3,8}$/;
 const REFERENCE_FORMAT = /^[-_a-zA-Z0-9]{1,32}$/;
 
-export class ChainId {
-    private namespace: string;
-    private reference: string;
+type SupportedChains = "mainnet" | "polygon" | "arbitrum";
 
-    /**
-     * Creates a validated CAIP-2 compliant chain ID.
-     *
-     * @param chainId a CAIP-2 compliant string.
-     */
-    constructor(chainId: string) {
-        const params = ChainId.parse(chainId);
+export const chains = {
+    mainnet: "eip155:1",
+    polygon: "eip155:137",
+    arbitrum: "eip155:42161",
+} as Record<SupportedChains, Caip2ChainId>;
 
-        this.namespace = params.namespace;
-        this.reference = params.reference;
-    }
-
+export class Caip2 {
     /**
      * Parses a CAIP-2 compliant string.
      *
      * @param chainId {string} a CAIP-2 compliant string
-     * @returns an object containing the namespace and the reference of the chain id
+     * @returns the CAIP-2 validated chain id string
      */
-    public static parse(chainId: string): ChainIdParams {
+    public static validateChainId(chainId: string): chainId is Caip2ChainId {
         const elements = chainId.split(":");
 
         if (elements.length !== 2) {
@@ -54,13 +40,6 @@ export class ChainId {
         const isValidReference = REFERENCE_FORMAT.test(reference);
         if (!isValidReference) throw new InvalidChainId("Chain ID reference is not valid.");
 
-        return {
-            namespace,
-            reference,
-        };
-    }
-
-    public toString() {
-        return `${this.namespace}:${this.reference}`;
+        return true;
     }
 }
