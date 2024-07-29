@@ -119,4 +119,57 @@ describe("ProtocolProvider", () => {
             await expect(protocolProvider.getCurrentEpoch()).rejects.toThrow(error);
         });
     });
+
+    describe.skip("getEvents", () => {
+        it("returns all events ordered asc by block and log index");
+        it.skip("includes `new epoch` event if needed"); // TODO: confirm if this is needed
+        it.skip("includes `request can be finalized` event if needed"); // TODO: confirm if this is needed
+        it("throws if the block range is not consistent");
+        it("throws if the RPC client fails");
+    });
+
+    describe.skip("hasStakedAssets", () => {
+        it("returns true if the address has more than 0 assets staked");
+        it("returns false if the address has 0 staked assets");
+    });
+
+    describe.skip("createRequest", () => {
+        it("succeeds if the RPC client sent the request");
+        // NOTE: Should we validate if the request was created by
+        // tracking the transaction result somehow? I feel like it's
+        // somewhat brittle to just wish for the tx to be processed.
+        it("throws if the epoch is not current");
+        it("throws if chains is empty");
+        it("throws if the RPC client fails");
+    });
+
+    describe.skip("getAvailableChains", () => {
+        it("returns an array of available chains in CAIP-2 compliant format");
+        it("throws if the RPC client fails");
+    });
+
+    describe.skip("proposeResponse", () => {
+        it("returns if the RPC client sent the response");
+        it("throws if the RPC client fails");
+    });
+
+    describe.skip("disputeResponse", () => {
+        it("returns if the RPC client sent the dispute");
+        it("throws if the RPC client fails");
+    });
+
+    describe.skip("pledgeForDispute", () => {
+        it("returns if the RPC client sent the pledge");
+        it("throws if the RPC client fails");
+    });
+
+    describe.skip("pledgeAgainsDispute", () => {
+        it("returns if the RPC client sent the pledge");
+        it("throws if the RPC client fails");
+    });
+
+    describe.skip("finalize", () => {
+        it("returns if the RPC client finalizes the pledge");
+        it("throws if the RPC client fails");
+    });
 });
