@@ -1,3 +1,4 @@
+import { ILogger } from "@ebo-agent/shared";
 import { Block, FallbackTransport, HttpTransport, PublicClient } from "viem";
 
 import {
@@ -46,6 +47,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
     constructor(
         client: PublicClient<FallbackTransport<HttpTransport[]>>,
         searchConfig: { blocksLookback?: bigint; deltaMultiplier?: bigint },
+        private logger: ILogger,
     ) {
         this.client = client;
         this.searchConfig = {
@@ -64,7 +66,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
 
         this.validateBlockNumber(upperBoundBlock);
 
-        logger.info(
+        this.logger.info(
             `Working with latest block (number: ${upperBoundBlock.number}, timestamp: ${upperBoundBlock.timestamp})...`,
         );
 
@@ -134,14 +136,14 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
 
         const baseStep = (lastBlock.number - candidateBlockNumber) * deltaMultiplier;
 
-        logger.info("Calculating lower bound for binary search...");
+        this.logger.info("Calculating lower bound for binary search...");
 
         let searchCount = 0n;
         while (candidateBlockNumber >= 0) {
             const candidate = await this.client.getBlock({ blockNumber: candidateBlockNumber });
 
             if (candidate.timestamp < timestamp) {
-                logger.info(`Estimated lower bound at block ${candidate.number}.`);
+                this.logger.info(`Estimated lower bound at block ${candidate.number}.`);
 
                 return candidate;
             }
@@ -167,7 +169,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
      * @returns the estimated block time
      */
     private async estimateBlockTime(lastBlock: BlockWithNumber, blocksLookback: bigint) {
-        logger.info("Estimating block time...");
+        this.logger.info("Estimating block time...");
 
         const pastBlock = await this.client.getBlock({
             blockNumber: lastBlock.number - BigInt(blocksLookback),
@@ -175,7 +177,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
 
         const estimatedBlockTime = (lastBlock.timestamp - pastBlock.timestamp) / blocksLookback;
 
-        logger.info(`Estimated block time: ${estimatedBlockTime}.`);
+        this.logger.info(`Estimated block time: ${estimatedBlockTime}.`);
 
         return estimatedBlockTime;
     }
