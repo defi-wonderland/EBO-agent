@@ -6,14 +6,6 @@ import { Caip2ChainId } from "../../types.js";
 const NAMESPACE_FORMAT = /^[-a-z0-9]{3,8}$/;
 const REFERENCE_FORMAT = /^[-_a-zA-Z0-9]{1,32}$/;
 
-type SupportedChains = "mainnet" | "polygon" | "arbitrum";
-
-export const chains = {
-    mainnet: "eip155:1",
-    polygon: "eip155:137",
-    arbitrum: "eip155:42161",
-} as Record<SupportedChains, Caip2ChainId>;
-
 export class Caip2 {
     /**
      * Parses a CAIP-2 compliant string.
@@ -41,5 +33,13 @@ export class Caip2 {
         if (!isValidReference) throw new InvalidChainId("Chain ID reference is not valid.");
 
         return true;
+    }
+
+    public static getNamespace(chainId: string | Caip2ChainId) {
+        this.validateChainId(chainId);
+
+        const namespace = chainId.split(":")[0] as string;
+
+        return namespace;
     }
 }

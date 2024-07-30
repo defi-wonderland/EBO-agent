@@ -29,4 +29,19 @@ describe("Caip2", () => {
             expect(() => Caip2.validateChainId(chainId)).toThrowError(InvalidChainId);
         });
     });
+
+    describe("getNamespace", () => {
+        it("returns the namespace of a caip-2 compliant chain id", () => {
+            const chainId = "eip155:137";
+            const result = Caip2.getNamespace(chainId);
+
+            expect(result).toEqual("eip155");
+        });
+
+        it("throws an error if the chain is invalid", () => {
+            const chainId = "foo:!nval!d";
+
+            expect(() => Caip2.getNamespace(chainId)).toThrowError();
+        });
+    });
 });

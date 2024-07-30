@@ -11,8 +11,14 @@ import { ChainWithoutProvider, EmptyRpcUrls, UnsupportedChain } from "../excepti
 import { BlockNumberProvider } from "../providers/blockNumberProvider.js";
 import { EvmBlockNumberProvider } from "../providers/evmBlockNumberProvider.js";
 import { Caip2ChainId } from "../types.js";
+import { Caip2 } from "../utils/index.js";
 
 type RpcUrl = NonNullable<Parameters<typeof http>[0]>;
+
+const DEFAULT_PROVIDER_CONFIG = {
+    blocksLookback: 10_000n,
+    deltaMultiplier: 2n,
+};
 
 export class BlockNumberService {
     private blockNumberProviders: Map<Caip2ChainId, BlockNumberProvider>;
@@ -65,12 +71,11 @@ export class BlockNumberService {
         chainId: Caip2ChainId,
         client: PublicClient<FallbackTransport<HttpTransport[]>>,
     ) {
-        switch (chainId) {
-            case "eip155:1":
-                return new EvmBlockNumberProvider(client, {
-                    blocksLookback: 10_000n,
-                    deltaMultiplier: 2n,
-                });
+        const chainNamespace = Caip2.getNamespace(chainId);
+
+        switch (chainNamespace) {
+            case "eip155":
+                return new EvmBlockNumberProvider(client, DEFAULT_PROVIDER_CONFIG);
 
             default:
                 throw new UnsupportedChain(chainId);

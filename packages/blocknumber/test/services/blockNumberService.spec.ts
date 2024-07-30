@@ -9,16 +9,15 @@ import {
 import { EvmBlockNumberProvider } from "../../src/providers/evmBlockNumberProvider.js";
 import { BlockNumberService } from "../../src/services/index.js";
 import { Caip2ChainId } from "../../src/types.js";
-import { chains as caip2Chains } from "../../src/utils/caip/caip2.js";
 
 describe("BlockNumberService", () => {
     describe("constructor", () => {
         const dummyProviders: Record<Caip2ChainId, any> = {
-            [caip2Chains.mainnet]: {
+            "eip155:1": {
                 getEpochBlockNumber: async () => undefined,
                 providerClass: EvmBlockNumberProvider,
             },
-            [caip2Chains.polygon]: {
+            "eip155:137": {
                 getEpochBlockNumber: async () => undefined,
                 providerClass: EvmBlockNumberProvider,
             },
@@ -57,13 +56,13 @@ describe("BlockNumberService", () => {
         const client = createPublicClient({ transport: fallback([http("http://localhost:8545")]) });
 
         it("builds a provider", () => {
-            const provider = BlockNumberService.buildProvider(caip2Chains.mainnet, client);
+            const provider = BlockNumberService.buildProvider("eip155:1", client);
 
             expect(provider).toBeInstanceOf(EvmBlockNumberProvider);
         });
 
         it("fails if chain is not supported", () => {
-            const unsupportedChainId = "eip155:80085" as Caip2ChainId;
+            const unsupportedChainId = "solana:80085" as Caip2ChainId;
 
             expect(() => {
                 BlockNumberService.buildProvider(unsupportedChainId, client);
@@ -73,11 +72,11 @@ describe("BlockNumberService", () => {
 
     describe("getEpochBlockNumbers", () => {
         const dummyProviders: Record<Caip2ChainId, any> = {
-            [caip2Chains.mainnet]: {
+            "eip155:1": {
                 getEpochBlockNumber: async () => 1234n,
                 providerClass: EvmBlockNumberProvider,
             },
-            [caip2Chains.polygon]: {
+            "eip155:137": {
                 getEpochBlockNumber: async () => 5678n,
                 providerClass: EvmBlockNumberProvider,
             },
@@ -103,7 +102,7 @@ describe("BlockNumberService", () => {
             const service = new BlockNumberService(rpcUrls);
 
             const timestamp = Date.UTC(2024, 1, 1, 0, 0, 0, 0);
-            const epochChains = [caip2Chains.mainnet, caip2Chains.polygon];
+            const epochChains = ["eip155:1", "eip155:137"] as Caip2ChainId[];
             const blockNumbers = await service.getEpochBlockNumbers(timestamp, epochChains);
 
             epochChains.forEach(async (chain) => {
@@ -117,7 +116,7 @@ describe("BlockNumberService", () => {
             const service = new BlockNumberService(rpcUrls);
 
             const timestamp = Date.UTC(2024, 1, 1, 0, 0, 0, 0);
-            const epochChains = [caip2Chains.mainnet, caip2Chains.arbitrum];
+            const epochChains = ["eip155:1", "eip155:42161"] as Caip2ChainId[];
 
             expect(service.getEpochBlockNumbers(timestamp, epochChains)).rejects.toThrow(
                 ChainWithoutProvider,
@@ -126,7 +125,7 @@ describe("BlockNumberService", () => {
 
         it("fails if a provider fails", async () => {
             const failingProviders = {
-                [caip2Chains.mainnet]: {
+                "eip155:1": {
                     getEpochBlockNumber: async () => {
                         throw new Error();
                     },
@@ -137,15 +136,13 @@ describe("BlockNumberService", () => {
             spyWithDummyProviders(failingProviders);
 
             const rpcUrls: Map<Caip2ChainId, string[]> = new Map([
-                [caip2Chains.mainnet, ["http://localhost:8545"]],
+                ["eip155:1", ["http://localhost:8545"]],
             ]);
 
             const service = new BlockNumberService(rpcUrls);
             const timestamp = Date.UTC(2024, 1, 1, 0, 0, 0, 0);
 
-            expect(
-                service.getEpochBlockNumbers(timestamp, [caip2Chains.mainnet]),
-            ).rejects.toBeDefined();
+            expect(service.getEpochBlockNumbers(timestamp, ["eip155:1"])).rejects.toBeDefined();
 
             vi.clearAllMocks();
         });
