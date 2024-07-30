@@ -7,5 +7,3 @@ export interface ILogger {
     warn: (message: string) => void;
     debug: (message: string) => void;
 }
-
-export type LogLevel = "error" | "warn" | "info" | "debug";

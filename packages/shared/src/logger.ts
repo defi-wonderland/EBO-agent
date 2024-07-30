@@ -1,12 +1,17 @@
 import { createLogger, format, transports, Logger as WinstonLogger } from "winston";
 
-import { ILogger, LogLevel } from "./index.js";
+import { ILogger } from "./index.js";
+
+type LogLevel = "error" | "warn" | "info" | "debug";
+
+const validLogLevels: LogLevel[] = ["error", "warn", "info", "debug"];
 
 export class Logger implements ILogger {
     private logger: WinstonLogger;
     private static instance: Logger | null;
-
-    private constructor(private level: LogLevel) {
+    private level: LogLevel;
+    private constructor() {
+        this.level = this.isValidLogLevel(process.env.LOG_LEVEL) ? process.env.LOG_LEVEL : "info";
         this.logger = createLogger({
             level: this.level,
             format: format.combine(
@@ -14,7 +19,7 @@ export class Logger implements ILogger {
                 format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
                 format.errors({ stack: true }),
                 format.printf(({ level, message, timestamp, stack }) => {
-                    return `${timestamp} ${level}: ${stack || message}`;
+                    return `${timestamp} ${level}: ${stack ?? message ?? ""}`;
                 }),
             ),
             transports: [new transports.Console()],
@@ -25,19 +30,14 @@ export class Logger implements ILogger {
      * @param level The log level to be used by the logger.
      * @returns The instance of the Logger class.
      */
-    public static getInstance(level?: LogLevel): Logger {
+    public static getInstance(): Logger {
         if (!Logger.instance) {
-            if (!level) {
-                throw new Error("Initial configuration is required for the first instantiation.");
-            }
-            Logger.instance = new Logger(level);
-        } else {
-            Logger.instance.warn(
-                `Logger instance already exists. Returning the existing instance with log level ${Logger.instance.level}.`,
-            );
+            Logger.instance = new Logger();
         }
-
         return Logger.instance;
+    }
+    isValidLogLevel(level: any): level is LogLevel {
+        return validLogLevels.includes(level);
     }
 
     info(message: string) {
