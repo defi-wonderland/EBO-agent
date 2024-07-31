@@ -6,7 +6,7 @@ import { Caip2ChainId } from "../../types.js";
 const NAMESPACE_FORMAT = /^[-a-z0-9]{3,8}$/;
 const REFERENCE_FORMAT = /^[-_a-zA-Z0-9]{1,32}$/;
 
-export class Caip2 {
+export class Caip2Utils {
     /**
      * Parses a CAIP-2 compliant string.
      *

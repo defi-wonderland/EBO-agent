@@ -12,7 +12,7 @@ import { ChainWithoutProvider, EmptyRpcUrls, UnsupportedChain } from "../excepti
 import { BlockNumberProvider } from "../providers/blockNumberProvider.js";
 import { EvmBlockNumberProvider } from "../providers/evmBlockNumberProvider.js";
 import { Caip2ChainId } from "../types.js";
-import { Caip2 } from "../utils/index.js";
+import { Caip2Utils } from "../utils/index.js";
 
 type RpcUrl = NonNullable<Parameters<typeof http>[0]>;
 
@@ -87,7 +87,7 @@ export class BlockNumberService {
         client: PublicClient<FallbackTransport<HttpTransport[]>>,
         logger: ILogger,
     ) {
-        const chainNamespace = Caip2.getNamespace(chainId);
+        const chainNamespace = Caip2Utils.getNamespace(chainId);
 
         switch (chainNamespace) {
             case supportedChains.evm.namespace:

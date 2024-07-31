@@ -1,1 +1,1 @@
-export * from "./caip2.js";
+export * from "./caip2Utils.js";
