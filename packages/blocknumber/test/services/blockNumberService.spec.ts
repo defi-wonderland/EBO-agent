@@ -51,6 +51,80 @@ describe("BlockNumberService", () => {
         });
     });
 
+    describe("getEpochBlockNumber", () => {
+        const dummyProviders: Record<Caip2ChainId, any> = {
+            "eip155:1": {
+                getEpochBlockNumber: async () => 1234n,
+                providerClass: EvmBlockNumberProvider,
+            },
+            "eip155:137": {
+                getEpochBlockNumber: async () => 5678n,
+                providerClass: EvmBlockNumberProvider,
+            },
+        } as const;
+
+        const providersChains = Object.keys(dummyProviders) as Caip2ChainId[];
+        const rpcUrls = new Map(
+            providersChains.map((chain) => [
+                chain,
+                ["http://localhost:8545", "http://localhost:8546"],
+            ]),
+        );
+
+        beforeEach(() => {
+            spyWithDummyProviders(dummyProviders);
+        });
+
+        afterEach(() => {
+            vi.restoreAllMocks();
+        });
+
+        it("returns the chain epoch block number", async () => {
+            const service = new BlockNumberService(rpcUrls, logger);
+
+            const timestamp = Date.UTC(2024, 1, 1, 0, 0, 0, 0);
+            const epochChainId = "eip155:1" as Caip2ChainId;
+            const blockNumber = await service.getEpochBlockNumber(timestamp, epochChainId);
+
+            expect(blockNumber).toEqual(1234n);
+        });
+
+        it("fails if the chain has no provider assigned", async () => {
+            const service = new BlockNumberService(rpcUrls, logger);
+
+            const timestamp = Date.UTC(2024, 1, 1, 0, 0, 0, 0);
+            const epochChainId = "eip155:42161" as Caip2ChainId;
+
+            expect(service.getEpochBlockNumber(timestamp, epochChainId)).rejects.toThrow(
+                ChainWithoutProvider,
+            );
+        });
+
+        it("fails if the provider fails", () => {
+            const failingProviders = {
+                "eip155:1": {
+                    getEpochBlockNumber: async () => {
+                        throw new Error();
+                    },
+                    providerClass: EvmBlockNumberProvider,
+                },
+            };
+
+            spyWithDummyProviders(failingProviders);
+
+            const rpcUrls: Map<Caip2ChainId, string[]> = new Map([
+                ["eip155:1", ["http://localhost:8545"]],
+            ]);
+
+            const service = new BlockNumberService(rpcUrls, logger);
+            const timestamp = Date.UTC(2024, 1, 1, 0, 0, 0, 0);
+
+            expect(service.getEpochBlockNumber(timestamp, "eip155:1")).rejects.toBeDefined();
+
+            vi.clearAllMocks();
+        });
+    });
+
     describe("getEpochBlockNumbers", () => {
         const dummyProviders: Record<Caip2ChainId, any> = {
             "eip155:1": {

@@ -18,24 +18,27 @@ export class BlockNumberService {
         this.blockNumberProviders = this.buildBlockNumberProviders(chainRpcUrls);
     }
 
+    public async getEpochBlockNumber(timestamp: number, chainId: Caip2ChainId): Promise<bigint> {
+        const provider = this.blockNumberProviders.get(chainId);
+
+        if (!provider) throw new ChainWithoutProvider(chainId);
+
+        const blockNumber = await provider.getEpochBlockNumber(timestamp);
+
+        return blockNumber;
+    }
+
     public async getEpochBlockNumbers(timestamp: number, chains: Caip2ChainId[]) {
         const epochBlockNumbers = await Promise.all(
-            chains.map(async (chainId) => {
-                const provider = this.blockNumberProviders.get(chainId);
-
-                if (!provider) throw new ChainWithoutProvider(chainId);
-
-                const blockNumber = await provider.getEpochBlockNumber(timestamp);
-
-                return [chainId, blockNumber] as [Caip2ChainId, bigint];
-            }),
+            chains.map(async (chain) => ({
+                chainId: chain,
+                blockNumber: await this.getEpochBlockNumber(timestamp, chain),
+            })),
         );
 
-        const epochBlockNumbersMap = epochBlockNumbers.filter(
-            (entry): entry is [Caip2ChainId, bigint] => entry !== null,
-        );
-
-        return new Map(epochBlockNumbersMap);
+        return epochBlockNumbers.reduce((epochBlockNumbersMap, epoch) => {
+            return epochBlockNumbersMap.set(epoch.chainId, epoch.blockNumber);
+        }, new Map<Caip2ChainId, bigint>());
     }
 
     private buildBlockNumberProviders(chainRpcUrls: Map<Caip2ChainId, RpcUrl[]>) {
