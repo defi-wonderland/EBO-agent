@@ -1,3 +1,4 @@
+import { Logger } from "@ebo-agent/shared";
 import { createPublicClient, fallback, http } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,6 +12,8 @@ import { BlockNumberService } from "../../src/services/index.js";
 import { Caip2ChainId } from "../../src/types.js";
 
 describe("BlockNumberService", () => {
+    const logger = Logger.getInstance();
+
     describe("constructor", () => {
         const dummyProviders: Record<Caip2ChainId, any> = {
             "eip155:1": {
@@ -40,7 +43,7 @@ describe("BlockNumberService", () => {
         });
 
         it("creates an instance of BlockNumberService", () => {
-            const service = new BlockNumberService(rpcUrls);
+            const service = new BlockNumberService(rpcUrls, logger);
 
             expect(service).toBeInstanceOf(BlockNumberService);
         });
@@ -48,7 +51,7 @@ describe("BlockNumberService", () => {
         it("fails if initialized without any chain", () => {
             const emptyRpcUrls = new Map();
 
-            expect(() => new BlockNumberService(emptyRpcUrls)).toThrow(EmptyRpcUrls);
+            expect(() => new BlockNumberService(emptyRpcUrls, logger)).toThrow(EmptyRpcUrls);
         });
     });
 
@@ -56,7 +59,7 @@ describe("BlockNumberService", () => {
         const client = createPublicClient({ transport: fallback([http("http://localhost:8545")]) });
 
         it("builds a provider", () => {
-            const provider = BlockNumberService.buildProvider("eip155:1", client);
+            const provider = BlockNumberService.buildProvider("eip155:1", client, logger);
 
             expect(provider).toBeInstanceOf(EvmBlockNumberProvider);
         });
@@ -65,7 +68,7 @@ describe("BlockNumberService", () => {
             const unsupportedChainId = "solana:80085" as Caip2ChainId;
 
             expect(() => {
-                BlockNumberService.buildProvider(unsupportedChainId, client);
+                BlockNumberService.buildProvider(unsupportedChainId, client, logger);
             }).toThrow(UnsupportedChain);
         });
     });
@@ -99,7 +102,7 @@ describe("BlockNumberService", () => {
         });
 
         it("returns the chains' epoch block numbers", async () => {
-            const service = new BlockNumberService(rpcUrls);
+            const service = new BlockNumberService(rpcUrls, logger);
 
             const timestamp = Date.UTC(2024, 1, 1, 0, 0, 0, 0);
             const epochChains = ["eip155:1", "eip155:137"] as Caip2ChainId[];
@@ -113,7 +116,7 @@ describe("BlockNumberService", () => {
         });
 
         it("fails if some input chain has no provider assigned", async () => {
-            const service = new BlockNumberService(rpcUrls);
+            const service = new BlockNumberService(rpcUrls, logger);
 
             const timestamp = Date.UTC(2024, 1, 1, 0, 0, 0, 0);
             const epochChains = ["eip155:1", "eip155:42161"] as Caip2ChainId[];
@@ -139,7 +142,7 @@ describe("BlockNumberService", () => {
                 ["eip155:1", ["http://localhost:8545"]],
             ]);
 
-            const service = new BlockNumberService(rpcUrls);
+            const service = new BlockNumberService(rpcUrls, logger);
             const timestamp = Date.UTC(2024, 1, 1, 0, 0, 0, 0);
 
             expect(service.getEpochBlockNumbers(timestamp, ["eip155:1"])).rejects.toBeDefined();
