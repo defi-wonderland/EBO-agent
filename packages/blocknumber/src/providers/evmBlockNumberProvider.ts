@@ -9,7 +9,6 @@ import {
     UnsupportedBlockNumber,
     UnsupportedBlockTimestamps,
 } from "../exceptions/index.js";
-import logger from "../utils/logger.js";
 import { BlockNumberProvider } from "./blockNumberProvider.js";
 
 const BINARY_SEARCH_BLOCKS_LOOKBACK = 10_000n;
@@ -201,7 +200,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
 
         if (low > high) throw new UnexpectedSearchRange(low, high);
 
-        logger.debug(`Starting block binary search for timestamp ${timestamp}...`);
+        this.logger.debug(`Starting block binary search for timestamp ${timestamp}...`);
 
         while (low <= high) {
             currentBlockNumber = (high + low) / 2n;
@@ -209,7 +208,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
             const currentBlock = await this.client.getBlock({ blockNumber: currentBlockNumber });
             const nextBlock = await this.client.getBlock({ blockNumber: currentBlockNumber + 1n });
 
-            logger.debug(
+            this.logger.debug(
                 `Analyzing block number #${currentBlock.number} with timestamp ${currentBlock.timestamp}`,
             );
 
@@ -223,7 +222,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
                 currentBlock.timestamp <= timestamp && nextBlock.timestamp > timestamp;
 
             if (blockContainsTimestamp) {
-                logger.debug(`Block #${currentBlock.number} contains timestamp.`);
+                this.logger.debug(`Block #${currentBlock.number} contains timestamp.`);
 
                 return currentBlock.number;
             } else if (currentBlock.timestamp <= timestamp) {
