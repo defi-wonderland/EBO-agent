@@ -1,4 +1,4 @@
-import { ILogger, supportedChains } from "@ebo-agent/shared";
+import { EBO_SUPPORTED_CHAINS_CONFIG, ILogger } from "@ebo-agent/shared";
 import { FallbackTransport, HttpTransport, PublicClient } from "viem";
 
 import { UnsupportedChain } from "../exceptions/unsupportedChain.js";
@@ -20,7 +20,7 @@ export class BlockNumberProviderFactory {
         const chainNamespace = Caip2Utils.getNamespace(chainId);
 
         switch (chainNamespace) {
-            case supportedChains.evm.namespace:
+            case EBO_SUPPORTED_CHAINS_CONFIG.evm.namespace:
                 return new EvmBlockNumberProvider(client, DEFAULT_PROVIDER_CONFIG, logger);
 
             default:
