@@ -1,12 +1,8 @@
 import { Logger } from "@ebo-agent/shared";
-import { createPublicClient, fallback, http } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-    ChainWithoutProvider,
-    EmptyRpcUrls,
-    UnsupportedChain,
-} from "../../src/exceptions/index.js";
+import { ChainWithoutProvider, EmptyRpcUrls } from "../../src/exceptions/index.js";
+import { BlockNumberProviderFactory } from "../../src/providers/blockNumberProviderFactory.js";
 import { EvmBlockNumberProvider } from "../../src/providers/evmBlockNumberProvider.js";
 import { BlockNumberService } from "../../src/services/index.js";
 import { Caip2ChainId } from "../../src/types.js";
@@ -52,24 +48,6 @@ describe("BlockNumberService", () => {
             const emptyRpcUrls = new Map();
 
             expect(() => new BlockNumberService(emptyRpcUrls, logger)).toThrow(EmptyRpcUrls);
-        });
-    });
-
-    describe("buildProvider", () => {
-        const client = createPublicClient({ transport: fallback([http("http://localhost:8545")]) });
-
-        it("builds a provider", () => {
-            const provider = BlockNumberService.buildProvider("eip155:1", client, logger);
-
-            expect(provider).toBeInstanceOf(EvmBlockNumberProvider);
-        });
-
-        it("fails if chain is not supported", () => {
-            const unsupportedChainId = "solana:80085" as Caip2ChainId;
-
-            expect(() => {
-                BlockNumberService.buildProvider(unsupportedChainId, client, logger);
-            }).toThrow(UnsupportedChain);
         });
     });
 
@@ -164,5 +142,5 @@ function spyWithDummyProviders(providersResults) {
         return provider;
     };
 
-    vi.spyOn(BlockNumberService, "buildProvider").mockImplementation(dummyProvider);
+    vi.spyOn(BlockNumberProviderFactory, "buildProvider").mockImplementation(dummyProvider);
 }
