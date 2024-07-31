@@ -1,3 +1,4 @@
+import { Logger, supportedChains } from "@ebo-agent/shared";
 import {
     createPublicClient,
     fallback,
@@ -50,9 +51,12 @@ export class BlockNumberService {
     private buildBlockNumberProviders(chainRpcUrls: Map<Caip2ChainId, RpcUrl[]>) {
         if (chainRpcUrls.size == 0) throw new EmptyRpcUrls();
 
+        const supportedChainIds = this.getSupportedChainIds(supportedChains);
         const providers = new Map<Caip2ChainId, BlockNumberProvider>();
 
         for (const [chainId, urls] of chainRpcUrls) {
+            if (!supportedChainIds.includes(chainId)) throw new UnsupportedChain(chainId);
+
             const client = createPublicClient({
                 transport: fallback(urls.map((url) => http(url))),
             });
@@ -67,6 +71,14 @@ export class BlockNumberService {
         return providers;
     }
 
+    private getSupportedChainIds(chainsConfig: typeof supportedChains) {
+        const namespacesChains = Object.values(chainsConfig);
+
+        return namespacesChains.reduce((acc, namespaceChains) => {
+            return [...acc, ...Object.values(namespaceChains.chains)];
+        }, [] as string[]);
+    }
+
     public static buildProvider(
         chainId: Caip2ChainId,
         client: PublicClient<FallbackTransport<HttpTransport[]>>,
@@ -74,8 +86,12 @@ export class BlockNumberService {
         const chainNamespace = Caip2.getNamespace(chainId);
 
         switch (chainNamespace) {
-            case "eip155":
-                return new EvmBlockNumberProvider(client, DEFAULT_PROVIDER_CONFIG);
+            case supportedChains.evm.namespace:
+                return new EvmBlockNumberProvider(
+                    client,
+                    DEFAULT_PROVIDER_CONFIG,
+                    Logger.getInstance(), // Should we drop this arg?
+                );
 
             default:
                 throw new UnsupportedChain(chainId);

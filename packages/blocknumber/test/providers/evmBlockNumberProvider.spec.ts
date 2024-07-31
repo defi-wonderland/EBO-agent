@@ -14,6 +14,7 @@ import { EvmBlockNumberProvider } from "../../src/providers/evmBlockNumberProvid
 describe("EvmBlockNumberProvider", () => {
     describe("getEpochBlockNumber", () => {
         const searchConfig = { blocksLookback: 2n, deltaMultiplier: 2n };
+        const logger = Logger.getInstance();
         let evmProvider: EvmBlockNumberProvider;
 
         it("returns the first of two consecutive blocks when their timestamp contains the searched timestamp", async () => {

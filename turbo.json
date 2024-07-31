@@ -7,7 +7,9 @@
         "format:fix": {},
         "test": {},
         "coverage": {},
-        "build": {}
+        "build": {
+            "dependsOn": ["^build"]
+        }
     },
     "globalDependencies": [".eslintrc", ".prettierrc"]
 }
