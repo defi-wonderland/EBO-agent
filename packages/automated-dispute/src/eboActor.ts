@@ -1,12 +1,7 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 
 import { ProtocolProvider } from "./protocolProvider.js";
-import {
-    DisputeStatusChanged,
-    RequestCreated,
-    RequestFinalizable,
-    ResponseDisputed,
-} from "./types/events.js";
+import { EboEvent } from "./types/events.js";
 import { Dispute, Response } from "./types/prophet.js";
 
 export class EboActor {
@@ -20,17 +15,17 @@ export class EboActor {
         this.requestActivity = [];
     }
 
-    public async onRequestCreated(_event: RequestCreated): Promise<void> {
+    public async onRequestCreated(_event: EboEvent<"RequestCreated">): Promise<void> {
         // TODO: implement
         return;
     }
 
-    public async onResponseProposed(_event: ResponseDisputed): Promise<void> {
+    public async onResponseProposed(_event: EboEvent<"ResponseDisputed">): Promise<void> {
         // TODO: implement
         return;
     }
 
-    public async onResponseDisputed(_event: ResponseDisputed): Promise<void> {
+    public async onResponseDisputed(_event: EboEvent<"ResponseDisputed">): Promise<void> {
         // TODO: implement
         return;
     }
@@ -50,17 +45,18 @@ export class EboActor {
         return true;
     }
 
-    public async onFinalizeRequest(_event: RequestFinalizable): Promise<void> {
+    public async onFinalizeRequest(_event: EboEvent<"RequestFinalizable">): Promise<void> {
         // TODO: implement
         return;
     }
 
-    public async onDisputeStatusChanged(_event: DisputeStatusChanged): Promise<void> {
+    public async onDisputeStatusChanged(_event: EboEvent<"DisputeStatusChanged">): Promise<void> {
         // TODO: implement
         return;
     }
 
-    public async onDisputeEscalated(_event: Dispute): Promise<void> {
+    public async onDisputeEscalated(_event: EboEvent<"DisputeEscalated">): Promise<void> {
+        // TODO: implement
         return;
     }
 }

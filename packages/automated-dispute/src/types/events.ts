@@ -1,46 +1,87 @@
 import { Log } from "viem";
 
-import { Dispute, Request, Response } from "./prophet.js";
+import { Dispute, Request } from "./prophet.js";
 
-export type BaseEvent = {
-    name: string;
+type EventName =
+    | "NewEpoch"
+    | "RequestCreated"
+    | "ResponseProposed"
+    | "ResponseDisputed"
+    | "DisputeStatusChanged"
+    | "DisputeEscalated"
+    | "RequestFinalizable"
+    | "RequestFinalized";
+
+export interface NewEpoch {
+    epoch: bigint;
+    epochBlockNumber: bigint;
+}
+
+export interface ResponseCreated {
+    requestId: string;
+    request: Request;
+}
+
+export interface RequestCreated {
+    requestId: string;
+    request: Request;
+}
+
+export interface ResponseDisputed {
+    requestId: string;
+    responseId: string;
+    dispute: Dispute;
+}
+
+export interface DisputeStatusChanged {
+    disputeId: string;
+    status: string;
+    blockNumber: bigint;
+}
+
+export interface DisputeEscalated {
+    caller: string;
+    disputeId: string;
+    blockNumber: bigint;
+}
+
+export interface RequestFinalizable {
+    requestId: string;
+}
+
+export interface RequestFinalized {
+    requestId: string;
+    responseId: string;
+    caller: string;
+    blockNumber: bigint;
+}
+
+export type EboEventData<E extends EventName> = E extends "NewEpoch"
+    ? NewEpoch
+    : E extends "RequestCreated"
+      ? RequestCreated
+      : E extends "ResponseCreated"
+        ? ResponseCreated
+        : E extends "ResponseDisputed"
+          ? ResponseDisputed
+          : E extends "DisputeStatusChanged"
+            ? DisputeStatusChanged
+            : E extends "DisputeEscalated"
+              ? DisputeEscalated
+              : E extends "RequestFinalizable"
+                ? RequestFinalizable
+                : E extends "RequestFinalized"
+                  ? RequestFinalized
+                  : never;
+
+export type EboEvent<T extends EventName> = {
+    name: T;
     blockNumber: bigint;
     logIndex: number;
     rawLog?: Log;
-    metadata: unknown;
+    metadata: EboEventData<T>;
 };
 
-export type NewEpoch = BaseEvent & { metadata: { epoch: bigint; epochBlockNumber: bigint } };
-
-export type RequestCreated = BaseEvent & { metadata: { requestId: string; request: Request } };
-
-export type ResponseProposed = BaseEvent & {
-    metadata: { requestId: string; responseId: string; response: Response };
-};
-
-export type ResponseDisputed = BaseEvent & {
-    metadata: { requestId: string; responseId: string; dispute: Dispute };
-};
-
-export type DisputeStatusChanged = BaseEvent & {
-    metadata: { disputeId: string; status: string; blockNumber: bigint };
-};
-
-export type DisputeEscalated = BaseEvent & {
-    metadata: { caller: string; disputeId: string; blockNumber: bigint };
-};
-
-export type RequestFinalizable = BaseEvent & {
-    metadata: { requestId: string };
-};
-
-export type RequestFinalized = BaseEvent & {
-    metadata: { requestId: string; responseId: string; caller: string; blockNumber: bigint };
-};
-
-export type EboEvent =
-    | NewEpoch
-    | RequestCreated
-    | ResponseProposed
-    | ResponseDisputed
-    | DisputeStatusChanged;
+export type AnyEboEvent = {
+    [K in EventName]: EboEvent<K>;
+}[EventName];
