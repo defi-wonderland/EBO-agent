@@ -65,6 +65,9 @@ importers:
 
     packages/automated-dispute:
         dependencies:
+            "@ebo-agent/blocknumber":
+                specifier: workspace:*
+                version: link:../blocknumber
             viem:
                 specifier: 2.17.11
                 version: 2.17.11(typescript@5.5.3)

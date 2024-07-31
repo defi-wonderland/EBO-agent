@@ -26,6 +26,18 @@ export type DisputeStatusChanged = BaseEvent & {
     metadata: { disputeId: string; status: string; blockNumber: bigint };
 };
 
+export type DisputeEscalated = BaseEvent & {
+    metadata: { caller: string; disputeId: string; blockNumber: bigint };
+};
+
+export type RequestFinalizable = BaseEvent & {
+    metadata: { requestId: string };
+};
+
+export type RequestFinalized = BaseEvent & {
+    metadata: { requestId: string; responseId: string; caller: string; blockNumber: bigint };
+};
+
 export type EboEvent =
     | NewEpoch
     | RequestCreated
