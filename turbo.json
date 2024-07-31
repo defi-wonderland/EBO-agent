@@ -5,7 +5,9 @@
         "lint:fix": {},
         "format": {},
         "format:fix": {},
-        "test": {},
+        "test": {
+            "dependsOn": ["build"]
+        },
         "coverage": {},
         "build": {
             "dependsOn": ["^build"]
