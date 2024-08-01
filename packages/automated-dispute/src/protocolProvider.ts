@@ -11,7 +11,7 @@ import {
 } from "viem";
 import { arbitrum } from "viem/chains";
 
-import type { AnyEboEvent, EboEvent } from "./types/events.js";
+import type { EboEvent, EboEventName } from "./types/events.js";
 import type { Dispute, Request, Response } from "./types/prophet.js";
 import { epochManagerAbi, oracleAbi } from "./abis/index.js";
 import { RpcUrlsEmpty } from "./exceptions/rpcUrlsEmpty.exception.js";
@@ -67,7 +67,7 @@ export class ProtocolProvider {
         };
     }
 
-    async getEvents(_fromBlock: bigint, _toBlock: bigint): Promise<AnyEboEvent[]> {
+    async getEvents(_fromBlock: bigint, _toBlock: bigint): Promise<EboEvent<EboEventName>[]> {
         // TODO: implement actual method.
         //
         // We should decode events using the corresponding ABI and also "fabricate" new events
@@ -141,7 +141,7 @@ export class ProtocolProvider {
      * @returns the EboEvent[] arrays merged in a single array and sorted by ascending blockNumber
      *  and logIndex
      */
-    private mergeEventStreams(...streams: AnyEboEvent[][]) {
+    private mergeEventStreams(...streams: EboEvent<EboEventName>[][]) {
         return streams
             .reduce((acc, curr) => acc.concat(curr), [])
             .sort((a, b) => {
