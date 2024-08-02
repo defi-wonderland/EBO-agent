@@ -11,6 +11,13 @@ type RpcUrl = NonNullable<Parameters<typeof http>[0]>;
 export class BlockNumberService {
     private blockNumberProviders: Map<Caip2ChainId, BlockNumberProvider>;
 
+    /**
+     * Create a `BlockNumberService` instance that will handle the interaction with a collection
+     * of chains.
+     *
+     * @param chainRpcUrls a map of CAIP-2 chain ids with their RPC urls that this service will handle
+     * @param logger a `ILogger` instance
+     */
     constructor(
         chainRpcUrls: Map<Caip2ChainId, RpcUrl[]>,
         private readonly logger: ILogger,
@@ -18,6 +25,13 @@ export class BlockNumberService {
         this.blockNumberProviders = this.buildBlockNumberProviders(chainRpcUrls);
     }
 
+    /**
+     * Get a chain epoch block number based on a timestamp.
+     *
+     * @param timestamp UTC timestamp in ms since UNIX epoch
+     * @param chainId the CAIP-2 chain id
+     * @returns the block number corresponding to the timestamp
+     */
     public async getEpochBlockNumber(timestamp: number, chainId: Caip2ChainId): Promise<bigint> {
         const provider = this.blockNumberProviders.get(chainId);
 
@@ -28,6 +42,13 @@ export class BlockNumberService {
         return blockNumber;
     }
 
+    /**
+     * Get the epoch block number for all the specified chains based on a timestamp.
+     *
+     * @param timestamp UTC timestamp in ms since UNIX epoch
+     * @param chains a list of CAIP-2 chain ids
+     * @returns a map of CAIP-2 chain ids
+     */
     public async getEpochBlockNumbers(timestamp: number, chains: Caip2ChainId[]) {
         const epochBlockNumbers = await Promise.all(
             chains.map(async (chain) => ({
@@ -41,6 +62,13 @@ export class BlockNumberService {
         }, new Map<Caip2ChainId, bigint>());
     }
 
+    /**
+     * Build a collection of `BlockNumberProvider`s instances respective to each
+     * CAIP-2 chain id.
+     *
+     * @param chainRpcUrls a map containing chain ids with their respective list of RPC urls
+     * @returns a map of CAIP-2 chain ids and their respective `BlockNumberProvider` instances
+     */
     private buildBlockNumberProviders(chainRpcUrls: Map<Caip2ChainId, RpcUrl[]>) {
         if (chainRpcUrls.size == 0) throw new EmptyRpcUrls();
 
@@ -63,6 +91,12 @@ export class BlockNumberService {
         return providers;
     }
 
+    /**
+     * Check if a chain is supported by the service.
+     *
+     * @param chainId CAIP-2 chain id
+     * @returns true if the chain is supported, false otherwise
+     */
     private isChainSupported(chainId: Caip2ChainId) {
         return EBO_SUPPORTED_CHAIN_IDS.includes(chainId);
     }
