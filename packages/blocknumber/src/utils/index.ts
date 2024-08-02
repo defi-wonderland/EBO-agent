@@ -1,2 +1,1 @@
-export * from "./chainId.js";
-export * from "./logger.js";
+export * from "./caip/caip2Utils.js";

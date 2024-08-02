@@ -5,7 +5,7 @@ export default defineConfig({
     test: {
         globals: true, // Use Vitest's global API without importing it in each file
         environment: "node", // Use the Node.js environment
-        include: ["src/**/*.spec.ts"], // Include test files
+        include: ["test/**/*.spec.ts"], // Include test files
         exclude: ["node_modules", "dist"], // Exclude certain directories
         coverage: {
             provider: "v8",

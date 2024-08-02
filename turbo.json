@@ -5,9 +5,13 @@
         "lint:fix": {},
         "format": {},
         "format:fix": {},
-        "test": {},
+        "test": {
+            "dependsOn": ["build"]
+        },
         "coverage": {},
-        "build": {}
+        "build": {
+            "dependsOn": ["^build"]
+        }
     },
     "globalDependencies": [".eslintrc", ".prettierrc"]
 }
