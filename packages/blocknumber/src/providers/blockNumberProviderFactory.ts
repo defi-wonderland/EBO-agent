@@ -12,6 +12,14 @@ const DEFAULT_PROVIDER_CONFIG = {
 };
 
 export class BlockNumberProviderFactory {
+    /**
+     * Build a `BlockNumberProvider` to handle communication with the specified chain.
+     *
+     * @param chainId CAIP-2 chain id
+     * @param client a viem public client
+     * @param logger a ILogger instance
+     * @returns
+     */
     public static buildProvider(
         chainId: Caip2ChainId,
         client: PublicClient<FallbackTransport<HttpTransport[]>>,
