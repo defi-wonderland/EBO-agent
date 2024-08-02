@@ -17,6 +17,7 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "viem": "2.17.11"
+        "viem": "2.17.11",
+        "@ebo-agent/blocknumber": "workspace:*"
     }
 }
