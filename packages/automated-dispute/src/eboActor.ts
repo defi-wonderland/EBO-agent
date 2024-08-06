@@ -1,23 +1,38 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 
+import { RequestMismatch } from "./exceptions/requestMismatch.js";
 import { ProtocolProvider } from "./protocolProvider.js";
 import { EboEvent } from "./types/events.js";
 import { Dispute, Response } from "./types/prophet.js";
 
 export class EboActor {
-    private requestActivity: unknown[];
-
     constructor(
         private readonly protocolProvider: ProtocolProvider,
         private readonly blockNumberService: BlockNumberService,
         private readonly requestId: string,
-    ) {
-        this.requestActivity = [];
-    }
+    ) {}
 
-    public async onRequestCreated(_event: EboEvent<"RequestCreated">): Promise<void> {
-        // TODO: implement
-        return;
+    public async onRequestCreated(event: EboEvent<"RequestCreated">): Promise<void> {
+        if (event.metadata.requestId != this.requestId)
+            throw new RequestMismatch(this.requestId, event.metadata.requestId);
+
+        // TODO: Update registry with the new event.metadata.request
+
+        const { chainId } = event.metadata;
+        const { currentEpoch, currentEpochTimestamp } =
+            await this.protocolProvider.getCurrentEpoch();
+
+        const epochBlockNumber = await this.blockNumberService.getEpochBlockNumber(
+            currentEpochTimestamp,
+            chainId,
+        );
+
+        await this.protocolProvider.proposeResponse(
+            this.requestId,
+            currentEpoch,
+            chainId,
+            epochBlockNumber,
+        );
     }
 
     public async onResponseProposed(_event: EboEvent<"ResponseDisputed">): Promise<void> {

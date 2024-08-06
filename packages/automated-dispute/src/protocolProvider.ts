@@ -186,7 +186,12 @@ export class ProtocolProvider {
         return;
     }
 
-    async proposeResponse(_request: Request, _response: Response): Promise<void> {
+    async proposeResponse(
+        requestId: string,
+        epoch: bigint,
+        chainId: Caip2ChainId,
+        blockNumber: bigint,
+    ): Promise<void> {
         // TODO: implement actual method
         return;
     }
