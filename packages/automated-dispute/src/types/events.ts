@@ -19,7 +19,8 @@ export interface NewEpoch {
 
 export interface ResponseCreated {
     requestId: string;
-    request: Request;
+    responseId: string;
+    response: Response;
 }
 
 export interface RequestCreated {
@@ -60,8 +61,8 @@ export type EboEventData<E extends EboEventName> = E extends "NewEpoch"
     ? NewEpoch
     : E extends "RequestCreated"
       ? RequestCreated
-      : E extends "ResponseCreated"
-        ? ResponseCreated
+      : E extends "ResponseProposed"
+        ? ResponseProposed
         : E extends "ResponseDisputed"
           ? ResponseDisputed
           : E extends "DisputeStatusChanged"

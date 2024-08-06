@@ -32,7 +32,7 @@ export class BlockNumberService {
      * @param chainId the CAIP-2 chain id
      * @returns the block number corresponding to the timestamp
      */
-    public async getEpochBlockNumber(timestamp: number, chainId: Caip2ChainId): Promise<bigint> {
+    public async getEpochBlockNumber(timestamp: bigint, chainId: Caip2ChainId): Promise<bigint> {
         const provider = this.blockNumberProviders.get(chainId);
 
         if (!provider) throw new ChainWithoutProvider(chainId);
@@ -49,7 +49,7 @@ export class BlockNumberService {
      * @param chains a list of CAIP-2 chain ids
      * @returns a map of CAIP-2 chain ids
      */
-    public async getEpochBlockNumbers(timestamp: number, chains: Caip2ChainId[]) {
+    public async getEpochBlockNumbers(timestamp: bigint, chains: Caip2ChainId[]) {
         const epochBlockNumbers = await Promise.all(
             chains.map(async (chain) => ({
                 chainId: chain,

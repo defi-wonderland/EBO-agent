@@ -13,7 +13,7 @@ export interface Request {
 export interface Response {
     proposer: Address;
     requestId: string;
-    response: Uint8Array;
+    response: string;
 }
 
 export interface Dispute {

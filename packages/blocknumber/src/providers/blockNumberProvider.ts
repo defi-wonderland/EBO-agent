@@ -9,5 +9,5 @@ export interface BlockNumberProvider {
      *
      * @returns the corresponding block number of a chain at a specific timestamp
      */
-    getEpochBlockNumber(timestamp: number): Promise<bigint>;
+    getEpochBlockNumber(timestamp: bigint): Promise<bigint>;
 }
