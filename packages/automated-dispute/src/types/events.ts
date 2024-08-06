@@ -1,7 +1,7 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { Log } from "viem";
 
-import { Dispute, Response } from "./prophet.js";
+import { Dispute, Request, Response } from "./prophet.js";
 
 export type EboEventName =
     | "NewEpoch"
@@ -27,6 +27,7 @@ export interface ResponseProposed {
 export interface RequestCreated {
     epoch: bigint;
     chainId: Caip2ChainId;
+    request: Request;
     requestId: string;
 }
 
