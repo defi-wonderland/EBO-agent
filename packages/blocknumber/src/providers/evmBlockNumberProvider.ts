@@ -1,4 +1,4 @@
-import { ILogger } from "@ebo-agent/shared";
+import { ILogger, Timestamp } from "@ebo-agent/shared";
 import { Block, FallbackTransport, HttpTransport, PublicClient } from "viem";
 
 import {
@@ -56,7 +56,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
         this.firstBlock = null;
     }
 
-    async getEpochBlockNumber(timestamp: bigint): Promise<bigint> {
+    async getEpochBlockNumber(timestamp: Timestamp): Promise<bigint> {
         // An optimized binary search is used to look for the epoch block.
 
         // The EBO agent looks only for finalized blocks to avoid handling reorgs
@@ -125,7 +125,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
      * @param lastBlock last block of the chain
      * @returns an optimized lower bound for a binary search space
      */
-    private async calculateLowerBoundBlock(timestamp: bigint, lastBlock: BlockWithNumber) {
+    private async calculateLowerBoundBlock(timestamp: Timestamp, lastBlock: BlockWithNumber) {
         const { blocksLookback, deltaMultiplier } = this.searchConfig;
 
         const estimatedBlockTime = await this.estimateBlockTime(lastBlock, blocksLookback);
@@ -191,7 +191,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
      * @returns the block number
      */
     private async searchTimestamp(
-        timestamp: bigint,
+        timestamp: Timestamp,
         between: { fromBlock: bigint; toBlock: bigint },
     ) {
         let currentBlockNumber: bigint;

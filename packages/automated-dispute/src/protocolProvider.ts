@@ -1,4 +1,5 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
+import { Timestamp } from "@ebo-agent/shared";
 import {
     Address,
     createPublicClient,
@@ -60,7 +61,7 @@ export class ProtocolProvider {
     async getCurrentEpoch(): Promise<{
         currentEpoch: bigint;
         currentEpochBlockNumber: bigint;
-        currentEpochTimestamp: bigint;
+        currentEpochTimestamp: Timestamp;
     }> {
         const [currentEpoch, currentEpochBlockNumber] = await Promise.all([
             this.epochManagerContract.read.currentEpoch(),
