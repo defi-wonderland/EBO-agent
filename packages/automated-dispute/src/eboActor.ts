@@ -1,4 +1,6 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
+import { ILogger } from "@ebo-agent/shared";
 
 import { EboRegistry } from "./eboRegistry.js";
 import { RequestMismatch } from "./exceptions/requestMismatch.js";
@@ -7,15 +9,13 @@ import { EboEvent } from "./types/events.js";
 import { Dispute, Response } from "./types/prophet.js";
 
 export class EboActor {
-    private registry: EboRegistry;
-
     constructor(
         private readonly protocolProvider: ProtocolProvider,
         private readonly blockNumberService: BlockNumberService,
+        private readonly registry: EboRegistry,
         private readonly requestId: string,
-    ) {
-        this.registry = new EboRegistry();
-    }
+        private readonly logger: ILogger,
+    ) {}
 
     /**
      * Handle RequestCreated event.
@@ -37,12 +37,34 @@ export class EboActor {
             chainId,
         );
 
+        if (this.alreadyProposed(currentEpoch, chainId, epochBlockNumber)) {
+            return;
+        }
+
         await this.protocolProvider.proposeResponse(
             this.requestId,
             currentEpoch,
             chainId,
             epochBlockNumber,
         );
+    }
+
+    private alreadyProposed(epoch: bigint, chainId: Caip2ChainId, blockNumber: bigint) {
+        const responses = this.registry.getResponses();
+
+        for (const [responseId, response] of responses) {
+            if (response.response.block != blockNumber) continue;
+            if (response.response.chainId != chainId) continue;
+            if (response.response.epoch != epoch) continue;
+
+            this.logger.info(
+                `Block ${blockNumber} for epoch ${epoch} and chain ${chainId} already proposed on response ${responseId}. Skipping...`,
+            );
+
+            return true;
+        }
+
+        return false;
     }
 
     public async onResponseProposed(_event: EboEvent<"ResponseDisputed">): Promise<void> {

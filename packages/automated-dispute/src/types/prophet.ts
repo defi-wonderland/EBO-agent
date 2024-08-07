@@ -1,3 +1,4 @@
+import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { Address } from "viem";
 
 export interface Request {
@@ -13,7 +14,13 @@ export interface Request {
 export interface Response {
     proposer: Address;
     requestId: string;
-    response: string;
+
+    // To be byte-encode when sending it to Prophet
+    response: {
+        chainId: Caip2ChainId; // Pending on-chain definition on CAIP-2 usage
+        block: bigint;
+        epoch: bigint;
+    };
 }
 
 export interface Dispute {

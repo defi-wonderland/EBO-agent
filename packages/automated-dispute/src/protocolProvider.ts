@@ -117,7 +117,11 @@ export class ProtocolProvider {
                     response: {
                         proposer: "0x12345678901234567890123456789012",
                         requestId: "0x01",
-                        response: "0x01234",
+                        response: {
+                            block: 1n,
+                            chainId: "eip155:1",
+                            epoch: 20n,
+                        },
                     },
                 },
             } as EboEvent<"ResponseProposed">,

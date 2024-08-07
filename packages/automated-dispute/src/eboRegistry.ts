@@ -20,4 +20,13 @@ export class EboRegistry {
     public addRequest(requestId: string, request: Request) {
         this.requests.set(requestId, request);
     }
+
+    /**
+     * Return all responses
+     *
+     * @returns responses map
+     */
+    public getResponses() {
+        return this.responses;
+    }
 }
