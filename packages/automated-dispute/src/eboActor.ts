@@ -17,6 +17,11 @@ export class EboActor {
         this.registry = new EboRegistry();
     }
 
+    /**
+     * Handle RequestCreated event.
+     *
+     * @param event RequestCreated event
+     */
     public async onRequestCreated(event: EboEvent<"RequestCreated">): Promise<void> {
         if (event.metadata.requestId != this.requestId)
             throw new RequestMismatch(this.requestId, event.metadata.requestId);

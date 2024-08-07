@@ -11,6 +11,12 @@ export class EboRegistry {
         this.dispute = new Map();
     }
 
+    /**
+     * Add a `Request` by ID.
+     *
+     * @param requestId the ID of the `Request`
+     * @param request the `Request`
+     */
     public addRequest(requestId: string, request: Request) {
         this.requests.set(requestId, request);
     }

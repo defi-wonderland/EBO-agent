@@ -56,7 +56,8 @@ export class ProtocolProvider {
 
     /**
      * Gets the current epoch, the block number and its timestamp of the current epoch
-     * @returns The current epoch and the block number of the current epoch
+     *
+     * @returns The current epoch, its block number and its timestamp
      */
     async getCurrentEpoch(): Promise<{
         currentEpoch: bigint;
