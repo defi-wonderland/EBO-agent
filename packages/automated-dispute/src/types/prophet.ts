@@ -17,7 +17,7 @@ export interface Response {
 
     // To be byte-encode when sending it to Prophet
     response: {
-        chainId: Caip2ChainId; // Pending on-chain definition on CAIP-2 usage
+        chainId: Caip2ChainId; // TODO: Pending on-chain definition on CAIP-2 usage
         block: bigint;
         epoch: bigint;
     };

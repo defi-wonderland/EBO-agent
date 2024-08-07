@@ -12,10 +12,12 @@ export class EboMemoryRegistry implements EboRegistry {
         this.dispute = new Map();
     }
 
+    /** @inheritdoc */
     public addRequest(requestId: string, request: Request) {
         this.requests.set(requestId, request);
     }
 
+    /** @inheritdoc */
     public getResponses() {
         return this.responses;
     }
