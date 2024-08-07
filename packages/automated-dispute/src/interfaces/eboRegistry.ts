@@ -11,6 +11,14 @@ export interface EboRegistry {
     addRequest(requestId: string, request: Request): void;
 
     /**
+     * Get a `Request` by ID.
+     *
+     * @param requestId request ID
+     * @returns the request if already added into registry, `undefined` otherwise
+     */
+    getRequest(requestId: string): Request | undefined;
+
+    /**
      * Return all responses
      *
      * @returns responses map

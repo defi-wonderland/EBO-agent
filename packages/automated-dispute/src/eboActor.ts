@@ -3,6 +3,7 @@ import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
 import { ContractFunctionRevertedError } from "viem";
 
+import { InvalidActorState } from "./exceptions/invalidActorState.exception.js";
 import { RequestMismatch } from "./exceptions/requestMismatch.js";
 import { EboRegistry } from "./interfaces/eboRegistry.js";
 import { ProtocolProvider } from "./protocolProvider.js";
@@ -26,6 +27,14 @@ export class EboActor {
     public async onRequestCreated(event: EboEvent<"RequestCreated">): Promise<void> {
         if (event.metadata.requestId != this.requestId)
             throw new RequestMismatch(this.requestId, event.metadata.requestId);
+
+        if (this.registry.getRequest(event.metadata.requestId)) {
+            this.logger.error(
+                `The request ${event.metadata.requestId} was already being handled by an actor.`,
+            );
+
+            throw new InvalidActorState();
+        }
 
         this.registry.addRequest(event.metadata.requestId, event.metadata.request);
 
