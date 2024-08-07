@@ -2,10 +2,10 @@ import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { Logger } from "@ebo-agent/shared";
 import { Address } from "viem";
-import { beforeEach, describe, expect, it, Mock, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EboActor } from "../src/eboActor.js";
-import { EboRegistry } from "../src/eboRegistry.js";
+import { EboMemoryRegistry } from "../src/eboMemoryRegistry.js";
 import { RequestMismatch } from "../src/exceptions/requestMismatch.js";
 import { ProtocolProvider } from "../src/protocolProvider.js";
 import { EboEvent } from "../src/types/events.js";
@@ -52,7 +52,7 @@ describe("EboActor", () => {
 
         let protocolProvider: ProtocolProvider;
         let blockNumberService: BlockNumberService;
-        let registry: EboRegistry;
+        let registry: EboMemoryRegistry;
 
         beforeEach(() => {
             protocolProvider = new ProtocolProvider(["http://localhost:8538"], protocolContracts);
@@ -61,7 +61,7 @@ describe("EboActor", () => {
             chainRpcUrls.set(indexedChainId, ["http://localhost:8539"]);
 
             blockNumberService = new BlockNumberService(chainRpcUrls, logger);
-            registry = new EboRegistry();
+            registry = new EboMemoryRegistry();
         });
 
         it("proposes a response", async () => {

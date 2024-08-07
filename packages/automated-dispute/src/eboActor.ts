@@ -2,8 +2,8 @@ import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
 
-import { EboRegistry } from "./eboRegistry.js";
 import { RequestMismatch } from "./exceptions/requestMismatch.js";
+import { EboRegistry } from "./interfaces/eboRegistry.js";
 import { ProtocolProvider } from "./protocolProvider.js";
 import { EboEvent } from "./types/events.js";
 import { Dispute, Response } from "./types/prophet.js";
@@ -37,9 +37,7 @@ export class EboActor {
             chainId,
         );
 
-        if (this.alreadyProposed(currentEpoch, chainId, epochBlockNumber)) {
-            return;
-        }
+        if (this.alreadyProposed(currentEpoch, chainId, epochBlockNumber)) return;
 
         await this.protocolProvider.proposeResponse(
             this.requestId,
