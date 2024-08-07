@@ -1,6 +1,7 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
+import { ContractFunctionRevertedError } from "viem";
 
 import { RequestMismatch } from "./exceptions/requestMismatch.js";
 import { EboRegistry } from "./interfaces/eboRegistry.js";
@@ -28,6 +29,16 @@ export class EboActor {
 
         this.registry.addRequest(event.metadata.requestId, event.metadata.request);
 
+        if (this.anyActiveProposal()) {
+            // Skipping new proposal until the actor receives a ResponseDisputed event;
+            // at that moment, it will be possible to re-propose again.
+            this.logger.info(
+                `There is an active proposal for request ${this.requestId}. Skipping...`,
+            );
+
+            return;
+        }
+
         const { chainId } = event.metadata;
         const { currentEpoch, currentEpochTimestamp } =
             await this.protocolProvider.getCurrentEpoch();
@@ -39,14 +50,47 @@ export class EboActor {
 
         if (this.alreadyProposed(currentEpoch, chainId, epochBlockNumber)) return;
 
-        await this.protocolProvider.proposeResponse(
-            this.requestId,
-            currentEpoch,
-            chainId,
-            epochBlockNumber,
-        );
+        try {
+            await this.protocolProvider.proposeResponse(
+                this.requestId,
+                currentEpoch,
+                chainId,
+                epochBlockNumber,
+            );
+        } catch (err) {
+            if (err instanceof ContractFunctionRevertedError) {
+                this.logger.warn(
+                    `Block ${epochBlockNumber} for epoch ${currentEpoch} and ` +
+                        `chain ${chainId} was not proposed. Skipping proposal...`,
+                );
+            } else {
+                this.logger.error(
+                    `Actor handling request ${this.requestId} is not able to continue.`,
+                );
+
+                throw err;
+            }
+        }
     }
 
+    /**
+     * Check if there's at least one proposal that has not received any dispute yet.
+     *
+     * @returns
+     */
+    private anyActiveProposal() {
+        // TODO: implement this function
+        return false;
+    }
+
+    /**
+     * Check if the same proposal has already been made in the past.
+     *
+     * @param epoch epoch of the request
+     * @param chainId  chain id of the request
+     * @param blockNumber proposed block number
+     * @returns true if there's a registry of a proposal with the same attributes, false otherwise
+     */
     private alreadyProposed(epoch: bigint, chainId: Caip2ChainId, blockNumber: bigint) {
         const responses = this.registry.getResponses();
 

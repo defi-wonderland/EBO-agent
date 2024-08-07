@@ -8,7 +8,6 @@ export interface Request {
     disputeModule: Address;
     resolutionModule: Address;
     finalityModule: Address;
-    // We might need here modules' data too
 }
 
 export interface Response {
