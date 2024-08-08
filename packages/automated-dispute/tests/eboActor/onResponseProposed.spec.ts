@@ -77,7 +77,7 @@ describe("onResponseProposed", () => {
 
         vi.spyOn(registry, "getRequest").mockReturnValue(undefined);
 
-        expect(actor.onResponseProposed(responseProposedEvent)).rejects.toBeInstanceOf(
+        expect(actor.onResponseProposed(responseProposedEvent)).rejects.toThrowError(
             InvalidActorState,
         );
     });
@@ -141,15 +141,21 @@ function mockEboActor(mockedValues: {
     const blockNumberService = new BlockNumberService(chainRpcUrls, logger);
     const registry = new EboMemoryRegistry();
 
-    const actor = new EboActor(protocolProvider, blockNumberService, registry, requestId, logger);
+    const requestConfig = {
+        id: requestId,
+        epoch: mockEpoch,
+        epochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+    };
+
+    const actor = new EboActor(
+        requestConfig,
+        protocolProvider,
+        blockNumberService,
+        registry,
+        logger,
+    );
 
     vi.spyOn(registry, "getRequest").mockReturnValue(DEFAULT_MOCKED_PROPHET_REQUEST);
-
-    vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-        currentEpochBlockNumber: 0n,
-        currentEpoch: mockEpoch,
-        currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
-    });
 
     vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(mockBlockNumber);
 

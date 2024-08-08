@@ -62,7 +62,6 @@ describe("EboActor", () => {
         it("proposes a response", async () => {
             const indexedEpochBlockNumber = 48n;
 
-            vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(protocolEpoch);
             vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
                 indexedEpochBlockNumber,
             );
@@ -78,11 +77,17 @@ describe("EboActor", () => {
                 ) => Promise.resolve(),
             );
 
+            const requestConfig = {
+                id: requestId,
+                epoch: protocolEpoch.currentEpoch,
+                epochTimestamp: protocolEpoch.currentEpochTimestamp,
+            };
+
             const actor = new EboActor(
+                requestConfig,
                 protocolProvider,
                 blockNumberService,
                 registry,
-                requestId,
                 logger,
             );
 
@@ -99,7 +104,6 @@ describe("EboActor", () => {
         it("does not propose when already proposed the same block", async () => {
             const indexedEpochBlockNumber = 48n;
 
-            vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(protocolEpoch);
             vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
                 indexedEpochBlockNumber,
             );
@@ -115,11 +119,17 @@ describe("EboActor", () => {
                 ) => Promise.resolve(),
             );
 
+            const requestConfig = {
+                id: requestId,
+                epoch: protocolEpoch.currentEpoch,
+                epochTimestamp: protocolEpoch.currentEpochTimestamp,
+            };
+
             const actor = new EboActor(
+                requestConfig,
                 protocolProvider,
                 blockNumberService,
                 registry,
-                requestId,
                 logger,
             );
 
@@ -154,42 +164,39 @@ describe("EboActor", () => {
                 },
             };
 
+            const requestConfig = {
+                id: requestId,
+                epoch: protocolEpoch.currentEpoch,
+                epochTimestamp: protocolEpoch.currentEpochTimestamp,
+            };
+
             const actor = new EboActor(
+                requestConfig,
                 protocolProvider,
                 blockNumberService,
                 registry,
-                requestId,
                 logger,
             );
 
-            expect(actor.onRequestCreated(noMatchRequestCreatedEvent)).rejects.toBeInstanceOf(
+            expect(actor.onRequestCreated(noMatchRequestCreatedEvent)).rejects.toThrowError(
                 RequestMismatch,
             );
         });
 
-        it("throws if current epoch cannot be fetched", () => {
-            vi.spyOn(protocolProvider, "getCurrentEpoch").mockRejectedValue(new Error());
-
-            const actor = new EboActor(
-                protocolProvider,
-                blockNumberService,
-                registry,
-                requestId,
-                logger,
-            );
-
-            expect(actor.onRequestCreated(requestCreatedEvent)).rejects.toBeDefined();
-        });
-
         it("throws if the indexed chain block number cannot be fetched", () => {
-            vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(protocolEpoch);
             vi.spyOn(blockNumberService, "getEpochBlockNumber").mockRejectedValue(new Error());
 
+            const requestConfig = {
+                id: requestId,
+                epoch: protocolEpoch.currentEpoch,
+                epochTimestamp: protocolEpoch.currentEpochTimestamp,
+            };
+
             const actor = new EboActor(
+                requestConfig,
                 protocolProvider,
                 blockNumberService,
                 registry,
-                requestId,
                 logger,
             );
 

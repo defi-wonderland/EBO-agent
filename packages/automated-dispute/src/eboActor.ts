@@ -10,12 +10,20 @@ import { ProtocolProvider } from "./protocolProvider.js";
 import { EboEvent } from "./types/events.js";
 import { Dispute, Response } from "./types/prophet.js";
 
+/**
+ * Actor that handles a singular Prophet's request asking for the block number that corresponds
+ * to an instant on an indexed chain.
+ */
 export class EboActor {
     constructor(
+        private readonly actorRequest: {
+            id: string;
+            epoch: bigint;
+            epochTimestamp: bigint;
+        },
         private readonly protocolProvider: ProtocolProvider,
         private readonly blockNumberService: BlockNumberService,
         private readonly registry: EboRegistry,
-        private readonly requestId: string,
         private readonly logger: ILogger,
     ) {}
 
@@ -25,8 +33,8 @@ export class EboActor {
      * @param event `RequestCreated` event
      */
     public async onRequestCreated(event: EboEvent<"RequestCreated">): Promise<void> {
-        if (event.metadata.requestId != this.requestId)
-            throw new RequestMismatch(this.requestId, event.metadata.requestId);
+        if (event.metadata.requestId != this.actorRequest.id)
+            throw new RequestMismatch(this.actorRequest.id, event.metadata.requestId);
 
         if (this.registry.getRequest(event.metadata.requestId)) {
             this.logger.error(
@@ -42,7 +50,7 @@ export class EboActor {
             // Skipping new proposal until the actor receives a ResponseDisputed event;
             // at that moment, it will be possible to re-propose again.
             this.logger.info(
-                `There is an active proposal for request ${this.requestId}. Skipping...`,
+                `There is an active proposal for request ${this.actorRequest.id}. Skipping...`,
             );
 
             return;
@@ -55,7 +63,7 @@ export class EboActor {
 
         try {
             await this.protocolProvider.proposeResponse(
-                this.requestId,
+                this.actorRequest.id,
                 response.epoch,
                 response.chainId,
                 response.block,
@@ -68,7 +76,7 @@ export class EboActor {
                 );
             } else {
                 this.logger.error(
-                    `Actor handling request ${this.requestId} is not able to continue.`,
+                    `Actor handling request ${this.actorRequest.id} is not able to continue.`,
                 );
 
                 throw err;
@@ -122,16 +130,13 @@ export class EboActor {
      * @returns a response body
      */
     private async buildResponse(chainId: Caip2ChainId): Promise<Response["response"]> {
-        const { currentEpoch, currentEpochTimestamp } =
-            await this.protocolProvider.getCurrentEpoch();
-
         const epochBlockNumber = await this.blockNumberService.getEpochBlockNumber(
-            currentEpochTimestamp,
+            this.actorRequest.epochTimestamp,
             chainId,
         );
 
         return {
-            epoch: currentEpoch,
+            epoch: this.actorRequest.epoch,
             chainId: chainId,
             block: epochBlockNumber,
         };
