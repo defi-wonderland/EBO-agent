@@ -1,30 +1,22 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
-import { Logger } from "@ebo-agent/shared";
+import { ILogger } from "@ebo-agent/shared";
 import { Address } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { EboActor } from "../src/eboActor.js";
-import { EboMemoryRegistry } from "../src/eboMemoryRegistry.js";
-import { RequestMismatch } from "../src/exceptions/requestMismatch.js";
-import { ProtocolProvider } from "../src/protocolProvider.js";
-import { EboEvent } from "../src/types/events.js";
-import { Response } from "../src/types/prophet.js";
+import { EboActor } from "../../src/eboActor.js";
+import { EboMemoryRegistry } from "../../src/eboMemoryRegistry.js";
+import { RequestMismatch } from "../../src/exceptions/requestMismatch.js";
+import { ProtocolProvider } from "../../src/protocolProvider.js";
+import { EboEvent } from "../../src/types/events.js";
+import { Response } from "../../src/types/prophet.js";
+import { DEFAULT_MOCKED_PROPHET_REQUEST, DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "./fixtures.js";
 
-const logger = Logger.getInstance();
-
-const protocolContracts = {
-    oracle: "0x123456" as Address,
-    epochManager: "0x654321" as Address,
-};
-
-const BASE_REQUEST = {
-    disputeModule: "0x01" as Address,
-    finalityModule: "0x02" as Address,
-    requestModule: "0x03" as Address,
-    resolutionModule: "0x04" as Address,
-    responseModule: "0x05" as Address,
-    requester: "0x10" as Address,
+const logger: ILogger = {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
 };
 
 describe("EboActor", () => {
@@ -43,10 +35,10 @@ describe("EboActor", () => {
             logIndex: 1,
             name: "RequestCreated",
             metadata: {
-                chainId: "eip155:10",
+                chainId: indexedChainId,
                 epoch: protocolEpoch.currentEpoch,
                 requestId: requestId,
-                request: BASE_REQUEST,
+                request: DEFAULT_MOCKED_PROPHET_REQUEST,
             },
         };
 
@@ -55,7 +47,10 @@ describe("EboActor", () => {
         let registry: EboMemoryRegistry;
 
         beforeEach(() => {
-            protocolProvider = new ProtocolProvider(["http://localhost:8538"], protocolContracts);
+            protocolProvider = new ProtocolProvider(
+                ["http://localhost:8538"],
+                DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
+            );
 
             const chainRpcUrls = new Map<Caip2ChainId, string[]>();
             chainRpcUrls.set(indexedChainId, ["http://localhost:8539"]);
@@ -155,6 +150,7 @@ describe("EboActor", () => {
                     chainId: "eip155:10",
                     epoch: protocolEpoch.currentEpoch,
                     requestId: "0x000000" as Address,
+                    request: DEFAULT_MOCKED_PROPHET_REQUEST,
                 },
             };
 
@@ -201,7 +197,6 @@ describe("EboActor", () => {
         });
     });
 
-    describe.skip("onResponseProposed");
     describe.skip("onResponseDisputed");
     describe.skip("onFinalizeRequest");
     describe.skip("onDisputeStatusChanged");

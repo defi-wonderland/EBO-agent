@@ -20,9 +20,9 @@ export class EboActor {
     ) {}
 
     /**
-     * Handle RequestCreated event.
+     * Handle `RequestCreated` event.
      *
-     * @param event RequestCreated event
+     * @param event `RequestCreated` event
      */
     public async onRequestCreated(event: EboEvent<"RequestCreated">): Promise<void> {
         if (event.metadata.requestId != this.requestId)
@@ -49,28 +49,22 @@ export class EboActor {
         }
 
         const { chainId } = event.metadata;
-        const { currentEpoch, currentEpochTimestamp } =
-            await this.protocolProvider.getCurrentEpoch();
+        const response = await this.buildResponse(chainId);
 
-        const epochBlockNumber = await this.blockNumberService.getEpochBlockNumber(
-            currentEpochTimestamp,
-            chainId,
-        );
-
-        if (this.alreadyProposed(currentEpoch, chainId, epochBlockNumber)) return;
+        if (this.alreadyProposed(response.epoch, response.chainId, response.block)) return;
 
         try {
             await this.protocolProvider.proposeResponse(
                 this.requestId,
-                currentEpoch,
-                chainId,
-                epochBlockNumber,
+                response.epoch,
+                response.chainId,
+                response.block,
             );
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
                 this.logger.warn(
-                    `Block ${epochBlockNumber} for epoch ${currentEpoch} and ` +
-                        `chain ${chainId} was not proposed. Skipping proposal...`,
+                    `Block ${response.block} for epoch ${response.epoch} and ` +
+                        `chain ${response.chainId} was not proposed. Skipping proposal...`,
                 );
             } else {
                 this.logger.error(
@@ -102,33 +96,107 @@ export class EboActor {
      */
     private alreadyProposed(epoch: bigint, chainId: Caip2ChainId, blockNumber: bigint) {
         const responses = this.registry.getResponses();
+        const newResponse: Response["response"] = {
+            epoch,
+            chainId,
+            block: blockNumber,
+        };
 
-        for (const [responseId, response] of responses) {
-            if (response.response.block != blockNumber) continue;
-            if (response.response.chainId != chainId) continue;
-            if (response.response.epoch != epoch) continue;
+        for (const [responseId, proposedResponse] of responses) {
+            if (this.equalResponses(proposedResponse.response, newResponse)) {
+                this.logger.info(
+                    `Block ${blockNumber} for epoch ${epoch} and chain ${chainId} already proposed on response ${responseId}. Skipping...`,
+                );
 
-            this.logger.info(
-                `Block ${blockNumber} for epoch ${epoch} and chain ${chainId} already proposed on response ${responseId}. Skipping...`,
-            );
-
-            return true;
+                return true;
+            }
         }
 
         return false;
     }
 
-    public async onResponseProposed(_event: EboEvent<"ResponseDisputed">): Promise<void> {
-        // TODO: implement
-        return;
+    /**
+     * Build a response body with an epoch, chain ID and block number.
+     *
+     * @param chainId chain ID to use in the response body
+     * @returns a response body
+     */
+    private async buildResponse(chainId: Caip2ChainId): Promise<Response["response"]> {
+        const { currentEpoch, currentEpochTimestamp } =
+            await this.protocolProvider.getCurrentEpoch();
+
+        const epochBlockNumber = await this.blockNumberService.getEpochBlockNumber(
+            currentEpochTimestamp,
+            chainId,
+        );
+
+        return {
+            epoch: currentEpoch,
+            chainId: chainId,
+            block: epochBlockNumber,
+        };
+    }
+
+    /**
+     * Handle `ResponseProposed` event.
+     *
+     * @param event a `ResponseProposed` event
+     * @returns void
+     */
+    public async onResponseProposed(event: EboEvent<"ResponseProposed">): Promise<void> {
+        this.validateRequestPresent(event.metadata.requestId);
+
+        this.registry.addResponse(event.metadata.responseId, event.metadata.response);
+
+        const eventResponse = event.metadata.response.response;
+        const actorResponse = await this.buildResponse(eventResponse.chainId);
+
+        if (this.equalResponses(actorResponse, eventResponse)) {
+            this.logger.info(`Response ${event.metadata.responseId} was validated. Skipping...`);
+
+            return;
+        }
+
+        await this.protocolProvider.disputeResponse(
+            event.metadata.requestId,
+            event.metadata.responseId,
+            event.metadata.response.proposer,
+        );
+    }
+
+    /**
+     * Check for deep equality between two responses
+     *
+     * @param a response
+     * @param b response
+     * @returns true if all attributes on `a` are equal to attributes on `b`, false otherwise
+     */
+    private equalResponses(a: Response["response"], b: Response["response"]) {
+        if (a.block != b.block) return false;
+        if (a.chainId != b.chainId) return false;
+        if (a.epoch != b.epoch) return false;
+
+        return true;
+    }
+
+    /**
+     * Validate if the actor is handling the request.
+     *
+     * @param requestId request ID
+     */
+    private validateRequestPresent(requestId: string) {
+        const request = this.registry.getRequest(requestId);
+
+        if (!request) {
+            this.logger.error(`The request ${requestId} is not handled by this actor.`);
+
+            // We want to fail the actor as receiving events from other requests
+            // will most likely cause a corrupted state.
+            throw new InvalidActorState();
+        }
     }
 
     public async onResponseDisputed(_event: EboEvent<"ResponseDisputed">): Promise<void> {
-        // TODO: implement
-        return;
-    }
-
-    private async proposeResponse(_response: Response): Promise<void> {
         // TODO: implement
         return;
     }
