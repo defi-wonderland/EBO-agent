@@ -1,3 +1,5 @@
+import { Timestamp } from "@ebo-agent/shared";
+
 export interface BlockNumberProvider {
     /**
      * Get the block number corresponding to the beginning of the epoch.
@@ -9,5 +11,5 @@ export interface BlockNumberProvider {
      *
      * @returns the corresponding block number of a chain at a specific timestamp
      */
-    getEpochBlockNumber(timestamp: number): Promise<bigint>;
+    getEpochBlockNumber(timestamp: Timestamp): Promise<bigint>;
 }

@@ -73,14 +73,20 @@ describe("ProtocolProvider", () => {
     });
     describe("getCurrentEpoch", () => {
         it("returns currentEpoch and currentEpochBlock successfully", async () => {
-            const protocolProvider = new ProtocolProvider(mockRpcUrls, mockContractAddress);
-
             const mockEpoch = BigInt(1);
             const mockEpochBlock = BigInt(12345);
+            const mockEpochTimestamp = BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0));
+
+            (createPublicClient as Mock).mockReturnValue({
+                getBlock: vi.fn().mockResolvedValue({ timestamp: mockEpochTimestamp }),
+            });
+
+            const protocolProvider = new ProtocolProvider(mockRpcUrls, mockContractAddress);
 
             (protocolProvider["epochManagerContract"].read.currentEpoch as Mock).mockResolvedValue(
                 mockEpoch,
             );
+
             (
                 protocolProvider["epochManagerContract"].read.currentEpochBlock as Mock
             ).mockResolvedValue(mockEpochBlock);
@@ -88,7 +94,7 @@ describe("ProtocolProvider", () => {
             const result = await protocolProvider.getCurrentEpoch();
 
             expect(result.currentEpoch).toBe(mockEpoch);
-            expect(result.currentEpochBlock).toBe(mockEpochBlock);
+            expect(result.currentEpochBlockNumber).toBe(mockEpochBlock);
         });
         it("throws when current epoch request fails", async () => {
             const protocolProvider = new ProtocolProvider(mockRpcUrls, mockContractAddress);

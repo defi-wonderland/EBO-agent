@@ -1,4 +1,4 @@
-import { ILogger } from "@ebo-agent/shared";
+import { ILogger, Timestamp } from "@ebo-agent/shared";
 import { Block, FallbackTransport, HttpTransport, PublicClient } from "viem";
 
 import {
@@ -56,9 +56,8 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
         this.firstBlock = null;
     }
 
-    async getEpochBlockNumber(timestamp: number): Promise<bigint> {
+    async getEpochBlockNumber(timestamp: Timestamp): Promise<bigint> {
         // An optimized binary search is used to look for the epoch block.
-        const _timestamp = BigInt(timestamp);
 
         // The EBO agent looks only for finalized blocks to avoid handling reorgs
         const upperBoundBlock = await this.client.getBlock({ blockTag: "finalized" });
@@ -71,16 +70,16 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
 
         const firstBlock = await this.getFirstBlock();
 
-        if (_timestamp < firstBlock.timestamp) throw new InvalidTimestamp(_timestamp);
-        if (_timestamp >= upperBoundBlock.timestamp) throw new LastBlockEpoch(upperBoundBlock);
+        if (timestamp < firstBlock.timestamp) throw new InvalidTimestamp(timestamp);
+        if (timestamp >= upperBoundBlock.timestamp) throw new LastBlockEpoch(upperBoundBlock);
 
         // Reduces the search space by estimating a lower bound for the binary search.
         //
         // Performing a binary search between block 0 and last block is not efficient.
-        const lowerBoundBlock = await this.calculateLowerBoundBlock(_timestamp, upperBoundBlock);
+        const lowerBoundBlock = await this.calculateLowerBoundBlock(timestamp, upperBoundBlock);
 
         // Searches for the timestamp with a binary search
-        return this.searchTimestamp(_timestamp, {
+        return this.searchTimestamp(timestamp, {
             fromBlock: lowerBoundBlock.number,
             toBlock: upperBoundBlock.number,
         });
@@ -126,7 +125,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
      * @param lastBlock last block of the chain
      * @returns an optimized lower bound for a binary search space
      */
-    private async calculateLowerBoundBlock(timestamp: bigint, lastBlock: BlockWithNumber) {
+    private async calculateLowerBoundBlock(timestamp: Timestamp, lastBlock: BlockWithNumber) {
         const { blocksLookback, deltaMultiplier } = this.searchConfig;
 
         const estimatedBlockTime = await this.estimateBlockTime(lastBlock, blocksLookback);
@@ -192,7 +191,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
      * @returns the block number
      */
     private async searchTimestamp(
-        timestamp: bigint,
+        timestamp: Timestamp,
         between: { fromBlock: bigint; toBlock: bigint },
     ) {
         let currentBlockNumber: bigint;

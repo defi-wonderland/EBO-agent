@@ -25,7 +25,7 @@ describe("EvmBlockNumberProvider", () => {
 
             evmProvider = new EvmBlockNumberProvider(rpcProvider, searchConfig, logger);
 
-            const day5 = Date.UTC(2024, 1, 5, 2, 0, 0, 0);
+            const day5 = BigInt(Date.UTC(2024, 1, 5, 2, 0, 0, 0));
             const epochBlockNumber = await evmProvider.getEpochBlockNumber(day5);
 
             expect(epochBlockNumber).toEqual(4n);
@@ -39,7 +39,7 @@ describe("EvmBlockNumberProvider", () => {
 
             evmProvider = new EvmBlockNumberProvider(rpcProvider, searchConfig, logger);
 
-            const exactDay5 = Date.UTC(2024, 1, 1, 0, 0, 5, 0);
+            const exactDay5 = BigInt(Date.UTC(2024, 1, 1, 0, 0, 5, 0));
             const epochBlockNumber = await evmProvider.getEpochBlockNumber(exactDay5);
 
             expect(epochBlockNumber).toEqual(4n);
@@ -53,7 +53,7 @@ describe("EvmBlockNumberProvider", () => {
 
             evmProvider = new EvmBlockNumberProvider(rpcProvider, searchConfig, logger);
 
-            const futureTimestamp = Date.UTC(2025, 1, 1, 0, 0, 0, 0);
+            const futureTimestamp = BigInt(Date.UTC(2025, 1, 1, 0, 0, 0, 0));
 
             expect(evmProvider.getEpochBlockNumber(futureTimestamp)).rejects.toBeInstanceOf(
                 LastBlockEpoch,
@@ -68,7 +68,7 @@ describe("EvmBlockNumberProvider", () => {
 
             evmProvider = new EvmBlockNumberProvider(rpcProvider, searchConfig, logger);
 
-            const futureTimestamp = Date.UTC(1970, 1, 1, 0, 0, 0, 0);
+            const futureTimestamp = BigInt(Date.UTC(1970, 1, 1, 0, 0, 0, 0));
 
             expect(evmProvider.getEpochBlockNumber(futureTimestamp)).rejects.toBeInstanceOf(
                 InvalidTimestamp,
@@ -88,7 +88,7 @@ describe("EvmBlockNumberProvider", () => {
 
             evmProvider = new EvmBlockNumberProvider(rpcProvider, searchConfig, logger);
 
-            expect(evmProvider.getEpochBlockNumber(Number(timestamp))).rejects.toBeInstanceOf(
+            expect(evmProvider.getEpochBlockNumber(timestamp)).rejects.toBeInstanceOf(
                 UnsupportedBlockTimestamps,
             );
         });
@@ -101,7 +101,7 @@ describe("EvmBlockNumberProvider", () => {
 
             evmProvider = new EvmBlockNumberProvider(rpcProvider, searchConfig, logger);
 
-            expect(evmProvider.getEpochBlockNumber(Number(timestamp))).rejects.toBeInstanceOf(
+            expect(evmProvider.getEpochBlockNumber(timestamp)).rejects.toBeInstanceOf(
                 UnsupportedBlockNumber,
             );
         });
@@ -112,7 +112,7 @@ describe("EvmBlockNumberProvider", () => {
             client.getBlock = vi.fn().mockRejectedValue(null);
 
             evmProvider = new EvmBlockNumberProvider(client, searchConfig, logger);
-            const timestamp = Date.UTC(2024, 1, 1, 0, 0, 0, 0);
+            const timestamp = BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0));
 
             expect(evmProvider.getEpochBlockNumber(timestamp)).rejects.toBeDefined();
         });

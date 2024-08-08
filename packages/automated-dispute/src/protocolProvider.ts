@@ -1,3 +1,5 @@
+import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
+import { Timestamp } from "@ebo-agent/shared";
 import {
     Address,
     createPublicClient,
@@ -53,17 +55,28 @@ export class ProtocolProvider {
     }
 
     /**
-     * Gets the current epoch and the block number of the current epoch
-     * @returns The current epoch and the block number of the current epoch
+     * Gets the current epoch, the block number and its timestamp of the current epoch
+     *
+     * @returns The current epoch, its block number and its timestamp
      */
-    async getCurrentEpoch(): Promise<{ currentEpoch: bigint; currentEpochBlock: bigint }> {
-        const [currentEpoch, currentEpochBlock] = await Promise.all([
+    async getCurrentEpoch(): Promise<{
+        currentEpoch: bigint;
+        currentEpochBlockNumber: bigint;
+        currentEpochTimestamp: Timestamp;
+    }> {
+        const [currentEpoch, currentEpochBlockNumber] = await Promise.all([
             this.epochManagerContract.read.currentEpoch(),
             this.epochManagerContract.read.currentEpochBlock(),
         ]);
+
+        const currentEpochBlock = await this.client.getBlock({
+            blockNumber: currentEpochBlockNumber,
+        });
+
         return {
             currentEpoch,
-            currentEpochBlock,
+            currentEpochBlockNumber,
+            currentEpochTimestamp: currentEpochBlock.timestamp,
         };
     }
 
@@ -79,6 +92,8 @@ export class ProtocolProvider {
                 logIndex: 1,
                 metadata: {
                     requestId: "0x01",
+                    chainId: "eip155:1",
+                    epoch: 1n,
                     request: {
                         requester: "0x12345678901234567890123456789012",
                         requestModule: "0x12345678901234567890123456789012",
@@ -102,7 +117,11 @@ export class ProtocolProvider {
                     response: {
                         proposer: "0x12345678901234567890123456789012",
                         requestId: "0x01",
-                        response: "0x01234",
+                        response: {
+                            block: 1n,
+                            chainId: "eip155:1",
+                            epoch: 20n,
+                        },
                     },
                 },
             } as EboEvent<"ResponseProposed">,
@@ -173,7 +192,12 @@ export class ProtocolProvider {
         return;
     }
 
-    async proposeResponse(_request: Request, _response: Response): Promise<void> {
+    async proposeResponse(
+        _requestId: string,
+        _epoch: bigint,
+        _chainId: Caip2ChainId,
+        _blockNumber: bigint,
+    ): Promise<void> {
         // TODO: implement actual method
         return;
     }
