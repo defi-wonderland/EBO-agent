@@ -66,7 +66,7 @@ describe("onResponseProposed", () => {
     });
 
     it("throws if the response's request is not handled by actor", () => {
-        const { actor, registry } = mockEboActor({
+        const { actor } = mockEboActor({
             requestId,
             indexedChainId,
             mockActorResponse: {
@@ -75,11 +75,15 @@ describe("onResponseProposed", () => {
             },
         });
 
-        vi.spyOn(registry, "getRequest").mockReturnValue(undefined);
+        const otherRequestEvent = {
+            ...responseProposedEvent,
+            metadata: {
+                ...responseProposedEvent.metadata,
+                requestId: responseProposedEvent.metadata.requestId + "123",
+            },
+        };
 
-        expect(actor.onResponseProposed(responseProposedEvent)).rejects.toThrowError(
-            InvalidActorState,
-        );
+        expect(actor.onResponseProposed(otherRequestEvent)).rejects.toThrowError(InvalidActorState);
     });
 
     it("does not dispute the response if seems valid", async () => {

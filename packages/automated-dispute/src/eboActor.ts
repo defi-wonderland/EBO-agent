@@ -149,7 +149,7 @@ export class EboActor {
      * @returns void
      */
     public async onResponseProposed(event: EboEvent<"ResponseProposed">): Promise<void> {
-        this.validateRequestPresent(event.metadata.requestId);
+        this.shouldHandleRequest(event.metadata.requestId);
 
         this.registry.addResponse(event.metadata.responseId, event.metadata.response);
 
@@ -185,14 +185,12 @@ export class EboActor {
     }
 
     /**
-     * Validate if the actor is handling the request.
+     * Validate that the actor should handle the request by its ID.
      *
      * @param requestId request ID
      */
-    private validateRequestPresent(requestId: string) {
-        const request = this.registry.getRequest(requestId);
-
-        if (!request) {
+    private shouldHandleRequest(requestId: string) {
+        if (this.actorRequest.id.toLowerCase() !== requestId.toLowerCase()) {
             this.logger.error(`The request ${requestId} is not handled by this actor.`);
 
             // We want to fail the actor as receiving events from other requests
