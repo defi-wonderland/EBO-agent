@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EboActor } from "../src/eboActor.js";
 import { EboMemoryRegistry } from "../src/eboMemoryRegistry.js";
+import { InvalidActorState } from "../src/exceptions/invalidActorState.exception.js";
 import { RequestMismatch } from "../src/exceptions/requestMismatch.js";
 import { ProtocolProvider } from "../src/protocolProvider.js";
 import { EboEvent } from "../src/types/events.js";
@@ -166,8 +167,24 @@ describe("EboActor", () => {
                 logger,
             );
 
-            expect(actor.onRequestCreated(noMatchRequestCreatedEvent)).rejects.toBeInstanceOf(
+            expect(actor.onRequestCreated(noMatchRequestCreatedEvent)).rejects.toThrowError(
                 RequestMismatch,
+            );
+        });
+
+        it("throws if the request was already handled by the actor", () => {
+            const actor = new EboActor(
+                protocolProvider,
+                blockNumberService,
+                registry,
+                requestId,
+                logger,
+            );
+
+            vi.spyOn(registry, "getRequest").mockReturnValue(BASE_REQUEST);
+
+            expect(actor.onRequestCreated(requestCreatedEvent)).rejects.toThrowError(
+                InvalidActorState,
             );
         });
 
