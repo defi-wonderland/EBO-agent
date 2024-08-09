@@ -199,19 +199,97 @@ export class EboActor {
         }
     }
 
-    public async onResponseDisputed(_event: EboEvent<"ResponseDisputed">): Promise<void> {
-        // TODO: implement
-        return;
+    /**
+     * Returns the active actor request.
+     *
+     * @throws {InvalidActorState} when the request has not been added to the registry yet.
+     * @returns the actor `Request`
+     */
+    private getActorRequest() {
+        const request = this.registry.getRequest(this.actorRequest.id);
+
+        if (request === undefined) throw new InvalidActorState();
+
+        return request;
     }
 
-    private async disputeProposal(_dispute: Dispute): Promise<void> {
-        // TODO: implement
-        return;
+    /**
+     * Handle the `ResponseDisputed` event.
+     *
+     * @param event `ResponseDisputed` event.
+     */
+    public async onResponseDisputed(event: EboEvent<"ResponseDisputed">): Promise<void> {
+        this.shouldHandleRequest(event.metadata.dispute.requestId);
+
+        const dispute: Dispute = {
+            id: event.metadata.disputeId,
+            status: "Active",
+            prophetData: event.metadata.dispute,
+        };
+
+        this.registry.addDispute(event.metadata.disputeId, dispute);
+
+        const request = this.getActorRequest();
+        const proposedResponse = this.registry.getResponse(event.metadata.responseId);
+
+        if (!proposedResponse) throw new InvalidActorState();
+
+        const isValidDispute = await this.isValidDispute(proposedResponse);
+
+        if (isValidDispute) await this.pledgeFor(request, dispute);
+        else await this.pledgeAgainst(request, dispute);
     }
 
-    private async isValidDispute(_dispute: Dispute): Promise<boolean> {
-        // TODO: implement
-        return true;
+    private async isValidDispute(proposedResponse: Response) {
+        const actorResponse = await this.buildResponse(
+            proposedResponse.prophetData.response.chainId,
+        );
+
+        const equalResponses = this.equalResponses(
+            actorResponse,
+            proposedResponse.prophetData.response,
+        );
+
+        return !equalResponses;
+    }
+
+    private async pledgeFor(request: Request, dispute: Dispute) {
+        try {
+            this.logger.info(`Pledging against dispute ${dispute.id}`);
+
+            await this.protocolProvider.pledgeForDispute(request.prophetData, dispute.prophetData);
+        } catch (err) {
+            if (err instanceof ContractFunctionRevertedError) {
+                this.logger.warn(`Pledging for dispute ${dispute.id} was reverted. Skipping...`);
+            } else {
+                this.logger.error(
+                    `Actor handling request ${this.actorRequest.id} is not able to continue.`,
+                );
+
+                throw err;
+            }
+        }
+    }
+
+    private async pledgeAgainst(request: Request, dispute: Dispute) {
+        try {
+            this.logger.info(`Pledging for dispute ${dispute.id}`);
+
+            await this.protocolProvider.pledgeAgainstDispute(
+                request.prophetData,
+                dispute.prophetData,
+            );
+        } catch (err) {
+            if (err instanceof ContractFunctionRevertedError) {
+                this.logger.warn(`Pledging on dispute ${dispute.id} was reverted. Skipping...`);
+            } else {
+                this.logger.error(
+                    `Actor handling request ${this.actorRequest.id} is not able to continue.`,
+                );
+
+                throw err;
+            }
+        }
     }
 
     public async onFinalizeRequest(_event: EboEvent<"RequestFinalizable">): Promise<void> {

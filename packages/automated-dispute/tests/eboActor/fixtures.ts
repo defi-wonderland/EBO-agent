@@ -1,6 +1,6 @@
 import { Address } from "viem";
 
-import { Request } from "../../src/types/prophet";
+import { Request, Response } from "../../src/types/prophet";
 
 export const DEFAULT_MOCKED_PROTOCOL_CONTRACTS = {
     oracle: "0x123456" as Address,
