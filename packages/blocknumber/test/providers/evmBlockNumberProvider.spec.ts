@@ -1,4 +1,4 @@
-import { Logger } from "@ebo-agent/shared";
+import { ILogger } from "@ebo-agent/shared";
 import { Block, createPublicClient, GetBlockParameters, http } from "viem";
 import { mainnet } from "viem/chains";
 import { describe, expect, it, vi } from "vitest";
@@ -14,7 +14,12 @@ import { EvmBlockNumberProvider } from "../../src/providers/evmBlockNumberProvid
 describe("EvmBlockNumberProvider", () => {
     describe("getEpochBlockNumber", () => {
         const searchConfig = { blocksLookback: 2n, deltaMultiplier: 2n };
-        const logger = Logger.getInstance();
+        const logger: ILogger = {
+            info: vi.fn(),
+            warn: vi.fn(),
+            error: vi.fn(),
+            debug: vi.fn(),
+        };
         let evmProvider: EvmBlockNumberProvider;
 
         it("returns the first of two consecutive blocks when their timestamp contains the searched timestamp", async () => {

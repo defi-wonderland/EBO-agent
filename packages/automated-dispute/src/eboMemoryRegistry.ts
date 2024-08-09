@@ -19,6 +19,11 @@ export class EboMemoryRegistry implements EboRegistry {
     }
 
     /** @inheritdoc */
+    public addResponse(responseId: string, response: Response): void {
+        this.responses.set(responseId, response);
+    }
+
+    /** @inheritdoc */
     public getResponses() {
         return this.responses;
     }

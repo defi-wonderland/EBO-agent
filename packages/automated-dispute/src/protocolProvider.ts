@@ -203,9 +203,9 @@ export class ProtocolProvider {
     }
 
     async disputeResponse(
-        _request: Request,
-        _response: Response,
-        _dispute: Dispute,
+        _requestId: string,
+        _responseId: string,
+        _proposer: Address,
     ): Promise<void> {
         // TODO: implement actual method
         return;

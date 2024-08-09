@@ -10,23 +10,31 @@ import { ProtocolProvider } from "./protocolProvider.js";
 import { EboEvent } from "./types/events.js";
 import { Dispute, Response } from "./types/prophet.js";
 
+/**
+ * Actor that handles a singular Prophet's request asking for the block number that corresponds
+ * to an instant on an indexed chain.
+ */
 export class EboActor {
     constructor(
+        private readonly actorRequest: {
+            id: string;
+            epoch: bigint;
+            epochTimestamp: bigint;
+        },
         private readonly protocolProvider: ProtocolProvider,
         private readonly blockNumberService: BlockNumberService,
         private readonly registry: EboRegistry,
-        private readonly requestId: string,
         private readonly logger: ILogger,
     ) {}
 
     /**
-     * Handle RequestCreated event.
+     * Handle `RequestCreated` event.
      *
-     * @param event RequestCreated event
+     * @param event `RequestCreated` event
      */
     public async onRequestCreated(event: EboEvent<"RequestCreated">): Promise<void> {
-        if (event.metadata.requestId != this.requestId)
-            throw new RequestMismatch(this.requestId, event.metadata.requestId);
+        if (event.metadata.requestId != this.actorRequest.id)
+            throw new RequestMismatch(this.actorRequest.id, event.metadata.requestId);
 
         if (this.registry.getRequest(event.metadata.requestId)) {
             this.logger.error(
@@ -42,39 +50,33 @@ export class EboActor {
             // Skipping new proposal until the actor receives a ResponseDisputed event;
             // at that moment, it will be possible to re-propose again.
             this.logger.info(
-                `There is an active proposal for request ${this.requestId}. Skipping...`,
+                `There is an active proposal for request ${this.actorRequest.id}. Skipping...`,
             );
 
             return;
         }
 
         const { chainId } = event.metadata;
-        const { currentEpoch, currentEpochTimestamp } =
-            await this.protocolProvider.getCurrentEpoch();
+        const response = await this.buildResponse(chainId);
 
-        const epochBlockNumber = await this.blockNumberService.getEpochBlockNumber(
-            currentEpochTimestamp,
-            chainId,
-        );
-
-        if (this.alreadyProposed(currentEpoch, chainId, epochBlockNumber)) return;
+        if (this.alreadyProposed(response.epoch, response.chainId, response.block)) return;
 
         try {
             await this.protocolProvider.proposeResponse(
-                this.requestId,
-                currentEpoch,
-                chainId,
-                epochBlockNumber,
+                this.actorRequest.id,
+                response.epoch,
+                response.chainId,
+                response.block,
             );
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
                 this.logger.warn(
-                    `Block ${epochBlockNumber} for epoch ${currentEpoch} and ` +
-                        `chain ${chainId} was not proposed. Skipping proposal...`,
+                    `Block ${response.block} for epoch ${response.epoch} and ` +
+                        `chain ${response.chainId} was not proposed. Skipping proposal...`,
                 );
             } else {
                 this.logger.error(
-                    `Actor handling request ${this.requestId} is not able to continue.`,
+                    `Actor handling request ${this.actorRequest.id} is not able to continue.`,
                 );
 
                 throw err;
@@ -102,33 +104,102 @@ export class EboActor {
      */
     private alreadyProposed(epoch: bigint, chainId: Caip2ChainId, blockNumber: bigint) {
         const responses = this.registry.getResponses();
+        const newResponse: Response["response"] = {
+            epoch,
+            chainId,
+            block: blockNumber,
+        };
 
-        for (const [responseId, response] of responses) {
-            if (response.response.block != blockNumber) continue;
-            if (response.response.chainId != chainId) continue;
-            if (response.response.epoch != epoch) continue;
+        for (const [responseId, proposedResponse] of responses) {
+            if (this.equalResponses(proposedResponse.response, newResponse)) {
+                this.logger.info(
+                    `Block ${blockNumber} for epoch ${epoch} and chain ${chainId} already proposed on response ${responseId}. Skipping...`,
+                );
 
-            this.logger.info(
-                `Block ${blockNumber} for epoch ${epoch} and chain ${chainId} already proposed on response ${responseId}. Skipping...`,
-            );
-
-            return true;
+                return true;
+            }
         }
 
         return false;
     }
 
-    public async onResponseProposed(_event: EboEvent<"ResponseDisputed">): Promise<void> {
-        // TODO: implement
-        return;
+    /**
+     * Build a response body with an epoch, chain ID and block number.
+     *
+     * @param chainId chain ID to use in the response body
+     * @returns a response body
+     */
+    private async buildResponse(chainId: Caip2ChainId): Promise<Response["response"]> {
+        const epochBlockNumber = await this.blockNumberService.getEpochBlockNumber(
+            this.actorRequest.epochTimestamp,
+            chainId,
+        );
+
+        return {
+            epoch: this.actorRequest.epoch,
+            chainId: chainId,
+            block: epochBlockNumber,
+        };
+    }
+
+    /**
+     * Handle `ResponseProposed` event.
+     *
+     * @param event a `ResponseProposed` event
+     * @returns void
+     */
+    public async onResponseProposed(event: EboEvent<"ResponseProposed">): Promise<void> {
+        this.shouldHandleRequest(event.metadata.requestId);
+
+        this.registry.addResponse(event.metadata.responseId, event.metadata.response);
+
+        const eventResponse = event.metadata.response.response;
+        const actorResponse = await this.buildResponse(eventResponse.chainId);
+
+        if (this.equalResponses(actorResponse, eventResponse)) {
+            this.logger.info(`Response ${event.metadata.responseId} was validated. Skipping...`);
+
+            return;
+        }
+
+        await this.protocolProvider.disputeResponse(
+            event.metadata.requestId,
+            event.metadata.responseId,
+            event.metadata.response.proposer,
+        );
+    }
+
+    /**
+     * Check for deep equality between two responses
+     *
+     * @param a response
+     * @param b response
+     * @returns true if all attributes on `a` are equal to attributes on `b`, false otherwise
+     */
+    private equalResponses(a: Response["response"], b: Response["response"]) {
+        if (a.block != b.block) return false;
+        if (a.chainId != b.chainId) return false;
+        if (a.epoch != b.epoch) return false;
+
+        return true;
+    }
+
+    /**
+     * Validate that the actor should handle the request by its ID.
+     *
+     * @param requestId request ID
+     */
+    private shouldHandleRequest(requestId: string) {
+        if (this.actorRequest.id.toLowerCase() !== requestId.toLowerCase()) {
+            this.logger.error(`The request ${requestId} is not handled by this actor.`);
+
+            // We want to fail the actor as receiving events from other requests
+            // will most likely cause a corrupted state.
+            throw new InvalidActorState();
+        }
     }
 
     public async onResponseDisputed(_event: EboEvent<"ResponseDisputed">): Promise<void> {
-        // TODO: implement
-        return;
-    }
-
-    private async proposeResponse(_response: Response): Promise<void> {
         // TODO: implement
         return;
     }
