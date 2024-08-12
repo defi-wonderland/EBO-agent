@@ -10,7 +10,10 @@ import { RequestMismatch } from "../../src/exceptions/requestMismatch.js";
 import { ProtocolProvider } from "../../src/protocolProvider.js";
 import { EboEvent } from "../../src/types/events.js";
 import { Response } from "../../src/types/prophet.js";
-import { DEFAULT_MOCKED_PROPHET_REQUEST, DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "./fixtures.js";
+import {
+    DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
+    DEFAULT_MOCKED_REQUEST_CREATED_DATA,
+} from "./fixtures.js";
 
 const logger: ILogger = {
     info: vi.fn(),
@@ -38,7 +41,7 @@ describe("EboActor", () => {
                 chainId: indexedChainId,
                 epoch: protocolEpoch.currentEpoch,
                 requestId: requestId,
-                request: DEFAULT_MOCKED_PROPHET_REQUEST,
+                request: DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData,
             },
         };
 
@@ -135,12 +138,16 @@ describe("EboActor", () => {
 
             const previousResponses = new Map<string, Response>();
             previousResponses.set("0x01", {
-                proposer: "0x02",
-                requestId: requestId,
-                response: {
-                    block: indexedEpochBlockNumber,
-                    chainId: requestCreatedEvent.metadata.chainId,
-                    epoch: protocolEpoch.currentEpoch,
+                id: "0x01",
+                wasDisputed: false,
+                prophetData: {
+                    proposer: "0x02",
+                    requestId: requestId,
+                    response: {
+                        block: indexedEpochBlockNumber,
+                        chainId: requestCreatedEvent.metadata.chainId,
+                        epoch: protocolEpoch.currentEpoch,
+                    },
                 },
             });
 
@@ -160,7 +167,7 @@ describe("EboActor", () => {
                     chainId: "eip155:10",
                     epoch: protocolEpoch.currentEpoch,
                     requestId: "0x000000" as Address,
-                    request: DEFAULT_MOCKED_PROPHET_REQUEST,
+                    request: DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData,
                 },
             };
 
@@ -203,9 +210,4 @@ describe("EboActor", () => {
             expect(actor.onRequestCreated(requestCreatedEvent)).rejects.toBeDefined();
         });
     });
-
-    describe.skip("onResponseDisputed");
-    describe.skip("onFinalizeRequest");
-    describe.skip("onDisputeStatusChanged");
-    describe.skip("onDisputeEscalated");
 });

@@ -1,14 +1,14 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
-import { ContractFunctionRevertedError } from "viem";
+import { ContractFunctionRevertedError, Hex } from "viem";
 
 import { InvalidActorState } from "./exceptions/invalidActorState.exception.js";
 import { RequestMismatch } from "./exceptions/requestMismatch.js";
 import { EboRegistry } from "./interfaces/eboRegistry.js";
 import { ProtocolProvider } from "./protocolProvider.js";
 import { EboEvent } from "./types/events.js";
-import { Dispute, Response } from "./types/prophet.js";
+import { Dispute, Request, Response, ResponseBody } from "./types/prophet.js";
 
 /**
  * Actor that handles a singular Prophet's request asking for the block number that corresponds
@@ -17,7 +17,7 @@ import { Dispute, Response } from "./types/prophet.js";
 export class EboActor {
     constructor(
         private readonly actorRequest: {
-            id: string;
+            id: Hex;
             epoch: bigint;
             epochTimestamp: bigint;
         },
@@ -44,7 +44,16 @@ export class EboActor {
             throw new InvalidActorState();
         }
 
-        this.registry.addRequest(event.metadata.requestId, event.metadata.request);
+        const request: Request = {
+            id: this.actorRequest.id,
+            chainId: event.metadata.chainId,
+            epoch: this.actorRequest.epoch,
+            epochTimestamp: this.actorRequest.epochTimestamp,
+            createdAt: event.blockNumber,
+            prophetData: event.metadata.request,
+        };
+
+        this.registry.addRequest(event.metadata.requestId, request);
 
         if (this.anyActiveProposal()) {
             // Skipping new proposal until the actor receives a ResponseDisputed event;
@@ -104,14 +113,16 @@ export class EboActor {
      */
     private alreadyProposed(epoch: bigint, chainId: Caip2ChainId, blockNumber: bigint) {
         const responses = this.registry.getResponses();
-        const newResponse: Response["response"] = {
+        const newResponse: ResponseBody = {
             epoch,
             chainId,
             block: blockNumber,
         };
 
         for (const [responseId, proposedResponse] of responses) {
-            if (this.equalResponses(proposedResponse.response, newResponse)) {
+            const proposedBody = proposedResponse.prophetData.response;
+
+            if (this.equalResponses(proposedBody, newResponse)) {
                 this.logger.info(
                     `Block ${blockNumber} for epoch ${epoch} and chain ${chainId} already proposed on response ${responseId}. Skipping...`,
                 );
@@ -129,7 +140,7 @@ export class EboActor {
      * @param chainId chain ID to use in the response body
      * @returns a response body
      */
-    private async buildResponse(chainId: Caip2ChainId): Promise<Response["response"]> {
+    private async buildResponse(chainId: Caip2ChainId): Promise<ResponseBody> {
         const epochBlockNumber = await this.blockNumberService.getEpochBlockNumber(
             this.actorRequest.epochTimestamp,
             chainId,
@@ -151,12 +162,18 @@ export class EboActor {
     public async onResponseProposed(event: EboEvent<"ResponseProposed">): Promise<void> {
         this.shouldHandleRequest(event.metadata.requestId);
 
-        this.registry.addResponse(event.metadata.responseId, event.metadata.response);
+        const response: Response = {
+            id: event.metadata.responseId,
+            wasDisputed: false, // All responses are created undisputed
+            prophetData: event.metadata.response,
+        };
 
-        const eventResponse = event.metadata.response.response;
-        const actorResponse = await this.buildResponse(eventResponse.chainId);
+        this.registry.addResponse(event.metadata.responseId, response);
 
-        if (this.equalResponses(actorResponse, eventResponse)) {
+        const eventResponse = event.metadata.response;
+        const actorResponse = await this.buildResponse(eventResponse.response.chainId);
+
+        if (this.equalResponses(actorResponse, eventResponse.response)) {
             this.logger.info(`Response ${event.metadata.responseId} was validated. Skipping...`);
 
             return;
@@ -176,7 +193,7 @@ export class EboActor {
      * @param b response
      * @returns true if all attributes on `a` are equal to attributes on `b`, false otherwise
      */
-    private equalResponses(a: Response["response"], b: Response["response"]) {
+    private equalResponses(a: ResponseBody, b: ResponseBody) {
         if (a.block != b.block) return false;
         if (a.chainId != b.chainId) return false;
         if (a.epoch != b.epoch) return false;
