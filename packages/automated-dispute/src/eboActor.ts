@@ -257,6 +257,13 @@ export class EboActor {
         else await this.pledgeAgainst(request, dispute);
     }
 
+    /**
+     * Check if a dispute is valid, comparing the already submitted and disputed proposal with
+     * the response this actor would propose.
+     *
+     * @param proposedResponse the already submitted response
+     * @returns true if the hypothetical proposal is different that the submitted one, false otherwise
+     */
     private async isValidDispute(proposedResponse: Response) {
         const actorResponse = await this.buildResponse(
             proposedResponse.prophetData.response.chainId,
@@ -270,6 +277,12 @@ export class EboActor {
         return !equalResponses;
     }
 
+    /**
+     * Pledge in favor of the dispute.
+     *
+     * @param request the dispute's `Request`
+     * @param dispute the `Dispute`
+     */
     private async pledgeFor(request: Request, dispute: Dispute) {
         try {
             this.logger.info(`Pledging against dispute ${dispute.id}`);
@@ -288,6 +301,12 @@ export class EboActor {
         }
     }
 
+    /**
+     * Pledge against the dispute.
+     *
+     * @param request the dispute's `Request`
+     * @param dispute the `Dispute`
+     */
     private async pledgeAgainst(request: Request, dispute: Dispute) {
         try {
             this.logger.info(`Pledging for dispute ${dispute.id}`);
