@@ -290,8 +290,10 @@ export class EboActor {
             await this.protocolProvider.pledgeForDispute(request.prophetData, dispute.prophetData);
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
+                // TODO: handle each error appropriately
                 this.logger.warn(`Pledging for dispute ${dispute.id} was reverted. Skipping...`);
             } else {
+                // TODO: handle each error appropriately
                 this.logger.error(
                     `Actor handling request ${this.actorRequest.id} is not able to continue.`,
                 );
@@ -317,8 +319,10 @@ export class EboActor {
             );
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
+                // TODO: handle each error appropriately
                 this.logger.warn(`Pledging on dispute ${dispute.id} was reverted. Skipping...`);
             } else {
+                // TODO: handle each error appropriately
                 this.logger.error(
                     `Actor handling request ${this.actorRequest.id} is not able to continue.`,
                 );
