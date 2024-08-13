@@ -1,7 +1,7 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
-import { ContractFunctionRevertedError, Hex } from "viem";
+import { ContractFunctionRevertedError } from "viem";
 
 import { InvalidActorState } from "./exceptions/invalidActorState.exception.js";
 import { RequestMismatch } from "./exceptions/requestMismatch.js";
@@ -17,7 +17,7 @@ import { Dispute, Request, Response, ResponseBody } from "./types/prophet.js";
 export class EboActor {
     constructor(
         private readonly actorRequest: {
-            id: Hex;
+            id: string;
             epoch: bigint;
             epochTimestamp: bigint;
         },
