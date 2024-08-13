@@ -21,13 +21,13 @@ export interface NewEpoch {
 export interface ResponseProposed {
     requestId: string;
     responseId: string;
-    response: Response;
+    response: Response["prophetData"];
 }
 
 export interface RequestCreated {
     epoch: bigint;
     chainId: Caip2ChainId;
-    request: Request;
+    request: Request["prophetData"];
     requestId: string;
 }
 

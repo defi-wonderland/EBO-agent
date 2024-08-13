@@ -1,4 +1,4 @@
-import { Dispute, DisputeStatus, Request, Response } from "../types/prophet.js";
+import { Dispute, Request, Response } from "../types/prophet.js";
 
 /** Registry that stores Prophet entities (ie. requests, responses and disputes) */
 export interface EboRegistry {

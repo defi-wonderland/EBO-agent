@@ -1,18 +1,27 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
+import { Timestamp } from "@ebo-agent/shared";
 import { Address } from "viem";
 
 export interface Request {
-    requester: Address;
-    requestModule: Address;
-    responseModule: Address;
-    disputeModule: Address;
-    resolutionModule: Address;
-    finalityModule: Address;
+    id: string;
+    chainId: Caip2ChainId;
+    epoch: bigint;
+    epochTimestamp: Timestamp;
+    createdAt: bigint;
+
+    prophetData: Readonly<{
+        requester: Address;
+        requestModule: Address;
+        responseModule: Address;
+        disputeModule: Address;
+        resolutionModule: Address;
+        finalityModule: Address;
+    }>;
 }
 
 export interface Response {
-    proposer: Address;
-    requestId: string;
+    id: string;
+    wasDisputed: boolean;
 
     prophetData: Readonly<{
         proposer: Address;
@@ -41,11 +50,4 @@ export interface Dispute {
         responseId: string;
         requestId: string;
     };
-}
-
-export interface Dispute {
-    disputer: Address;
-    proposer: Address;
-    responseId: string;
-    requestId: string;
 }
