@@ -5,7 +5,7 @@ export class EboMemoryRegistry implements EboRegistry {
     constructor(
         private requests: Map<string, Request> = new Map(),
         private responses: Map<string, Response> = new Map(),
-        private dispute: Map<string, Dispute> = new Map(),
+        private disputes: Map<string, Dispute> = new Map(),
     ) {}
 
     /** @inheritdoc */
@@ -26,5 +26,15 @@ export class EboMemoryRegistry implements EboRegistry {
     /** @inheritdoc */
     public getResponses() {
         return this.responses;
+    }
+
+    /** @inheritdoc */
+    public getResponse(responseId: string): Response | undefined {
+        return this.responses.get(responseId);
+    }
+
+    /** @inheritdoc */
+    public addDispute(disputeId: string, dispute: Dispute): void {
+        this.disputes.set(disputeId, dispute);
     }
 }

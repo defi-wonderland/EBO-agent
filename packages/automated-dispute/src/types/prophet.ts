@@ -38,9 +38,11 @@ export interface Response {
 
 export type ResponseBody = Response["prophetData"]["response"];
 
+export type DisputeStatus = "None" | "Active" | "Escalated" | "Won" | "Lost" | "NoResolution";
+
 export interface Dispute {
     id: string;
-    status: string;
+    status: DisputeStatus;
 
     prophetData: {
         disputer: Address;

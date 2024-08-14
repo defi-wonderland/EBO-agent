@@ -32,8 +32,8 @@ export interface RequestCreated {
 }
 
 export interface ResponseDisputed {
-    requestId: string;
     responseId: string;
+    disputeId: string;
     dispute: Dispute["prophetData"];
 }
 

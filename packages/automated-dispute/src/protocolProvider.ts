@@ -211,12 +211,18 @@ export class ProtocolProvider {
         return;
     }
 
-    async pledgeForDispute(_request: Request, _dispute: Dispute): Promise<void> {
+    async pledgeForDispute(
+        _request: Request["prophetData"],
+        _dispute: Dispute["prophetData"],
+    ): Promise<void> {
         // TODO: implement actual method
         return;
     }
 
-    async pledgeAgaintsDispute(_request: Request, _dispute: Dispute): Promise<void> {
+    async pledgeAgainstDispute(
+        _request: Request["prophetData"],
+        _dispute: Dispute["prophetData"],
+    ): Promise<void> {
         // TODO: implement actual method
         return;
     }
