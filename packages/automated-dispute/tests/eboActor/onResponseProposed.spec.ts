@@ -1,6 +1,4 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types";
 import { ILogger } from "@ebo-agent/shared";
-import { Hex } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
 import { InvalidActorState } from "../../src/exceptions/invalidActorState.exception";
