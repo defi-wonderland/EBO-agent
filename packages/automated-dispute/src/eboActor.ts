@@ -4,7 +4,9 @@ import { ILogger } from "@ebo-agent/shared";
 import { ContractFunctionRevertedError } from "viem";
 
 import { InvalidActorState } from "./exceptions/invalidActorState.exception.js";
+import { InvalidDisputeStatus } from "./exceptions/invalidDisputeStatus.exception.js";
 import { RequestMismatch } from "./exceptions/requestMismatch.js";
+import { ResponseAlreadyProposed } from "./exceptions/responseAlreadyProposed.js";
 import { EboRegistry } from "./interfaces/eboRegistry.js";
 import { ProtocolProvider } from "./protocolProvider.js";
 import { EboEvent } from "./types/events.js";
@@ -81,30 +83,12 @@ export class EboActor {
         }
 
         const { chainId } = event.metadata;
-        const response = await this.buildResponse(chainId);
-
-        if (this.alreadyProposed(response.epoch, response.chainId, response.block)) return;
 
         try {
-            await this.protocolProvider.proposeResponse(
-                this.actorRequest.id,
-                response.epoch,
-                response.chainId,
-                response.block,
-            );
+            await this.proposeResponse(chainId);
         } catch (err) {
-            if (err instanceof ContractFunctionRevertedError) {
-                this.logger.warn(
-                    `Block ${response.block} for epoch ${response.epoch} and ` +
-                        `chain ${response.chainId} was not proposed. Skipping proposal...`,
-                );
-            } else {
-                this.logger.error(
-                    `Actor handling request ${this.actorRequest.id} is not able to continue.`,
-                );
-
-                throw err;
-            }
+            if (err instanceof ResponseAlreadyProposed) this.logger.info(err.message);
+            else throw err;
         }
     }
 
@@ -166,6 +150,41 @@ export class EboActor {
             chainId: chainId,
             block: epochBlockNumber,
         };
+    }
+
+    /**
+     * Propose an actor request's response for a particular chain.
+     *
+     * @param chainId the CAIP-2 compliant chain ID
+     */
+    private async proposeResponse(chainId: Caip2ChainId): Promise<void> {
+        const response = await this.buildResponse(chainId);
+
+        if (this.alreadyProposed(response.epoch, response.chainId, response.block)) {
+            throw new ResponseAlreadyProposed(response);
+        }
+
+        try {
+            await this.protocolProvider.proposeResponse(
+                this.actorRequest.id,
+                response.epoch,
+                response.chainId,
+                response.block,
+            );
+        } catch (err) {
+            if (err instanceof ContractFunctionRevertedError) {
+                this.logger.warn(
+                    `Block ${response.block} for epoch ${response.epoch} and ` +
+                        `chain ${response.chainId} was not proposed. Skipping proposal...`,
+                );
+            } else {
+                this.logger.error(
+                    `Actor handling request ${this.actorRequest.id} is not able to continue.`,
+                );
+
+                throw err;
+            }
+        }
     }
 
     /**
@@ -348,6 +367,81 @@ export class EboActor {
     }
 
     /**
+     * Handle the `DisputeStatusChanged` event.
+     *
+     * @param event `DisputeStatusChanged` event
+     */
+    public async onDisputeStatusChanged(event: EboEvent<"DisputeStatusChanged">): Promise<void> {
+        const requestId = event.metadata.dispute.requestId;
+
+        this.shouldHandleRequest(requestId);
+
+        const request = this.getActorRequest();
+        const disputeId = event.metadata.disputeId;
+        const disputeStatus = event.metadata.status;
+
+        this.registry.updateDisputeStatus(disputeId, disputeStatus);
+
+        this.logger.info(`Dispute ${disputeId} status changed to ${disputeStatus}.`);
+
+        switch (disputeStatus) {
+            case "None":
+                this.logger.warn(
+                    `Agent does not know how to handle status changing to 'None' on dispute ${disputeId}.`,
+                );
+
+                break;
+
+            case "Active": // Case handled by ResponseDisputed
+            case "Lost": // Relevant during periodic request state checks
+            case "Won": // Relevant during periodic request state checks
+                break;
+
+            case "Escalated":
+                await this.onDisputeEscalated(disputeId, request);
+
+                break;
+
+            case "NoResolution":
+                await this.onDisputeWithNoResolution(disputeId, request);
+
+                break;
+
+            default:
+                throw new InvalidDisputeStatus(disputeId, disputeStatus);
+        }
+    }
+
+    private async onDisputeEscalated(disputeId: string, request: Request) {
+        // TODO: notify
+
+        await this.onTerminate(request);
+    }
+
+    private async onDisputeWithNoResolution(disputeId: string, request: Request) {
+        try {
+            await this.proposeResponse(request.chainId);
+        } catch (err) {
+            if (err instanceof ResponseAlreadyProposed) {
+                // This is an extremely weird case. If no other agent proposes
+                // a different response, the request will probably be finalized
+                // with no valid response.
+                //
+                // This actor will just wait until the proposal window ends.
+                this.logger.warn(err.message);
+
+                // TODO: notify
+            } else {
+                this.logger.error(
+                    `Could not handle dispute ${disputeId} changing to NoResolution status.`,
+                );
+
+                throw err;
+            }
+        }
+    }
+
+    /**
      * Handle the `ResponseFinalized` event.
      *
      * @param event `ResponseFinalized` event
@@ -358,10 +452,5 @@ export class EboActor {
         const request = this.getActorRequest();
 
         await this.onTerminate(request);
-    }
-
-    public async onDisputeStatusChanged(_event: EboEvent<"DisputeStatusChanged">): Promise<void> {
-        // TODO: implement
-        return;
     }
 }

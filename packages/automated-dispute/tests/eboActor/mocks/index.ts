@@ -6,7 +6,7 @@ import { vi } from "vitest";
 import { EboActor } from "../../../src/eboActor";
 import { EboMemoryRegistry } from "../../../src/eboMemoryRegistry";
 import { ProtocolProvider } from "../../../src/protocolProvider";
-import { Request, Response } from "../../../src/types/prophet";
+import { Dispute, Request, Response } from "../../../src/types/prophet";
 import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "../fixtures";
 
 /**
@@ -81,4 +81,26 @@ function buildResponse(request: Request, attributes: Partial<Response> = {}): Re
     };
 }
 
-export default { buildEboActor, buildResponse };
+function buildDispute(
+    request: Request,
+    response: Response,
+    attributes: Partial<Dispute> = {},
+): Dispute {
+    const baseDispute: Dispute = {
+        id: "0x01",
+        status: "Active",
+        prophetData: {
+            disputer: "0x01",
+            proposer: response.prophetData.proposer,
+            requestId: request.id,
+            responseId: response.id,
+        },
+    };
+
+    return {
+        ...baseDispute,
+        ...attributes,
+    };
+}
+
+export default { buildEboActor, buildResponse, buildDispute };
