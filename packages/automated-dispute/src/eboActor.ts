@@ -364,9 +364,4 @@ export class EboActor {
         // TODO: implement
         return;
     }
-
-    public async onDisputeEscalated(_event: EboEvent<"DisputeEscalated">): Promise<void> {
-        // TODO: implement
-        return;
-    }
 }
