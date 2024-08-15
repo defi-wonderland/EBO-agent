@@ -10,7 +10,6 @@ export type EboEventName =
     | "ResponseDisputed"
     | "DisputeStatusChanged"
     | "DisputeEscalated"
-    | "RequestFinalizable"
     | "RequestFinalized";
 
 export interface NewEpoch {
@@ -49,10 +48,6 @@ export interface DisputeEscalated {
     blockNumber: bigint;
 }
 
-export interface RequestFinalizable {
-    requestId: string;
-}
-
 export interface RequestFinalized {
     requestId: string;
     responseId: string;
@@ -72,11 +67,9 @@ export type EboEventData<E extends EboEventName> = E extends "NewEpoch"
             ? DisputeStatusChanged
             : E extends "DisputeEscalated"
               ? DisputeEscalated
-              : E extends "RequestFinalizable"
-                ? RequestFinalizable
-                : E extends "RequestFinalized"
-                  ? RequestFinalized
-                  : never;
+              : E extends "RequestFinalized"
+                ? RequestFinalized
+                : never;
 
 export type EboEvent<T extends EboEventName> = {
     name: T;

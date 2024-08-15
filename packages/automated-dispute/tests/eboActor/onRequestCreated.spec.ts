@@ -45,6 +45,8 @@ describe("EboActor", () => {
             },
         };
 
+        const onTerminate = vi.fn();
+
         let protocolProvider: ProtocolProvider;
         let blockNumberService: BlockNumberService;
         let registry: EboMemoryRegistry;
@@ -88,6 +90,7 @@ describe("EboActor", () => {
 
             const actor = new EboActor(
                 requestConfig,
+                onTerminate,
                 protocolProvider,
                 blockNumberService,
                 registry,
@@ -130,6 +133,7 @@ describe("EboActor", () => {
 
             const actor = new EboActor(
                 requestConfig,
+                onTerminate,
                 protocolProvider,
                 blockNumberService,
                 registry,
@@ -179,6 +183,7 @@ describe("EboActor", () => {
 
             const actor = new EboActor(
                 requestConfig,
+                onTerminate,
                 protocolProvider,
                 blockNumberService,
                 registry,
@@ -201,6 +206,7 @@ describe("EboActor", () => {
 
             const actor = new EboActor(
                 requestConfig,
+                onTerminate,
                 protocolProvider,
                 blockNumberService,
                 registry,
