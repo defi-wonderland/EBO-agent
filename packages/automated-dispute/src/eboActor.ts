@@ -3,10 +3,12 @@ import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
 import { ContractFunctionRevertedError } from "viem";
 
-import { InvalidActorState } from "./exceptions/invalidActorState.exception.js";
-import { InvalidDisputeStatus } from "./exceptions/invalidDisputeStatus.exception.js";
-import { RequestMismatch } from "./exceptions/requestMismatch.js";
-import { ResponseAlreadyProposed } from "./exceptions/responseAlreadyProposed.js";
+import {
+    InvalidActorState,
+    InvalidDisputeStatus,
+    RequestMismatch,
+    ResponseAlreadyProposed,
+} from "./exceptions/index.js";
 import { EboRegistry } from "./interfaces/eboRegistry.js";
 import { ProtocolProvider } from "./protocolProvider.js";
 import { EboEvent } from "./types/events.js";
