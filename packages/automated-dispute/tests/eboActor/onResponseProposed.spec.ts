@@ -3,15 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { InvalidActorState } from "../../src/exceptions/invalidActorState.exception";
 import { EboEvent } from "../../src/types/events";
+import mocks from "../mocks/index.ts";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.ts";
-import mocks from "./mocks/index.ts";
 
-const logger: ILogger = {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-};
+const logger: ILogger = mocks.mockLogger();
 
 describe("onResponseProposed", () => {
     const actorRequest = DEFAULT_MOCKED_REQUEST_CREATED_DATA;

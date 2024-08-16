@@ -5,15 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 import { InvalidActorState } from "../../src/exceptions/invalidActorState.exception";
 import { EboEvent } from "../../src/types/events";
 import { Response } from "../../src/types/prophet";
+import mocks from "../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures";
-import mocks from "./mocks/index.js";
 
-const logger: ILogger = {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-};
+const logger: ILogger = mocks.mockLogger();
 
 describe("onResponseDisputed", () => {
     const actorRequest = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
