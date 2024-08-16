@@ -2,7 +2,7 @@ import { ILogger } from "@ebo-agent/shared";
 import { describe, expect, it, vi } from "vitest";
 
 import { EboActorsManager } from "../src/eboActorsManager.js";
-import { RequestAlreadyHandled } from "../src/exceptions/requestAlreadyHandled.exception.js";
+import { RequestAlreadyHandled } from "../src/exceptions/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./eboActor/fixtures.js";
 import mocks from "./mocks/index.js";
 
