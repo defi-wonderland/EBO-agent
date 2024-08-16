@@ -9,12 +9,13 @@ export class EboActorsManager {
     }
 
     /**
-     * Registers the link between a request ID and the actor handling the respective request.
+     * Registers the actor and makes it fetchable by the ID of the request the actor is handling.
      *
-     * @param requestId request ID
      * @param actor an `EboActor` instance that handles the request
      */
-    public registerActor(requestId: string, actor: EboActor): void {
+    public registerActor(actor: EboActor): void {
+        const requestId = actor.getRequestId();
+
         if (this.requestActorMap.has(requestId)) throw new RequestAlreadyHandled(requestId);
 
         this.requestActorMap.set(requestId, actor);

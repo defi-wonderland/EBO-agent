@@ -16,9 +16,10 @@ describe("EboActorsManager", () => {
             const actorsManager = new EboActorsManager();
             const mockSetRequestActorMap = vi.spyOn(actorsManager["requestActorMap"], "set");
 
-            actorsManager.registerActor(request.id, actor);
+            actorsManager.registerActor(actor);
 
             expect(mockSetRequestActorMap).toHaveBeenCalledWith(request.id, actor);
+            expect(actorsManager.getActor(actor.getRequestId())).toBe(actor);
         });
 
         it("throws if the request has already an actor linked to it", () => {
@@ -27,9 +28,9 @@ describe("EboActorsManager", () => {
             const { actor: secondActor } = mocks.buildEboActor(request, logger);
             const actorsManager = new EboActorsManager();
 
-            actorsManager.registerActor(request.id, firstActor);
+            actorsManager.registerActor(firstActor);
 
-            expect(() => actorsManager.registerActor(request.id, secondActor)).toThrowError(
+            expect(() => actorsManager.registerActor(secondActor)).toThrowError(
                 RequestAlreadyHandled,
             );
         });
@@ -47,7 +48,7 @@ describe("EboActorsManager", () => {
             const { actor } = mocks.buildEboActor(request, logger);
             const actorsManager = new EboActorsManager();
 
-            actorsManager.registerActor(request.id, actor);
+            actorsManager.registerActor(actor);
 
             expect(actorsManager.getActor(request.id)).toBe(actor);
         });
@@ -59,7 +60,7 @@ describe("EboActorsManager", () => {
             const { actor } = mocks.buildEboActor(request, logger);
             const actorsManager = new EboActorsManager();
 
-            actorsManager.registerActor(request.id, actor);
+            actorsManager.registerActor(actor);
 
             expect(actorsManager.getActor(request.id)).toBe(actor);
 
