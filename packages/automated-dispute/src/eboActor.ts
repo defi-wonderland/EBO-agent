@@ -10,17 +10,32 @@ import { ProtocolProvider } from "./protocolProvider.js";
 import { EboEvent } from "./types/events.js";
 import { Dispute, Request, Response, ResponseBody } from "./types/prophet.js";
 
+type OnTerminateActorCallback = (request: Request) => Promise<void>;
+
 /**
  * Actor that handles a singular Prophet's request asking for the block number that corresponds
  * to an instant on an indexed chain.
  */
 export class EboActor {
+    /**
+     * Creates an `EboActor` instance.
+     *
+     * @param actorRequest.id request ID this actor will handle
+     * @param actorRequest.epoch requested epoch
+     * @param actorRequest.epoch requested epoch's timestamp
+     * @param onTerminate callback to be run when this instance is being terminated
+     * @param protocolProvider a `ProtocolProvider` instance
+     * @param blockNumberService a `BlockNumberService` instance
+     * @param registry an `EboRegistry` instance
+     * @param logger an `ILogger` instance
+     */
     constructor(
         private readonly actorRequest: {
             id: string;
             epoch: bigint;
             epochTimestamp: bigint;
         },
+        private readonly onTerminate: OnTerminateActorCallback,
         private readonly protocolProvider: ProtocolProvider,
         private readonly blockNumberService: BlockNumberService,
         private readonly registry: EboRegistry,
@@ -332,9 +347,17 @@ export class EboActor {
         }
     }
 
-    public async onFinalizeRequest(_event: EboEvent<"RequestFinalizable">): Promise<void> {
-        // TODO: implement
-        return;
+    /**
+     * Handle the `ResponseFinalized` event.
+     *
+     * @param event `ResponseFinalized` event
+     */
+    public async onRequestFinalized(event: EboEvent<"RequestFinalized">): Promise<void> {
+        this.shouldHandleRequest(event.metadata.requestId);
+
+        const request = this.getActorRequest();
+
+        await this.onTerminate(request);
     }
 
     public async onDisputeStatusChanged(_event: EboEvent<"DisputeStatusChanged">): Promise<void> {
