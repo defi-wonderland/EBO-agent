@@ -47,6 +47,15 @@ export class EboActor {
     ) {}
 
     /**
+     * Get the request ID this actor is handling.
+     *
+     * @returns request ID
+     */
+    public getRequestId(): string {
+        return this.actorRequest.id;
+    }
+
+    /**
      * Handle `RequestCreated` event.
      *
      * @param event `RequestCreated` event
