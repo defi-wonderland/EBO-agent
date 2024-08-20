@@ -3,11 +3,11 @@ import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types";
 import { ILogger } from "@ebo-agent/shared";
 import { vi } from "vitest";
 
-import { EboActor } from "../../../src/eboActor";
-import { EboMemoryRegistry } from "../../../src/eboMemoryRegistry";
-import { ProtocolProvider } from "../../../src/protocolProvider";
-import { Request, Response } from "../../../src/types/prophet";
-import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "../fixtures";
+import { EboActor } from "../../src/eboActor";
+import { EboMemoryRegistry } from "../../src/eboMemoryRegistry";
+import { ProtocolProvider } from "../../src/protocolProvider";
+import { Request, Response } from "../../src/types/prophet";
+import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "../eboActor/fixtures";
 
 /**
  * Builds a base `EboActor` scaffolded with all its dependencies.
@@ -16,7 +16,7 @@ import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "../fixtures";
  * @param logger logger
  * @returns
  */
-function buildEboActor(request: Request, logger: ILogger) {
+export function buildEboActor(request: Request, logger: ILogger) {
     const { id, chainId, epoch, epochTimestamp } = request;
 
     const onTerminate = vi.fn();
@@ -60,7 +60,7 @@ function buildEboActor(request: Request, logger: ILogger) {
  * @param attributes custom attributes to set into the response to build
  * @returns a `Response`
  */
-function buildResponse(request: Request, attributes: Partial<Response> = {}): Response {
+export function buildResponse(request: Request, attributes: Partial<Response> = {}): Response {
     const baseResponse: Response = {
         id: "0x01",
         wasDisputed: false,
@@ -80,5 +80,3 @@ function buildResponse(request: Request, attributes: Partial<Response> = {}): Re
         ...attributes,
     };
 }
-
-export default { buildEboActor, buildResponse };

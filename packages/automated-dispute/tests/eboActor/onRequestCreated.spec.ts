@@ -6,21 +6,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EboActor } from "../../src/eboActor.js";
 import { EboMemoryRegistry } from "../../src/eboMemoryRegistry.js";
-import { RequestMismatch } from "../../src/exceptions/requestMismatch.js";
+import { RequestMismatch } from "../../src/exceptions/index.js";
 import { ProtocolProvider } from "../../src/protocolProvider.js";
-import { EboEvent } from "../../src/types/events.js";
-import { Response } from "../../src/types/prophet.js";
+import { EboEvent, Response } from "../../src/types/index.js";
+import mocks from "../mocks/index.js";
 import {
     DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
     DEFAULT_MOCKED_REQUEST_CREATED_DATA,
 } from "./fixtures.js";
 
-const logger: ILogger = {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-};
+const logger: ILogger = mocks.mockLogger();
 
 describe("EboActor", () => {
     describe("onRequestCreated", () => {
