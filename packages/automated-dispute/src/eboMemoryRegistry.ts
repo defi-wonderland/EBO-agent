@@ -1,5 +1,6 @@
+import { DisputeNotFound } from "./exceptions/eboRegistry/disputeNotFound.js";
 import { EboRegistry } from "./interfaces/eboRegistry.js";
-import { Dispute, Request, Response } from "./types/prophet.js";
+import { Dispute, DisputeStatus, Request, Response } from "./types/prophet.js";
 
 export class EboMemoryRegistry implements EboRegistry {
     constructor(
@@ -36,5 +37,22 @@ export class EboMemoryRegistry implements EboRegistry {
     /** @inheritdoc */
     public addDispute(disputeId: string, dispute: Dispute): void {
         this.disputes.set(disputeId, dispute);
+    }
+
+    /** @inheritdoc */
+    public getDispute(disputeId: string): Dispute | undefined {
+        return this.disputes.get(disputeId);
+    }
+
+    /** @inheritdoc */
+    public updateDisputeStatus(disputeId: string, status: DisputeStatus): void {
+        const dispute = this.getDispute(disputeId);
+
+        if (dispute === undefined) throw new DisputeNotFound(disputeId);
+
+        this.disputes.set(disputeId, {
+            ...dispute,
+            status: status,
+        });
     }
 }
