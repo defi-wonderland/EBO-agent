@@ -2,8 +2,10 @@ import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { Timestamp } from "@ebo-agent/shared";
 import { Address } from "viem";
 
+export type RequestId = string;
+
 export interface Request {
-    id: string;
+    id: RequestId;
     chainId: Caip2ChainId;
     epoch: bigint;
     epochTimestamp: Timestamp;
@@ -25,7 +27,7 @@ export interface Response {
 
     prophetData: Readonly<{
         proposer: Address;
-        requestId: string;
+        requestId: RequestId;
 
         // To be byte-encode when sending it to Prophet
         response: {
@@ -48,6 +50,6 @@ export interface Dispute {
         disputer: Address;
         proposer: Address;
         responseId: string;
-        requestId: string;
+        requestId: RequestId;
     };
 }
