@@ -1,4 +1,3 @@
-import { request } from "http";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { ILogger } from "@ebo-agent/shared";
 
@@ -37,6 +36,8 @@ export class EboProcessor {
                 await this.sync();
             } catch (err) {
                 this.logger.error(`Unhandled error during the event loop: ${err}`);
+
+                clearInterval(this.eventsInterval);
 
                 throw err;
             }
