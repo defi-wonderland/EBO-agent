@@ -90,6 +90,7 @@ export class ProtocolProvider {
                 name: "RequestCreated",
                 blockNumber: 1n,
                 logIndex: 1,
+                requestId: "0x01",
                 metadata: {
                     requestId: "0x01",
                     chainId: "eip155:1",
@@ -111,6 +112,7 @@ export class ProtocolProvider {
                 name: "ResponseProposed",
                 blockNumber: 2n,
                 logIndex: 1,
+                requestId: "0x01",
                 metadata: {
                     requestId: "0x01",
                     responseId: "0x02",
@@ -129,6 +131,7 @@ export class ProtocolProvider {
                 name: "ResponseDisputed",
                 blockNumber: 3n,
                 logIndex: 1,
+                requestId: "0x01",
                 metadata: {
                     requestId: "0x01",
                     responseId: "0x02",
@@ -145,6 +148,7 @@ export class ProtocolProvider {
                 name: "DisputeStatusChanged",
                 blockNumber: 4n,
                 logIndex: 20,
+                requestId: "0x01",
                 metadata: { disputeId: "0x03", status: "Won", blockNumber: 4n },
             } as EboEvent<"DisputeStatusChanged">,
         ];

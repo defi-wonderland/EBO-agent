@@ -69,5 +69,6 @@ export type EboEvent<T extends EboEventName> = {
     blockNumber: bigint;
     logIndex: number;
     rawLog?: Log;
+    requestId: string; // Field to use to route events to actors
     metadata: EboEventData<T>;
 };
