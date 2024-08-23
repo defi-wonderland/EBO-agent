@@ -42,30 +42,6 @@ describe("onDisputeStatusChanged", () => {
         expect(mockUpdateDisputeStatus).toHaveBeenCalledWith(dispute.id, "Lost");
     });
 
-    it("executes the onTerminate callback when dispute has been escalated", async () => {
-        const dispute = mocks.buildDispute(actorRequest, response, { status: "Won" });
-        const event: EboEvent<"DisputeStatusChanged"> = {
-            name: "DisputeStatusChanged",
-            blockNumber: 1n,
-            logIndex: 1,
-            metadata: {
-                disputeId: "0x01",
-                status: "Escalated",
-                dispute: dispute.prophetData,
-                blockNumber: 1n,
-            },
-        };
-
-        const { actor, registry, onTerminate } = mocks.buildEboActor(actorRequest, logger);
-
-        vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
-        vi.spyOn(registry, "getDispute").mockReturnValue(dispute);
-
-        await actor.onDisputeStatusChanged(event);
-
-        expect(onTerminate).toHaveBeenCalledWith(actorRequest);
-    });
-
     it.skip("notifies when dispute has been escalated");
 
     it("proposes a new response when dispute status goes into NoResolution", async () => {

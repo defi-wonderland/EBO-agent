@@ -1,13 +1,12 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types";
 import { ILogger } from "@ebo-agent/shared";
-import { vi } from "vitest";
 
-import { EboActor } from "../../src/eboActor";
-import { EboMemoryRegistry } from "../../src/eboMemoryRegistry";
-import { ProtocolProvider } from "../../src/protocolProvider";
+import { EboActor } from "../../src/eboActor.js";
+import { EboMemoryRegistry } from "../../src/eboMemoryRegistry.js";
+import { ProtocolProvider } from "../../src/protocolProvider.js";
 import { Dispute, Request, Response } from "../../src/types/index.js";
-import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "../eboActor/fixtures";
+import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "../eboActor/fixtures.js";
 
 /**
  * Builds a base `EboActor` scaffolded with all its dependencies.
@@ -18,8 +17,6 @@ import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "../eboActor/fixtures";
  */
 export function buildEboActor(request: Request, logger: ILogger) {
     const { id, chainId, epoch, epochTimestamp } = request;
-
-    const onTerminate = vi.fn();
 
     const protocolProviderRpcUrls = ["http://localhost:8538"];
     const protocolProvider = new ProtocolProvider(
@@ -36,7 +33,6 @@ export function buildEboActor(request: Request, logger: ILogger) {
 
     const actor = new EboActor(
         { id, epoch, epochTimestamp },
-        onTerminate,
         protocolProvider,
         blockNumberService,
         registry,
@@ -45,7 +41,6 @@ export function buildEboActor(request: Request, logger: ILogger) {
 
     return {
         actor,
-        onTerminate,
         protocolProvider,
         blockNumberService,
         registry,
