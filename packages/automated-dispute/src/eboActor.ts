@@ -14,8 +14,6 @@ import { ProtocolProvider } from "./protocolProvider.js";
 import { EboEvent } from "./types/events.js";
 import { Dispute, Request, Response, ResponseBody } from "./types/prophet.js";
 
-type OnTerminateActorCallback = (request: Request) => Promise<void>;
-
 /**
  * Actor that handles a singular Prophet's request asking for the block number that corresponds
  * to an instant on an indexed chain.
@@ -39,7 +37,6 @@ export class EboActor {
             epoch: bigint;
             epochTimestamp: bigint;
         },
-        private readonly onTerminate: OnTerminateActorCallback,
         private readonly protocolProvider: ProtocolProvider,
         private readonly blockNumberService: BlockNumberService,
         private readonly registry: EboRegistry,
@@ -425,8 +422,7 @@ export class EboActor {
 
     private async onDisputeEscalated(disputeId: string, request: Request) {
         // TODO: notify
-
-        await this.onTerminate(request);
+        this.logger.info(`Dispute ${disputeId} for request ${request.id} has been escalated.`);
     }
 
     private async onDisputeWithNoResolution(disputeId: string, request: Request) {
@@ -462,6 +458,6 @@ export class EboActor {
 
         const request = this.getActorRequest();
 
-        await this.onTerminate(request);
+        this.logger.info(`Request ${request.id} has been finalized.`);
     }
 }
