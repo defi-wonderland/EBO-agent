@@ -80,6 +80,12 @@ export class ProtocolProvider {
         };
     }
 
+    async getLastFinalizedBlock(): Promise<bigint> {
+        const { number } = await this.client.getBlock({ blockTag: "finalized" });
+
+        return number;
+    }
+
     async getEvents(_fromBlock: bigint, _toBlock: bigint): Promise<EboEvent<EboEventName>[]> {
         // TODO: implement actual method.
         //
