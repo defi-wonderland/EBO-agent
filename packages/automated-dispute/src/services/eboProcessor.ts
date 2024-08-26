@@ -72,6 +72,8 @@ export class EboProcessor {
                 //
                 // On the enhancements phase, the processor will try to recover that particular actor,
                 // if possible, by recreating the actor again and trying to handle all request events.
+                //
+                // Consider also the possibility to use Promise.allSettled per nigiri's suggestion.
                 this.logger.error(`Handling events for ${requestId} caused an error: ${err}`);
 
                 // TODO: notify
