@@ -2,6 +2,7 @@ import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ProcessorAlreadyStarted } from "../../src/exceptions/index.js";
 import { ProtocolProvider } from "../../src/protocolProvider.js";
 import { EboEvent, EboEventName } from "../../src/types/events.js";
 import { RequestId } from "../../src/types/prophet.js";
@@ -65,6 +66,25 @@ describe("EboProcessor", () => {
                 expect.any(BlockNumberService),
                 logger,
             );
+        });
+
+        it("throws if called more than once", async () => {
+            const { processor, actorsManager, protocolProvider } = mocks.buildEboProcessor(logger);
+
+            const currentEpoch = {
+                currentEpoch: 1n,
+                currentEpochBlockNumber: 1n,
+                currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+            };
+
+            vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
+            vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(
+                currentEpoch.currentEpochBlockNumber + 10n,
+            );
+            vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([]);
+
+            await processor.start(1);
+            expect(processor.start(1)).rejects.toThrow(ProcessorAlreadyStarted);
         });
 
         it.skip("fetches events since epoch start when starting", async () => {

@@ -3,6 +3,7 @@ import { Address, ILogger } from "@ebo-agent/shared";
 
 import { EboActor } from "../eboActor.js";
 import { EboActorsManager } from "../eboActorsManager.js";
+import { ProcessorAlreadyStarted } from "../exceptions/index.js";
 import { ProtocolProvider } from "../protocolProvider.js";
 import { alreadyDeletedActorWarning, droppingUnhandledEventsWarning } from "../templates/index.js";
 import { EboEvent, EboEventName } from "../types/events.js";
@@ -29,6 +30,8 @@ export class EboProcessor {
      * @param msBetweenChecks milliseconds between each sync
      */
     public async start(msBetweenChecks: number = DEFAULT_MS_BETWEEN_CHECKS) {
+        if (this.eventsInterval) throw new ProcessorAlreadyStarted();
+
         await this.sync(); // Bootstrapping
 
         this.eventsInterval = setInterval(async () => {
