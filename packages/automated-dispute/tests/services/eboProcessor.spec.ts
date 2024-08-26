@@ -22,7 +22,7 @@ describe("EboProcessor", () => {
             vi.useRealTimers();
         });
 
-        it.skip("bootstraps actors with onchain active requests when starting", async () => {
+        it("bootstraps actors with onchain active requests when starting", async () => {
             const { processor, actorsManager, protocolProvider } = mocks.buildEboProcessor(logger);
 
             const currentEpoch = {
@@ -69,7 +69,7 @@ describe("EboProcessor", () => {
         });
 
         it("throws if called more than once", async () => {
-            const { processor, actorsManager, protocolProvider } = mocks.buildEboProcessor(logger);
+            const { processor, protocolProvider } = mocks.buildEboProcessor(logger);
 
             const currentEpoch = {
                 currentEpoch: 1n,
@@ -87,7 +87,7 @@ describe("EboProcessor", () => {
             expect(processor.start(1)).rejects.toThrow(ProcessorAlreadyStarted);
         });
 
-        it.skip("fetches events since epoch start when starting", async () => {
+        it("fetches events since epoch start when starting", async () => {
             const { processor, protocolProvider } = mocks.buildEboProcessor(logger);
 
             const currentEpoch = {
@@ -125,7 +125,7 @@ describe("EboProcessor", () => {
             );
         });
 
-        it.skip("fetches events since last block checked after first events fetch", async () => {
+        it("fetches events since last block checked after first events fetch", async () => {
             const { processor, protocolProvider } = mocks.buildEboProcessor(logger);
 
             const mockLastCheckedBlock = 5n;
@@ -165,7 +165,7 @@ describe("EboProcessor", () => {
             expect(mockGetEvents).toHaveBeenCalledWith(mockLastCheckedBlock, currentBlock);
         });
 
-        it.skip("causes actor to execute RPCs only during the last event", async () => {
+        it("causes actor to execute RPCs only during the last event", async () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
 
             const currentEpoch = {
@@ -229,7 +229,7 @@ describe("EboProcessor", () => {
             expect(mockActorOnNewEvent).toHaveBeenCalledOnce();
         });
 
-        it.skip("forwards events in block and log index order", async () => {
+        it("forwards events in block and log index order", async () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
 
             const currentEpoch = {
@@ -292,7 +292,7 @@ describe("EboProcessor", () => {
             expect(mockActorUpdateState).toHaveBeenNthCalledWith(2, eventStream[0]);
         });
 
-        it.skip("forwards events to corresponding actors", async () => {
+        it("forwards events to corresponding actors", async () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
 
             const currentEpoch = {
