@@ -1,5 +1,5 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { ILogger } from "@ebo-agent/shared";
+import { Address, ILogger } from "@ebo-agent/shared";
 
 import { EboActor } from "../eboActor.js";
 import { EboActorsManager } from "../eboActorsManager.js";
@@ -94,19 +94,20 @@ export class EboProcessor {
     }
 
     /**
-     * Group events by its request ID.
+     * Group events by its normalized request ID.
      * .
      *
      * @param events a raw stream of events for, potentially, several requests
-     * @returns a map with request ID as a key and an array of the request's events as value.
+     * @returns a map with normalized request ID as a key and an array of the request's events as value.
      */
     private groupEventsByRequest(events: EboEventStream) {
         const groupedEvents = new Map<RequestId, EboEventStream>();
 
         for (const event of events) {
-            const requestEvents = groupedEvents.get(event.requestId) || [];
+            const requestId = Address.normalize(event.requestId);
+            const requestEvents = groupedEvents.get(requestId) || [];
 
-            groupedEvents.set(event.requestId, [...requestEvents, event]);
+            groupedEvents.set(requestId, [...requestEvents, event]);
         }
 
         return groupedEvents;
@@ -120,10 +121,10 @@ export class EboProcessor {
      * @returns request IDS to sync
      */
     private calculateSynchableRequests(eventsRequestIds: RequestId[]) {
-        const actorsRequestIds = this.actorsManager.getEntries().map((entry) => entry[0]);
+        const actorsRequestIds = this.actorsManager.getRequestIds();
         const uniqueRequestIds = new Set([...eventsRequestIds, ...actorsRequestIds]);
 
-        return [...uniqueRequestIds];
+        return [...uniqueRequestIds].map((requestId) => Address.normalize(requestId));
     }
 
     /**
@@ -208,7 +209,7 @@ export class EboProcessor {
         const { currentEpochTimestamp } = await this.protocolProvider.getCurrentEpoch();
 
         const actorRequest = {
-            id: event.requestId,
+            id: Address.normalize(event.requestId),
             epoch: event.metadata.epoch,
             epochTimestamp: currentEpochTimestamp,
         };

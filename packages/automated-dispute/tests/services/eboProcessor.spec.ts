@@ -1,7 +1,6 @@
-import { afterEach, beforeEach } from "node:test";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProtocolProvider } from "../../src/protocolProvider.js";
 import { EboEvent, EboEventName } from "../../src/types/events.js";
@@ -289,14 +288,14 @@ describe("EboProcessor", () => {
 
             const request1 = {
                 ...DEFAULT_MOCKED_REQUEST_CREATED_DATA,
-                id: "0x01",
+                id: "0x01" as RequestId,
                 chainId: "eip155:1" as Caip2ChainId,
             };
             const response1 = mocks.buildResponse(request1);
 
             const request2 = {
                 ...DEFAULT_MOCKED_REQUEST_CREATED_DATA,
-                id: "0x02",
+                id: "0x02" as RequestId,
                 chainId: "eip155:17" as Caip2ChainId,
             };
             const response2 = mocks.buildResponse(request2);
@@ -388,7 +387,7 @@ describe("EboProcessor", () => {
 
             vi.spyOn(actorsManager, "createActor").mockResolvedValue(actor);
             vi.spyOn(actorsManager, "getActor").mockResolvedValue(actor);
-            vi.spyOn(actorsManager, "getEntries").mockReturnValue([[request.id, actor]]);
+            vi.spyOn(actorsManager, "getRequestIds").mockReturnValue([request.id]);
 
             const mockActorManagerDeleteActor = vi.spyOn(actorsManager, "deleteActor");
 

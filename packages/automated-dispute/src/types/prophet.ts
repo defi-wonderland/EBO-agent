@@ -1,8 +1,8 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
-import { Timestamp } from "@ebo-agent/shared";
+import { NormalizedAddress, Timestamp } from "@ebo-agent/shared";
 import { Address } from "viem";
 
-export type RequestId = string;
+export type RequestId = NormalizedAddress;
 
 export interface Request {
     id: RequestId;

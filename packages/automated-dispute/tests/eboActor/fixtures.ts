@@ -1,6 +1,6 @@
 import { Address } from "viem";
 
-import { Request } from "../../src/types/prophet";
+import { Request, RequestId } from "../../src/types/prophet";
 
 export const DEFAULT_MOCKED_PROTOCOL_CONTRACTS = {
     oracle: "0x123456" as Address,
@@ -8,7 +8,7 @@ export const DEFAULT_MOCKED_PROTOCOL_CONTRACTS = {
 };
 
 export const DEFAULT_MOCKED_REQUEST_CREATED_DATA: Request = {
-    id: "0x01",
+    id: "0x01" as RequestId,
     chainId: "eip155:1",
     epoch: 1n,
     epochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),

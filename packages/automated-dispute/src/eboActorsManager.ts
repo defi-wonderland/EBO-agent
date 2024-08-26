@@ -1,5 +1,5 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { ILogger } from "@ebo-agent/shared";
+import { Address, ILogger } from "@ebo-agent/shared";
 
 import { EboActor } from "./eboActor.js";
 import { EboMemoryRegistry } from "./eboMemoryRegistry.js";
@@ -15,12 +15,12 @@ export class EboActorsManager {
     }
 
     /**
-     * Return (request id, actor) tuples for each currently handled request.
+     * Return an array of normalized request IDs this instance is handling.
      *
-     * @returns an array of (request id, actor) tuples
+     * @returns array of normalized request IDs
      */
-    public getEntries() {
-        return [...this.requestActorMap.entries()];
+    public getRequestIds(): RequestId[] {
+        return [...this.requestActorMap.entries()].map((entry) => Address.normalize(entry[0]));
     }
 
     /**
