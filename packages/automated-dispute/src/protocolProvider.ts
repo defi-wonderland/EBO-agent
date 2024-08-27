@@ -237,10 +237,31 @@ export class ProtocolProvider {
         return;
     }
 
+    async settleDispute(
+        _request: Request["prophetData"],
+        _response: Response["prophetData"],
+        _dispute: Dispute["prophetData"],
+    ): Promise<void> {
+        // TODO: implement actual method
+        return;
+    }
+
+    async escalateDispute(
+        _request: Request["prophetData"],
+        _response: Response["prophetData"],
+        _dispute: Dispute["prophetData"],
+    ): Promise<void> {
+        // TODO: implement actual method
+        return;
+    }
+
     // Pending confirmation from onchain team
     // releasePledge(args):void;
 
-    async finalize(_request: Request, _response: Response): Promise<void> {
+    async finalize(
+        _request: Request["prophetData"],
+        _response: Response["prophetData"],
+    ): Promise<void> {
         //TODO: implement actual method
         return;
     }

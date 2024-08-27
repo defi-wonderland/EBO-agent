@@ -3,6 +3,7 @@ import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
 import { ContractFunctionRevertedError } from "viem";
 
+import { DisputeWithoutResponse } from "./exceptions/eboActor/disputeWithoutResponse.exception.js";
 import {
     InvalidActorState,
     InvalidDisputeStatus,
@@ -69,11 +70,147 @@ export class EboActor {
      * Triggers time-based interactions with smart contracts. This handles window-based
      * checks like proposal windows to close requests, or dispute windows to accept responses.
      *
-     * @param _blockNumber block number to check open/closed windows
+     * @param blockNumber block number to check open/closed windows
      */
-    public onLastBlockUpdated(_blockNumber: bigint) {
-        // TODO
-        throw new Error("Implement me");
+    public async onLastBlockUpdated(blockNumber: bigint): Promise<void> {
+        await this.settleDisputes(blockNumber);
+
+        const request = this.getActorRequest();
+        const proposalDeadline = request.prophetData.responseModuleData.deadline;
+        const proposalWindowOpen = blockNumber <= proposalDeadline;
+
+        if (proposalWindowOpen) {
+            this.logger.debug(`Proposal window for request ${request.id} not closed yet.`);
+
+            return;
+        }
+
+        const acceptedResponse = this.getAcceptedResponse(blockNumber);
+
+        if (acceptedResponse) {
+            this.logger.info(`Finalizing request ${request.id}...`);
+
+            await this.protocolProvider.finalize(request.prophetData, acceptedResponse.prophetData);
+        }
+
+        // TODO: check for responseModuleData.deadline, if no answer has been accepted after the deadline
+        //  notify and (TBD) finalize with no response
+    }
+
+    private async settleDisputes(blockNumber: bigint): Promise<void> {
+        const request = this.getActorRequest();
+        const disputes: Dispute[] = this.getActiveDisputes();
+
+        const settledDisputes = disputes.map(async (dispute) => {
+            const responseId = dispute.prophetData.responseId;
+            const response = this.registry.getResponse(responseId);
+
+            if (!response) {
+                this.logger.error(
+                    `While trying to settle dispute ${dispute.id} its response with` +
+                        `id ${dispute.prophetData.responseId} was not found in the registry.`,
+                );
+
+                throw new DisputeWithoutResponse(dispute);
+            }
+
+            if (this.canBeSettled(request, dispute, blockNumber)) {
+                await this.settleDispute(request, response, dispute);
+            }
+        });
+
+        // Any of the disputes not being handled correctly should make the actor fail
+        await Promise.all(settledDisputes);
+    }
+
+    private getActiveDisputes(): Dispute[] {
+        const disputes = this.registry.getDisputes();
+
+        return disputes.filter((dispute) => dispute.status == "Active");
+    }
+
+    // TODO: extract this into another service
+    private canBeSettled(request: Request, dispute: Dispute, blockNumber: bigint): boolean {
+        if (dispute.status != "Active") return false;
+
+        const { bondEscalationDeadline, tyingBuffer } = request.prophetData.disputeModuleData;
+        const deadline = bondEscalationDeadline + tyingBuffer;
+
+        return blockNumber > deadline;
+    }
+
+    private settleDispute(request: Request, response: Response, dispute: Dispute) {
+        return Promise.resolve()
+            .then(async () => {
+                this.logger.info(`Settling dispute ${dispute.id}...`);
+
+                await this.protocolProvider.settleDispute(
+                    request.prophetData,
+                    response.prophetData,
+                    dispute.prophetData,
+                );
+
+                this.logger.info(`Dispute ${dispute.id} settled.`);
+            })
+            .catch(async (err) => {
+                this.logger.warn(`Dispute ${dispute.id} was not settled.`);
+
+                if (!(err instanceof ContractFunctionRevertedError)) throw err;
+
+                if (err.data?.errorName === "BondEscalationModule_ShouldBeEscalated") {
+                    this.logger.warn(`Escalating dispute ${dispute.id}...`);
+
+                    await this.protocolProvider.escalateDispute(
+                        request.prophetData,
+                        response.prophetData,
+                        dispute.prophetData,
+                    );
+
+                    // TODO: notify
+
+                    this.logger.warn(`Dispute ${dispute.id} was escalated.`);
+                }
+            })
+            .catch((err) => {
+                this.logger.error(`Failed to escalate dispute ${dispute.id}.`);
+
+                // TODO: notify
+
+                throw err;
+            });
+    }
+
+    /**
+     * Gets the first accepted response based on its creation timestamp
+     *
+     * @param blockNumber current block number
+     * @returns a `Response` instance if any accepted, otherwise `undefined`
+     */
+    private getAcceptedResponse(blockNumber: bigint): Response | undefined {
+        const responses = this.registry.getResponses();
+        const acceptedResponses = responses.filter((response) =>
+            this.isResponseAccepted(response, blockNumber),
+        );
+
+        return acceptedResponses.sort((a, b) => {
+            if (a.createdAt < b.createdAt) return -1;
+            if (a.createdAt > b.createdAt) return 1;
+
+            return 0;
+        })[0];
+    }
+
+    // TODO: refactor outside this module
+    private isResponseAccepted(response: Response, blockNumber: bigint) {
+        const request = this.getActorRequest();
+        const dispute = this.registry.getResponseDispute(response);
+        const disputeWindow =
+            response.createdAt + request.prophetData.responseModuleData.disputeWindow;
+
+        // Response is still able to be disputed
+        if (blockNumber <= disputeWindow) return false;
+
+        return dispute ? dispute.status === "Lost" : true;
     }
 
     /**
