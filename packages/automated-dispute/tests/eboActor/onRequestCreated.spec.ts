@@ -8,7 +8,7 @@ import { EboMemoryRegistry } from "../../src/eboMemoryRegistry.js";
 import { RequestMismatch } from "../../src/exceptions/index.js";
 import { ProtocolProvider } from "../../src/protocolProvider.js";
 import { EboActor } from "../../src/services/index.js";
-import { EboEvent, Response } from "../../src/types/index.js";
+import { EboEvent } from "../../src/types/index.js";
 import mocks from "../mocks/index.js";
 import {
     DEFAULT_MOCKED_PROTOCOL_CONTRACTS,

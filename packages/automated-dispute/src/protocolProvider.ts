@@ -91,27 +91,7 @@ export class ProtocolProvider {
         //
         // We should decode events using the corresponding ABI and also "fabricate" new events
         // if for some triggers there are no events (e.g. dispute window ended)
-        const eboRequestCreatorEvents = [
-            {
-                name: "RequestCreated",
-                blockNumber: 1n,
-                logIndex: 1,
-                requestId: "0x01",
-                metadata: {
-                    requestId: "0x01",
-                    chainId: "eip155:1",
-                    epoch: 1n,
-                    request: {
-                        requester: "0x12345678901234567890123456789012",
-                        requestModule: "0x12345678901234567890123456789012",
-                        responseModule: "0x12345678901234567890123456789012",
-                        disputeModule: "0x12345678901234567890123456789012",
-                        resolutionModule: "0x12345678901234567890123456789012",
-                        finalityModule: "0x12345678901234567890123456789012",
-                    },
-                },
-            } as EboEvent<"RequestCreated">,
-        ];
+        const eboRequestCreatorEvents: EboEvent<EboEventName>[] = [];
 
         const oracleEvents = [
             {

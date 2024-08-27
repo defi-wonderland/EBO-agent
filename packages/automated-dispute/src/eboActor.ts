@@ -13,7 +13,7 @@ import {
 import { EboRegistry } from "./interfaces/eboRegistry.js";
 import { ProtocolProvider } from "./protocolProvider.js";
 import { EboEvent, EboEventName } from "./types/events.js";
-import { Dispute, Request, Response, ResponseBody } from "./types/prophet.js";
+import { Dispute, Request, RequestId, Response, ResponseBody } from "./types/prophet.js";
 
 /**
  * Actor that handles a singular Prophet's request asking for the block number that corresponds
@@ -34,7 +34,7 @@ export class EboActor {
      */
     constructor(
         private readonly actorRequest: {
-            id: string;
+            id: RequestId;
             epoch: bigint;
             epochTimestamp: bigint;
         },
