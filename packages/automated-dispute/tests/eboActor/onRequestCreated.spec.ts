@@ -131,22 +131,21 @@ describe("EboActor", () => {
                 logger,
             );
 
-            const previousResponses = new Map<string, Response>();
-            previousResponses.set("0x01", {
-                id: "0x01",
-                wasDisputed: false,
-                prophetData: {
-                    proposer: "0x02",
-                    requestId: requestId,
-                    response: {
-                        block: indexedEpochBlockNumber,
-                        chainId: requestCreatedEvent.metadata.chainId,
-                        epoch: protocolEpoch.currentEpoch,
+            vi.spyOn(registry, "getResponses").mockReturnValue([
+                {
+                    id: "0x01",
+                    createdAt: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                    prophetData: {
+                        proposer: "0x02",
+                        requestId: requestId,
+                        response: {
+                            block: indexedEpochBlockNumber,
+                            chainId: requestCreatedEvent.metadata.chainId,
+                            epoch: protocolEpoch.currentEpoch,
+                        },
                     },
                 },
-            });
-
-            vi.spyOn(registry, "getResponses").mockReturnValue(previousResponses);
+            ]);
 
             await actor.onRequestCreated(requestCreatedEvent);
 

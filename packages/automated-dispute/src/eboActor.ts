@@ -165,7 +165,8 @@ export class EboActor {
             block: blockNumber,
         };
 
-        for (const [responseId, proposedResponse] of responses) {
+        for (const proposedResponse of responses) {
+            const responseId = proposedResponse.id;
             const proposedBody = proposedResponse.prophetData.response;
 
             if (this.equalResponses(proposedBody, newResponse)) {
@@ -245,7 +246,7 @@ export class EboActor {
 
         const response: Response = {
             id: event.metadata.responseId,
-            wasDisputed: false, // All responses are created undisputed
+            createdAt: event.blockNumber,
             prophetData: event.metadata.response,
         };
 
@@ -321,6 +322,7 @@ export class EboActor {
 
         const dispute: Dispute = {
             id: event.metadata.disputeId,
+            createdAt: event.blockNumber,
             status: "Active",
             prophetData: event.metadata.dispute,
         };

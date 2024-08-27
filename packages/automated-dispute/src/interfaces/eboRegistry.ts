@@ -29,9 +29,16 @@ export interface EboRegistry {
     /**
      * Return all responses
      *
-     * @returns responses map
+     * @returns responses array
      */
-    getResponses(): Map<string, Response>;
+    getResponses(): Response[];
+
+    /**
+     * Return the dispute of a response
+     *
+     * @returns a dispute if the response has been disputed, `undefined` otherwise
+     */
+    getResponseDispute(response: Response): Dispute | undefined;
 
     /**
      * Get a `Response` by ID.
@@ -48,6 +55,13 @@ export interface EboRegistry {
      * @param dispute the `Dispute`
      */
     addDispute(disputeId: string, dispute: Dispute): void;
+
+    /**
+     * Get all disputes
+     *
+     * @returns an array of `Dispute` instances
+     */
+    getDisputes(): Dispute[];
 
     /**
      * Get a `Dispute` by ID.
