@@ -77,9 +77,9 @@ export class EboActor {
 
         const request = this.getActorRequest();
         const proposalDeadline = request.prophetData.responseModuleData.deadline;
-        const proposalWindowOpen = blockNumber <= proposalDeadline;
+        const isProposalWindowOpen = blockNumber <= proposalDeadline;
 
-        if (proposalWindowOpen) {
+        if (isProposalWindowOpen) {
             this.logger.debug(`Proposal window for request ${request.id} not closed yet.`);
 
             return;
@@ -126,12 +126,12 @@ export class EboActor {
     private getActiveDisputes(): Dispute[] {
         const disputes = this.registry.getDisputes();
 
-        return disputes.filter((dispute) => dispute.status == "Active");
+        return disputes.filter((dispute) => dispute.status === "Active");
     }
 
     // TODO: extract this into another service
     private canBeSettled(request: Request, dispute: Dispute, blockNumber: bigint): boolean {
-        if (dispute.status != "Active") return false;
+        if (dispute.status !== "Active") return false;
 
         const { bondEscalationDeadline, tyingBuffer } = request.prophetData.disputeModuleData;
         const deadline = bondEscalationDeadline + tyingBuffer;
@@ -156,6 +156,8 @@ export class EboActor {
                 this.logger.warn(`Dispute ${dispute.id} was not settled.`);
 
                 if (!(err instanceof ContractFunctionRevertedError)) throw err;
+
+                this.logger.warn(`Call reverted for ${dispute.id} due to: ${err.data?.errorName}`);
 
                 if (err.data?.errorName === "BondEscalationModule_ShouldBeEscalated") {
                     this.logger.warn(`Escalating dispute ${dispute.id}...`);
