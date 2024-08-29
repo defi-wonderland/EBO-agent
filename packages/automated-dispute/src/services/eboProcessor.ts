@@ -50,7 +50,9 @@ export class EboProcessor {
     /** Sync new blocks and their events with their corresponding actors. */
     private async sync() {
         // TODO: detect new epoch by comparing subgraph's data with EpochManager's current epoch
-        //  and trigger a request creation.
+        //  and trigger a request creation if there's no actor handling an <epoch, chain> request.
+        //  This process should somehow check if there's already a request created for the epoch
+        //  and chain that has no agent assigned and create it if that's the case.
 
         if (!this.lastCheckedBlock) {
             this.lastCheckedBlock = await this.getEpochStartBlock();
@@ -67,18 +69,7 @@ export class EboProcessor {
 
                 await this.syncRequest(requestId, events, lastBlock);
             } catch (err) {
-                // FIXME: to avoid one request bringing down the whole agent if an error is thrown,
-                //  the failing request's actor (if any) will be silently removed.
-                //
-                // On the enhancements phase, the processor will try to recover that particular actor,
-                // if possible, by recreating the actor again and trying to handle all request events.
-                //
-                // Consider also the possibility to use Promise.allSettled per nigiri's suggestion.
-                this.logger.error(`Handling events for ${requestId} caused an error: ${err}`);
-
-                // TODO: notify
-
-                this.actorsManager.deleteActor(requestId);
+                this.onActorError(requestId, err as Error);
             }
         });
 
@@ -141,7 +132,7 @@ export class EboProcessor {
      */
     private async syncRequest(requestId: RequestId, events: EboEventStream, lastBlock: bigint) {
         const firstEvent = events[0];
-        const actor = await this.getOrCreateActor(requestId, firstEvent);
+        const actor = this.getOrCreateActor(requestId, firstEvent);
 
         if (!actor) {
             this.logger.warn(droppingUnhandledEventsWarning(requestId));
@@ -150,15 +141,9 @@ export class EboProcessor {
         }
 
         const sortedEvents = events.sort(this.compareByBlockAndLogIndex);
+        sortedEvents.forEach((event) => actor.enqueue(event));
 
-        sortedEvents.forEach((event, idx) => {
-            // NOTE: forEach preserves events' order, DO NOT use a for loop
-            actor.updateState(event);
-
-            const isLastEvent = idx === events.length - 1;
-            if (isLastEvent) actor.onNewEvent(event);
-        });
-
+        actor.processEvents();
         actor.onLastBlockUpdated(lastBlock);
 
         if (actor.canBeTerminated()) {
@@ -188,7 +173,7 @@ export class EboProcessor {
      * @param firstEvent an event to create an actor if it does not exist
      * @returns the actor handling the specified request
      */
-    private async getOrCreateActor(requestId: RequestId, firstEvent?: EboEvent<EboEventName>) {
+    private getOrCreateActor(requestId: RequestId, firstEvent?: EboEvent<EboEventName>) {
         const actor = this.actorsManager.getActor(requestId);
 
         if (actor) return actor;
@@ -206,17 +191,12 @@ export class EboProcessor {
      * Create a new actor based on the data provided by a `RequestCreated` event.
      *
      * @param event a `RequestCreated` event
-     * @returns a new `EboActor` instance
+     * @returns a new `EboActor` instance, `null` if the actor was not created
      */
-    private async createNewActor(event: EboEvent<"RequestCreated">) {
-        // FIXME: this is one of the places where we should change
-        //  the processor's behavior if we want to support non-current epochs
-        const { currentEpochTimestamp } = await this.protocolProvider.getCurrentEpoch();
-
+    private createNewActor(event: EboEvent<"RequestCreated">) {
         const actorRequest = {
             id: Address.normalize(event.requestId),
             epoch: event.metadata.epoch,
-            epochTimestamp: currentEpochTimestamp,
         };
 
         const actor = this.actorsManager.createActor(
@@ -227,6 +207,18 @@ export class EboProcessor {
         );
 
         return actor;
+    }
+
+    private onActorError(requestId: RequestId, error: Error) {
+        this.logger.error(
+            `Critical error. Actor event handling request ${requestId} ` +
+                `threw a non-recoverable error: ${error.message}\n\n` +
+                `The request ${requestId} will stop being tracked by the system.`,
+        );
+
+        // TODO: notify
+
+        this.terminateActor(requestId);
     }
 
     /**
@@ -246,10 +238,6 @@ export class EboProcessor {
 
             // TODO: notify
         }
-    }
-
-    private async onActorError(_actor: EboActor, _error: Error) {
-        // TODO
     }
 
     private async notifyError(_error: Error) {

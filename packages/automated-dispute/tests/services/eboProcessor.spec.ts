@@ -57,7 +57,6 @@ describe("EboProcessor", () => {
             const expectedNewActor = expect.objectContaining({
                 id: requestCreatedEvent.requestId,
                 epoch: currentEpoch.currentEpoch,
-                epochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
             });
 
             expect(mockCreateActor).toHaveBeenCalledWith(
@@ -165,7 +164,7 @@ describe("EboProcessor", () => {
             expect(mockGetEvents).toHaveBeenCalledWith(mockLastCheckedBlock, currentBlock);
         });
 
-        it("causes actor to execute RPCs only during the last event", async () => {
+        it("enqueues every new event into the actor", async () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
 
             const currentEpoch = {
@@ -212,12 +211,9 @@ describe("EboProcessor", () => {
 
             const { actor } = mocks.buildEboActor(request, logger);
 
-            const mockActorUpdateState = vi.spyOn(actor, "updateState");
-            const mockActorOnNewEvent = vi.spyOn(actor, "onNewEvent");
+            const mockActorEnqueue = vi.spyOn(actor, "enqueue");
 
-            mockActorUpdateState.mockImplementation(() => {});
-            mockActorOnNewEvent.mockImplementation(() => {});
-
+            vi.spyOn(actor, "processEvents").mockImplementation(() => {});
             vi.spyOn(actor, "onLastBlockUpdated").mockImplementation(() => {});
 
             vi.spyOn(actorsManager, "createActor").mockResolvedValue(actor);
@@ -225,8 +221,8 @@ describe("EboProcessor", () => {
 
             await processor.start(msBetweenChecks);
 
-            expect(mockActorUpdateState).toHaveBeenCalledTimes(eventStream.length);
-            expect(mockActorOnNewEvent).toHaveBeenCalledOnce();
+            expect(mockActorEnqueue).toHaveBeenNthCalledWith(1, eventStream[0]);
+            expect(mockActorEnqueue).toHaveBeenNthCalledWith(2, eventStream[1]);
         });
 
         it("forwards events in block and log index order", async () => {

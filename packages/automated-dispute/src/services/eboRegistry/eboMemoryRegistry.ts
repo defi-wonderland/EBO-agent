@@ -1,6 +1,6 @@
-import { DisputeNotFound } from "./exceptions/eboRegistry/disputeNotFound.js";
-import { EboRegistry } from "./interfaces/eboRegistry.js";
-import { Dispute, DisputeStatus, Request, Response } from "./types/prophet.js";
+import { DisputeNotFound } from "../../exceptions/eboRegistry/disputeNotFound.js";
+import { EboRegistry } from "../../interfaces/eboRegistry.js";
+import { Dispute, DisputeStatus, Request, Response } from "../../types/prophet.js";
 
 export class EboMemoryRegistry implements EboRegistry {
     constructor(
@@ -10,8 +10,8 @@ export class EboMemoryRegistry implements EboRegistry {
     ) {}
 
     /** @inheritdoc */
-    public addRequest(requestId: string, request: Request) {
-        this.requests.set(requestId, request);
+    public addRequest(request: Request) {
+        this.requests.set(request.id, request);
     }
 
     /** @inheritdoc */
@@ -20,8 +20,13 @@ export class EboMemoryRegistry implements EboRegistry {
     }
 
     /** @inheritdoc */
-    public addResponse(responseId: string, response: Response): void {
-        this.responses.set(responseId, response);
+    public removeRequest(requestId: string): boolean {
+        return this.requests.delete(requestId);
+    }
+
+    /** @inheritdoc */
+    public addResponse(response: Response): void {
+        this.responses.set(response.id, response);
     }
 
     /** @inheritdoc */
@@ -32,6 +37,11 @@ export class EboMemoryRegistry implements EboRegistry {
     /** @inheritdoc */
     public getResponse(responseId: string): Response | undefined {
         return this.responses.get(responseId);
+    }
+
+    /** @inheritdoc */
+    removeResponse(responseId: string): boolean {
+        return this.responses.delete(responseId);
     }
 
     /** @inheritdoc */

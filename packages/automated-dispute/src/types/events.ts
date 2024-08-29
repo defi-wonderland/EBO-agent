@@ -1,7 +1,7 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { Log } from "viem";
 
-import { Dispute, DisputeStatus, Request, Response } from "./prophet.js";
+import { Dispute, DisputeStatus, Request, RequestId, Response } from "./prophet.js";
 
 export type EboEventName =
     | "NewEpoch"
@@ -69,6 +69,6 @@ export type EboEvent<T extends EboEventName> = {
     blockNumber: bigint;
     logIndex: number;
     rawLog?: Log;
-    requestId: string; // Field to use to route events to actors
+    requestId: RequestId; // Field to use to route events to actors
     metadata: EboEventData<T>;
 };

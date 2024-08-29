@@ -3,8 +3,8 @@ import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types";
 import { ILogger } from "@ebo-agent/shared";
 
 import { EboActor } from "../../src/eboActor.js";
-import { EboMemoryRegistry } from "../../src/eboMemoryRegistry.js";
 import { ProtocolProvider } from "../../src/protocolProvider.js";
+import { EboMemoryRegistry } from "../../src/services/index.js";
 import { Dispute, Request, Response } from "../../src/types/index.js";
 import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "../eboActor/fixtures.js";
 
