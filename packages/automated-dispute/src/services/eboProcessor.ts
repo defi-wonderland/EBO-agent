@@ -141,7 +141,8 @@ export class EboProcessor {
 
         events.forEach((event) => actor.enqueue(event));
 
-        actor.processEvents();
+        await actor.processEvents();
+
         actor.onLastBlockUpdated(lastBlock);
 
         if (actor.canBeTerminated()) {

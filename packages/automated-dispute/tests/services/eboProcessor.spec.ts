@@ -164,7 +164,7 @@ describe("EboProcessor", () => {
             expect(mockGetEvents).toHaveBeenCalledWith(mockLastCheckedBlock, currentBlock);
         });
 
-        it("enqueues every new event into the actor", async () => {
+        it("enqueues and process every new event into the actor", async () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
 
             const currentEpoch = {
@@ -212,8 +212,10 @@ describe("EboProcessor", () => {
             const { actor } = mocks.buildEboActor(request, logger);
 
             const mockActorEnqueue = vi.spyOn(actor, "enqueue");
+            const mockActorProcessEvents = vi
+                .spyOn(actor, "processEvents")
+                .mockImplementation(() => Promise.resolve());
 
-            vi.spyOn(actor, "processEvents").mockImplementation(() => Promise.resolve());
             vi.spyOn(actor, "onLastBlockUpdated").mockImplementation(() => {});
 
             vi.spyOn(actorsManager, "createActor").mockResolvedValue(actor);
@@ -221,6 +223,7 @@ describe("EboProcessor", () => {
 
             await processor.start(msBetweenChecks);
 
+            expect(mockActorProcessEvents).toHaveBeenCalledOnce();
             expect(mockActorEnqueue).toHaveBeenCalledTimes(2);
         });
 

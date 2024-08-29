@@ -96,7 +96,7 @@ export class EboActor {
      *
      * @throws {RequestMismatch} when an event from another request was enqueued in this actor
      */
-    public async processEvents() {
+    public async processEvents(): Promise<void> {
         // TODO: check for actor expiration (ie if it makes no sense to still handle the request events)
 
         let event: EboEvent<EboEventName> | undefined;
