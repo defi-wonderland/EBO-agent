@@ -168,7 +168,7 @@ export class EboActor {
      *
      * @param _blockNumber block number to check open/closed windows
      */
-    public onLastBlockUpdated(_blockNumber: bigint) {
+    public async onLastBlockUpdated(_blockNumber: bigint) {
         // TODO
         throw new Error("Implement me");
     }
