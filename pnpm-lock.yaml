@@ -30,7 +30,7 @@ importers:
                 specifier: 7.16.1
                 version: 7.16.1(eslint@8.57.0)(typescript@5.5.3)
             "@vitest/coverage-v8":
-                specifier: ^2.0.5
+                specifier: 2.0.5
                 version: 2.0.5(vitest@2.0.3(@types/node@20.14.12))
             eslint:
                 specifier: 8.57.0
@@ -71,6 +71,9 @@ importers:
             "@ebo-agent/shared":
                 specifier: workspace:*
                 version: link:../shared
+            heap-js:
+                specifier: 2.5.0
+                version: 2.5.0
             viem:
                 specifier: 2.17.11
                 version: 2.17.11(typescript@5.5.3)
@@ -1934,6 +1937,13 @@ packages:
                 integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==,
             }
         engines: { node: ">=8" }
+
+    heap-js@2.5.0:
+        resolution:
+            {
+                integrity: sha512-kUGoI3p7u6B41z/dp33G6OaL7J4DRqRYwVmeIlwLClx7yaaAy7hoDExnuejTKtuDwfcatGmddHDEOjf6EyIxtQ==,
+            }
+        engines: { node: ">=10.0.0" }
 
     html-escaper@2.0.2:
         resolution:
@@ -4575,6 +4585,8 @@ snapshots:
     has-flag@3.0.0: {}
 
     has-flag@4.0.0: {}
+
+    heap-js@2.5.0: {}
 
     html-escaper@2.0.2: {}
 

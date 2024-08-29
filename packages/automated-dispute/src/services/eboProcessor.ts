@@ -1,7 +1,6 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Address, ILogger } from "@ebo-agent/shared";
 
-import { EboActor } from "../eboActor.js";
 import { EboActorsManager } from "../eboActorsManager.js";
 import { ProcessorAlreadyStarted } from "../exceptions/index.js";
 import { ProtocolProvider } from "../protocolProvider.js";
@@ -140,8 +139,7 @@ export class EboProcessor {
             return;
         }
 
-        const sortedEvents = events.sort(this.compareByBlockAndLogIndex);
-        sortedEvents.forEach((event) => actor.enqueue(event));
+        events.forEach((event) => actor.enqueue(event));
 
         actor.processEvents();
         actor.onLastBlockUpdated(lastBlock);
@@ -149,21 +147,6 @@ export class EboProcessor {
         if (actor.canBeTerminated()) {
             this.terminateActor(requestId);
         }
-    }
-
-    /**
-     * Compare function to sort events chronologically in ascending order by block number
-     * and log index.
-     *
-     * @param e1 EBO event
-     * @param e2 EBO event
-     * @returns 1 if `e2` is older than `e1`, -1 if `e1` is older than `e2`, 0 otherwise
-     */
-    private compareByBlockAndLogIndex(e1: EboEvent<EboEventName>, e2: EboEvent<EboEventName>) {
-        if (e1.blockNumber > e2.blockNumber) return 1;
-        if (e1.blockNumber < e2.blockNumber) return -1;
-
-        return e1.logIndex - e2.logIndex;
     }
 
     /**

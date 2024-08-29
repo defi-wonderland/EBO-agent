@@ -213,82 +213,18 @@ describe("EboProcessor", () => {
 
             const mockActorEnqueue = vi.spyOn(actor, "enqueue");
 
-            vi.spyOn(actor, "processEvents").mockImplementation(() => {});
+            vi.spyOn(actor, "processEvents").mockImplementation(() => Promise.resolve());
             vi.spyOn(actor, "onLastBlockUpdated").mockImplementation(() => {});
 
             vi.spyOn(actorsManager, "createActor").mockResolvedValue(actor);
-            vi.spyOn(actorsManager, "getActor").mockResolvedValue(actor);
+            vi.spyOn(actorsManager, "getActor").mockReturnValue(actor);
 
             await processor.start(msBetweenChecks);
 
-            expect(mockActorEnqueue).toHaveBeenNthCalledWith(1, eventStream[0]);
-            expect(mockActorEnqueue).toHaveBeenNthCalledWith(2, eventStream[1]);
+            expect(mockActorEnqueue).toHaveBeenCalledTimes(2);
         });
 
-        it("forwards events in block and log index order", async () => {
-            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
-
-            const currentEpoch = {
-                currentEpoch: 1n,
-                currentEpochBlockNumber: 1n,
-                currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
-            };
-
-            const currentBlock = currentEpoch.currentEpochBlockNumber + 10n;
-
-            vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
-            vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(currentBlock);
-
-            const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
-            const response = mocks.buildResponse(request);
-
-            const eventStream: EboEvent<EboEventName>[] = [
-                {
-                    name: "ResponseProposed",
-                    blockNumber: 7n,
-                    logIndex: 1,
-                    requestId: request.id,
-                    metadata: {
-                        requestId: request.id,
-                        responseId: response.id,
-                        response: response.prophetData,
-                    },
-                },
-                {
-                    name: "RequestCreated",
-                    blockNumber: 6n,
-                    logIndex: 1,
-                    requestId: request.id,
-                    metadata: {
-                        requestId: request.id,
-                        epoch: request.epoch,
-                        chainId: request.chainId,
-                        request: request["prophetData"],
-                    },
-                },
-            ];
-
-            vi.spyOn(protocolProvider, "getEvents").mockResolvedValue(eventStream);
-
-            const { actor } = mocks.buildEboActor(request, logger);
-
-            const mockActorUpdateState = vi.spyOn(actor, "updateState");
-
-            mockActorUpdateState.mockImplementation(() => {});
-
-            vi.spyOn(actor, "onNewEvent").mockImplementation(() => {});
-            vi.spyOn(actor, "onLastBlockUpdated").mockImplementation(() => {});
-
-            vi.spyOn(actorsManager, "createActor").mockResolvedValue(actor);
-            vi.spyOn(actorsManager, "getActor").mockResolvedValue(actor);
-
-            await processor.start(msBetweenChecks);
-
-            expect(mockActorUpdateState).toHaveBeenNthCalledWith(1, eventStream[1]);
-            expect(mockActorUpdateState).toHaveBeenNthCalledWith(2, eventStream[0]);
-        });
-
-        it("forwards events to corresponding actors", async () => {
+        it("enqueues events into corresponding actors", async () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
 
             const currentEpoch = {
@@ -312,7 +248,7 @@ describe("EboProcessor", () => {
             const request2 = {
                 ...DEFAULT_MOCKED_REQUEST_CREATED_DATA,
                 id: "0x02" as RequestId,
-                chainId: "eip155:17" as Caip2ChainId,
+                chainId: "eip155:137" as Caip2ChainId,
             };
             const response2 = mocks.buildResponse(request2);
 
@@ -344,17 +280,18 @@ describe("EboProcessor", () => {
             vi.spyOn(protocolProvider, "getEvents").mockResolvedValue(eventStream);
 
             const { actor: actor1 } = mocks.buildEboActor(request1, logger);
-            const { actor: actor2 } = mocks.buildEboActor(request1, logger);
+            const { actor: actor2 } = mocks.buildEboActor(request2, logger);
 
-            const mockActor1UpdateState = vi.spyOn(actor1, "updateState");
-            const mockActor2UpdateState = vi.spyOn(actor2, "updateState");
+            const mockActor1Enqueue = vi.spyOn(actor1, "enqueue");
+            const mockActor2Enqueue = vi.spyOn(actor2, "enqueue");
 
-            mockActor1UpdateState.mockImplementation(() => {});
-            mockActor2UpdateState.mockImplementation(() => {});
+            mockActor1Enqueue.mockImplementation(() => {});
+            mockActor2Enqueue.mockImplementation(() => {});
 
-            vi.spyOn(actor1, "onNewEvent").mockImplementation(() => {});
+            vi.spyOn(actor1, "processEvents").mockImplementation(() => Promise.resolve());
+            vi.spyOn(actor2, "processEvents").mockImplementation(() => Promise.resolve());
+
             vi.spyOn(actor1, "onLastBlockUpdated").mockImplementation(() => {});
-            vi.spyOn(actor2, "onNewEvent").mockImplementation(() => {});
             vi.spyOn(actor2, "onLastBlockUpdated").mockImplementation(() => {});
 
             vi.spyOn(actorsManager, "getActor").mockImplementation((requestId: RequestId) => {
@@ -372,8 +309,8 @@ describe("EboProcessor", () => {
 
             await processor.start(msBetweenChecks);
 
-            expect(mockActor1UpdateState).toHaveBeenCalledWith(eventStream[0]);
-            expect(mockActor2UpdateState).toHaveBeenCalledWith(eventStream[1]);
+            expect(mockActor1Enqueue).toHaveBeenCalledWith(eventStream[0]);
+            expect(mockActor2Enqueue).toHaveBeenCalledWith(eventStream[1]);
         });
 
         it.skip("notifies if an actor throws while handling events");
@@ -402,7 +339,7 @@ describe("EboProcessor", () => {
             vi.spyOn(actor, "canBeTerminated").mockReturnValue(true);
 
             vi.spyOn(actorsManager, "createActor").mockResolvedValue(actor);
-            vi.spyOn(actorsManager, "getActor").mockResolvedValue(actor);
+            vi.spyOn(actorsManager, "getActor").mockReturnValue(actor);
             vi.spyOn(actorsManager, "getRequestIds").mockReturnValue([request.id]);
 
             const mockActorManagerDeleteActor = vi.spyOn(actorsManager, "deleteActor");

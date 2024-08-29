@@ -1,5 +1,5 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
-import { NormalizedAddress, Timestamp } from "@ebo-agent/shared";
+import { NormalizedAddress } from "@ebo-agent/shared";
 import { Address } from "viem";
 
 export type RequestId = NormalizedAddress;
@@ -8,7 +8,6 @@ export interface Request {
     id: RequestId;
     chainId: Caip2ChainId;
     epoch: bigint;
-    epochTimestamp: Timestamp;
     createdAt: bigint;
 
     prophetData: Readonly<{

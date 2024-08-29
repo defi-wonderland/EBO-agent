@@ -150,13 +150,6 @@ export class ProtocolProvider {
                     },
                 },
             } as EboEvent<"ResponseDisputed">,
-            {
-                name: "DisputeStatusChanged",
-                blockNumber: 4n,
-                logIndex: 20,
-                requestId: "0x01",
-                metadata: { disputeId: "0x03", status: "Won", blockNumber: 4n },
-            } as EboEvent<"DisputeStatusChanged">,
         ];
 
         return this.mergeEventStreams(eboRequestCreatorEvents, oracleEvents);

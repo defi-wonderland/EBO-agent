@@ -1,7 +1,7 @@
-import { request } from "http";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
+import { Heap } from "heap-js";
 import { ContractFunctionRevertedError } from "viem";
 
 import {
@@ -10,19 +10,40 @@ import {
     RequestMismatch,
     ResponseAlreadyProposed,
 } from "./exceptions/index.js";
-import { EboRegistry } from "./interfaces/eboRegistry.js";
-import { EboRegistryCommand } from "./interfaces/eboRegistryCommand.js";
+import { EboRegistry, EboRegistryCommand } from "./interfaces/index.js";
 import { ProtocolProvider } from "./protocolProvider.js";
 import { AddRequest, AddResponse } from "./services/index.js";
-import { EboEvent, EboEventName } from "./types/events.js";
-import { Dispute, Request, RequestId, Response, ResponseBody } from "./types/prophet.js";
+import {
+    Dispute,
+    EboEvent,
+    EboEventName,
+    Request,
+    RequestId,
+    Response,
+    ResponseBody,
+} from "./types/index.js";
+
+/**
+ * Compare function to sort events chronologically in ascending order by block number
+ * and log index.
+ *
+ * @param e1 EBO event
+ * @param e2 EBO event
+ * @returns 1 if `e2` is older than `e1`, -1 if `e1` is older than `e2`, 0 otherwise
+ */
+const EBO_EVENT_COMPARATOR = (e1: EboEvent<EboEventName>, e2: EboEvent<EboEventName>) => {
+    if (e1.blockNumber > e2.blockNumber) return 1;
+    if (e1.blockNumber < e2.blockNumber) return -1;
+
+    return e1.logIndex - e2.logIndex;
+};
 
 /**
  * Actor that handles a singular Prophet's request asking for the block number that corresponds
  * to an instant on an indexed chain.
  */
 export class EboActor {
-    private readonly eventsQueue: EboEvent<EboEventName>[];
+    private readonly eventsQueue: Heap<EboEvent<EboEventName>>;
 
     /**
      * Creates an `EboActor` instance.
@@ -44,7 +65,7 @@ export class EboActor {
         private readonly registry: EboRegistry,
         private readonly logger: ILogger,
     ) {
-        this.eventsQueue = [];
+        this.eventsQueue = new Heap(EBO_EVENT_COMPARATOR);
     }
 
     /**
@@ -75,10 +96,10 @@ export class EboActor {
      *
      * @throws {RequestMismatch} when an event from another request was enqueued in this actor
      */
-    public processEvents() {
+    public async processEvents() {
         // TODO: check for actor expiration (ie if it makes no sense to still handle the request events)
 
-        let event: EboEvent<EboEventName>;
+        let event: EboEvent<EboEventName> | undefined;
 
         while ((event = this.eventsQueue.peek())) {
             if (this.shouldHandleRequest(event.requestId)) {
@@ -92,7 +113,7 @@ export class EboActor {
             updateStateCommand.run();
 
             try {
-                if (this.eventsQueue.size() == 1) this.onNewEvent(event);
+                if (this.eventsQueue.size() == 1) await this.onNewEvent(event);
 
                 // Remove the event from the queue after everything has been processed
                 this.eventsQueue.pop();
@@ -136,9 +157,9 @@ export class EboActor {
      *
      * @param _event EBO event
      */
-    private onNewEvent(_event: EboEvent<EboEventName>) {
+    private async onNewEvent(_event: EboEvent<EboEventName>) {
         // TODO
-        throw new Error("Implement me");
+        return;
     }
 
     /**
@@ -172,7 +193,7 @@ export class EboActor {
      *
      * @param event `RequestCreated` event
      */
-    public async onRequestCreated(event: EboEvent<"RequestCreated">): Promise<void> {
+    private async onRequestCreated(event: EboEvent<"RequestCreated">): Promise<void> {
         if (this.anyActiveProposal()) {
             // Skipping new proposal until the actor receives a ResponseDisputed event;
             // at that moment, it will be possible to re-propose again.
@@ -298,7 +319,7 @@ export class EboActor {
      * @param event a `ResponseProposed` event
      * @returns void
      */
-    public async onResponseProposed(event: EboEvent<"ResponseProposed">): Promise<void> {
+    private async onResponseProposed(event: EboEvent<"ResponseProposed">): Promise<void> {
         const eventResponse = event.metadata.response;
         const actorResponse = await this.buildResponse(eventResponse.response.chainId);
 

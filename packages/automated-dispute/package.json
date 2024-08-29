@@ -19,6 +19,7 @@
     "dependencies": {
         "@ebo-agent/blocknumber": "workspace:*",
         "@ebo-agent/shared": "workspace:*",
+        "heap-js": "2.5.0",
         "viem": "2.17.11"
     }
 }

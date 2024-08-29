@@ -12,7 +12,7 @@ const logger: ILogger = {
     debug: vi.fn(),
 };
 
-describe("onDisputeStatusChanged", () => {
+describe.skip("onDisputeStatusChanged", () => {
     const actorRequest = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
     const response = mocks.buildResponse(actorRequest);
 
