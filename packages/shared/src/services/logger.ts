@@ -1,6 +1,6 @@
 import { createLogger, format, transports, Logger as WinstonLogger } from "winston";
 
-import { ILogger } from "./index.js";
+import { ILogger } from "../index.js";
 
 type LogLevel = "error" | "warn" | "info" | "debug";
 

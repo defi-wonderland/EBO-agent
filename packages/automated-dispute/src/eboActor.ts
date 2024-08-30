@@ -11,7 +11,7 @@ import {
 } from "./exceptions/index.js";
 import { EboRegistry } from "./interfaces/eboRegistry.js";
 import { ProtocolProvider } from "./protocolProvider.js";
-import { EboEvent } from "./types/events.js";
+import { EboEvent, EboEventName } from "./types/events.js";
 import { Dispute, Request, Response, ResponseBody } from "./types/prophet.js";
 
 /**
@@ -44,12 +44,51 @@ export class EboActor {
     ) {}
 
     /**
-     * Get the request ID this actor is handling.
+     * Update internal state for Request, Response and Dispute instances.
      *
-     * @returns request ID
+     * @param _event EBO event
      */
-    public getRequestId(): string {
-        return this.actorRequest.id;
+    public updateState(_event: EboEvent<EboEventName>) {
+        // TODO
+        throw new Error("Implement me");
+    }
+
+    /**
+     * Handle a new event and triggers reactive interactions with smart contracts.
+     *
+     * A basic example would be reacting to a new request by proposing a response.
+     *
+     * @param _event EBO event
+     */
+    public onNewEvent(_event: EboEvent<EboEventName>) {
+        // TODO
+        throw new Error("Implement me");
+    }
+
+    /**
+     * Triggers time-based interactions with smart contracts. This handles window-based
+     * checks like proposal windows to close requests, or dispute windows to accept responses.
+     *
+     * @param _blockNumber block number to check open/closed windows
+     */
+    public onLastBlockUpdated(_blockNumber: bigint) {
+        // TODO
+        throw new Error("Implement me");
+    }
+
+    /**
+     * Check for all entities to be settled (ie their status is not changeable by this system), e.g.:
+     * * Dispute status is `Lost`, `Won` or `NoResolution`
+     * * Response cannot be disputed anymore and its disputes have been settled
+     * * Request has at least one accepted response
+     *
+     * Be aware that a request can be finalized but some of its disputes can still be pending resolution.
+     *
+     * @returns `true` if all entities are settled, otherwise `false`
+     */
+    public canBeTerminated(): boolean {
+        // TODO
+        throw new Error("Implement me");
     }
 
     /**
