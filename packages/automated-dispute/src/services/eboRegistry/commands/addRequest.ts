@@ -5,20 +5,19 @@ import { EboEvent, Request } from "../../../types/index.js";
 export class AddRequest implements EboRegistryCommand {
     private wasRun: boolean = false;
 
-    constructor(
+    private constructor(
         private readonly registry: EboRegistry,
         private readonly request: Request,
     ) {}
 
-    public static build(
+    public static buildFromEvent(
         event: EboEvent<"RequestCreated">,
         registry: EboRegistry,
-        epoch: bigint,
     ): AddRequest {
         const request: Request = {
             id: event.requestId,
             chainId: event.metadata.chainId,
-            epoch: epoch,
+            epoch: event.metadata.epoch,
             createdAt: event.blockNumber,
             prophetData: event.metadata.request,
         };

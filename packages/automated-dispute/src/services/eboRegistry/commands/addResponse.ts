@@ -5,12 +5,12 @@ import { EboEvent, Response } from "../../../types/index.js";
 export class AddResponse implements EboRegistryCommand {
     private wasRun: boolean = false;
 
-    constructor(
+    private constructor(
         private readonly registry: EboRegistry,
         private readonly response: Response,
     ) {}
 
-    static build(event: EboEvent<"ResponseProposed">, registry: EboRegistry) {
+    static buildFromEvent(event: EboEvent<"ResponseProposed">, registry: EboRegistry) {
         const response: Response = {
             id: event.metadata.responseId,
             wasDisputed: false, // All responses are created undisputed

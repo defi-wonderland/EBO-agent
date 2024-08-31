@@ -135,18 +135,20 @@ export class EboActor {
     private buildUpdateStateCommand(event: EboEvent<EboEventName>): EboRegistryCommand {
         switch (event.name) {
             case "RequestCreated":
-                return AddRequest.build(
+                return AddRequest.buildFromEvent(
                     event as EboEvent<"RequestCreated">,
                     this.registry,
                     this.actorRequest.epoch,
                 );
 
             case "ResponseProposed":
-                return AddResponse.build(event as EboEvent<"ResponseProposed">, this.registry);
+                return AddResponse.buildFromEvent(
+                    event as EboEvent<"ResponseProposed">,
+                    this.registry,
+                );
 
             default:
-                // TODO: create UnknownEvent();
-                throw new Error();
+                throw new UnknownEvent(event.name);
         }
     }
 

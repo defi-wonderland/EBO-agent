@@ -3,10 +3,25 @@ import { beforeEach, describe, expect, it, Mock, vi } from "vitest";
 import { CommandAlreadyRun, CommandNotRun } from "../../../../src/exceptions/index.js";
 import { EboRegistry } from "../../../../src/interfaces/index.js";
 import { AddRequest } from "../../../../src/services/index.js";
+import { EboEvent } from "../../../../src/types/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../../../eboActor/fixtures.js";
 
 describe("AddRequest", () => {
     let registry: EboRegistry;
+
+    const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
+    const event: EboEvent<"RequestCreated"> = {
+        name: "RequestCreated",
+        blockNumber: 1n,
+        logIndex: 1,
+        requestId: request.id,
+        metadata: {
+            chainId: request.chainId,
+            epoch: request.epoch,
+            request: request.prophetData,
+            requestId: request.id,
+        },
+    };
 
     beforeEach(() => {
         registry = {
@@ -17,19 +32,21 @@ describe("AddRequest", () => {
 
     describe("run", () => {
         it("adds the request to the registry", () => {
-            const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
-            const command = new AddRequest(registry, request);
+            const command = AddRequest.buildFromEvent(event, registry);
 
             const mockAddRequest = registry.addRequest as Mock;
 
             command.run();
 
-            expect(mockAddRequest).toHaveBeenCalledWith(request);
+            expect(mockAddRequest).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    id: request.id,
+                }),
+            );
         });
 
         it("throws if the command was already run", () => {
-            const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
-            const command = new AddRequest(registry, request);
+            const command = AddRequest.buildFromEvent(event, registry);
 
             command.run();
 
@@ -39,8 +56,7 @@ describe("AddRequest", () => {
 
     describe("undo", () => {
         it("removes the added request", () => {
-            const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
-            const command = new AddRequest(registry, request);
+            const command = AddRequest.buildFromEvent(event, registry);
 
             const mockRemoveRequest = registry.removeRequest as Mock;
 
@@ -51,8 +67,7 @@ describe("AddRequest", () => {
         });
 
         it("throws if undoing the command before being run", () => {
-            const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
-            const command = new AddRequest(registry, request);
+            const command = AddRequest.buildFromEvent(event, registry);
 
             expect(() => command.undo()).toThrow(CommandNotRun);
         });
