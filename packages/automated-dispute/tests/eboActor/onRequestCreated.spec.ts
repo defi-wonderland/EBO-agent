@@ -1,6 +1,7 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
+import { Mutex } from "async-mutex";
 import { Address } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -45,6 +46,7 @@ describe("EboActor", () => {
             let protocolProvider: ProtocolProvider;
             let blockNumberService: BlockNumberService;
             let registry: EboMemoryRegistry;
+            let eventProcessingMutex: Mutex;
 
             beforeEach(() => {
                 protocolProvider = new ProtocolProvider(
@@ -57,6 +59,7 @@ describe("EboActor", () => {
 
                 blockNumberService = new BlockNumberService(chainRpcUrls, logger);
                 registry = new EboMemoryRegistry();
+                eventProcessingMutex = new Mutex();
             });
 
             it("stores the new request", async () => {
@@ -81,6 +84,7 @@ describe("EboActor", () => {
                     protocolProvider,
                     blockNumberService,
                     registry,
+                    eventProcessingMutex,
                     logger,
                 );
 
@@ -130,6 +134,7 @@ describe("EboActor", () => {
                     protocolProvider,
                     blockNumberService,
                     registry,
+                    eventProcessingMutex,
                     logger,
                 );
 
@@ -174,6 +179,7 @@ describe("EboActor", () => {
                     protocolProvider,
                     blockNumberService,
                     registry,
+                    eventProcessingMutex,
                     logger,
                 );
 
@@ -223,6 +229,7 @@ describe("EboActor", () => {
                     protocolProvider,
                     blockNumberService,
                     registry,
+                    eventProcessingMutex,
                     logger,
                 );
 
@@ -245,6 +252,7 @@ describe("EboActor", () => {
                     protocolProvider,
                     blockNumberService,
                     registry,
+                    eventProcessingMutex,
                     logger,
                 );
 

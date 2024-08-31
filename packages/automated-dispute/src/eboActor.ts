@@ -1,6 +1,7 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
+import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
 import { ContractFunctionRevertedError } from "viem";
 
@@ -9,6 +10,7 @@ import {
     InvalidDisputeStatus,
     RequestMismatch,
     ResponseAlreadyProposed,
+    UnknownEvent,
 } from "./exceptions/index.js";
 import { EboRegistry, EboRegistryCommand } from "./interfaces/index.js";
 import { ProtocolProvider } from "./protocolProvider.js";
@@ -63,6 +65,7 @@ export class EboActor {
         private readonly protocolProvider: ProtocolProvider,
         private readonly blockNumberService: BlockNumberService,
         private readonly registry: EboRegistry,
+        private readonly eventProcessingMutex: Mutex,
         private readonly logger: ILogger,
     ) {
         this.eventsQueue = new Heap(EBO_EVENT_COMPARATOR);
@@ -99,37 +102,41 @@ export class EboActor {
     public async processEvents(): Promise<void> {
         // TODO: check for actor expiration (ie if it makes no sense to still handle the request events)
 
-        let event: EboEvent<EboEventName> | undefined;
+        return this.eventProcessingMutex.runExclusive(async () => {
+            let event: EboEvent<EboEventName> | undefined;
 
-        while ((event = this.eventsQueue.pop())) {
-            if (this.shouldHandleRequest(event.requestId)) {
-                this.logger.error(`The request ${event.requestId} is not handled by this actor.`);
+            while ((event = this.eventsQueue.pop())) {
+                if (this.shouldHandleRequest(event.requestId)) {
+                    this.logger.error(
+                        `The request ${event.requestId} is not handled by this actor.`,
+                    );
 
-                throw new RequestMismatch(this.actorRequest.id, event.requestId);
-            }
-
-            const updateStateCommand = this.buildUpdateStateCommand(event);
-
-            updateStateCommand.run();
-
-            try {
-                if (this.eventsQueue.isEmpty()) {
-                    // `event` is the last and most recent event thus
-                    // it needs to run some RPCs to keep Prophet's flow going on
-                    await this.onNewEvent(event);
+                    throw new RequestMismatch(this.actorRequest.id, event.requestId);
                 }
-            } catch (err) {
-                this.logger.error(`Error processing event ${event.name}: ${err}`);
 
-                // Enqueue the event again as it's supposed to be reprocessed
-                this.eventsQueue.push(event);
+                const updateStateCommand = this.buildUpdateStateCommand(event);
 
-                // Undo last state update
-                updateStateCommand.undo();
+                updateStateCommand.run();
 
-                return;
+                try {
+                    if (this.eventsQueue.isEmpty()) {
+                        // `event` is the last and most recent event thus
+                        // it needs to run some RPCs to keep Prophet's flow going on
+                        await this.onNewEvent(event);
+                    }
+                } catch (err) {
+                    this.logger.error(`Error processing event ${event.name}: ${err}`);
+
+                    // Enqueue the event again as it's supposed to be reprocessed
+                    this.eventsQueue.push(event);
+
+                    // Undo last state update
+                    updateStateCommand.undo();
+
+                    return;
+                }
             }
-        }
+        });
     }
 
     /**
@@ -143,7 +150,6 @@ export class EboActor {
                 return AddRequest.buildFromEvent(
                     event as EboEvent<"RequestCreated">,
                     this.registry,
-                    this.actorRequest.epoch,
                 );
 
             case "ResponseProposed":

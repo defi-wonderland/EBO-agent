@@ -1,5 +1,6 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Address, ILogger } from "@ebo-agent/shared";
+import { Mutex } from "async-mutex";
 
 import { EboActor } from "./eboActor.js";
 import { RequestAlreadyHandled } from "./exceptions/index.js";
@@ -43,11 +44,14 @@ export class EboActorsManager {
 
         const registry = new EboMemoryRegistry();
 
+        const eventProcessingMutex = new Mutex();
+
         const actor = new EboActor(
             actorRequest,
             protocolProvider,
             blockNumberService,
             registry,
+            eventProcessingMutex,
             logger,
         );
 

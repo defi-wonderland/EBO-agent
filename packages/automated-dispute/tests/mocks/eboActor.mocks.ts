@@ -1,6 +1,7 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types";
 import { ILogger } from "@ebo-agent/shared";
+import { Mutex } from "async-mutex";
 
 import { EboActor } from "../../src/eboActor.js";
 import { ProtocolProvider } from "../../src/protocolProvider.js";
@@ -16,7 +17,7 @@ import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "../eboActor/fixtures.js";
  * @returns
  */
 export function buildEboActor(request: Request, logger: ILogger) {
-    const { id, chainId, epoch, epochTimestamp } = request;
+    const { id, chainId, epoch } = request;
 
     const protocolProviderRpcUrls = ["http://localhost:8538"];
     const protocolProvider = new ProtocolProvider(
@@ -31,11 +32,14 @@ export function buildEboActor(request: Request, logger: ILogger) {
 
     const registry = new EboMemoryRegistry();
 
+    const eventProcessingMutex = new Mutex();
+
     const actor = new EboActor(
-        { id, epoch, epochTimestamp },
+        { id, epoch },
         protocolProvider,
         blockNumberService,
         registry,
+        eventProcessingMutex,
         logger,
     );
 
@@ -44,6 +48,7 @@ export function buildEboActor(request: Request, logger: ILogger) {
         protocolProvider,
         blockNumberService,
         registry,
+        eventProcessingMutex,
         logger,
     };
 }
