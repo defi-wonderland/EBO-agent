@@ -101,7 +101,7 @@ export class EboActor {
 
         let event: EboEvent<EboEventName> | undefined;
 
-        while ((event = this.eventsQueue.peek())) {
+        while ((event = this.eventsQueue.pop())) {
             if (this.shouldHandleRequest(event.requestId)) {
                 this.logger.error(`The request ${event.requestId} is not handled by this actor.`);
 
@@ -113,13 +113,18 @@ export class EboActor {
             updateStateCommand.run();
 
             try {
-                if (this.eventsQueue.size() == 1) await this.onNewEvent(event);
-
-                // Remove the event from the queue after everything has been processed
-                this.eventsQueue.pop();
+                if (this.eventsQueue.isEmpty()) {
+                    // `event` is the last and most recent event thus
+                    // it needs to run some RPCs to keep Prophet's flow going on
+                    await this.onNewEvent(event);
+                }
             } catch (err) {
                 this.logger.error(`Error processing event ${event.name}: ${err}`);
 
+                // Enqueue the event again as it's supposed to be reprocessed
+                this.eventsQueue.push(event);
+
+                // Undo last state update
                 updateStateCommand.undo();
 
                 return;
