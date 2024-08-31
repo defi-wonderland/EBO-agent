@@ -97,6 +97,11 @@ export class EboActor {
         //  notify and (TBD) finalize with no response
     }
 
+    /**
+     * Try to settle all active disputes if settling is needed.
+     *
+     * @param blockNumber block number to check if the dispute is to be settled
+     */
     private async settleDisputes(blockNumber: bigint): Promise<void> {
         const request = this.getActorRequest();
         const disputes: Dispute[] = this.getActiveDisputes();
@@ -139,10 +144,19 @@ export class EboActor {
         return blockNumber > deadline;
     }
 
-    private settleDispute(request: Request, response: Response, dispute: Dispute) {
+    /**
+     * Try to settle a dispute. If the dispute should be escalated, it escalates it.
+     *
+     * @param request the dispute's request
+     * @param response the dispute's response
+     * @param dispute the dispute
+     */
+    private settleDispute(request: Request, response: Response, dispute: Dispute): Promise<void> {
         return Promise.resolve()
             .then(async () => {
                 this.logger.info(`Settling dispute ${dispute.id}...`);
+
+                // OPTIMIZE: check for pledges to potentially save the ShouldBeEscalated error
 
                 await this.protocolProvider.settleDispute(
                     request.prophetData,
@@ -155,6 +169,7 @@ export class EboActor {
             .catch(async (err) => {
                 this.logger.warn(`Dispute ${dispute.id} was not settled.`);
 
+                // TODO: use custom errors to be developed while implementing ProtocolProvider
                 if (!(err instanceof ContractFunctionRevertedError)) throw err;
 
                 this.logger.warn(`Call reverted for ${dispute.id} due to: ${err.data?.errorName}`);
@@ -256,7 +271,7 @@ export class EboActor {
             prophetData: event.metadata.request,
         };
 
-        this.registry.addRequest(event.metadata.requestId, request);
+        this.registry.addRequest(request);
 
         if (this.anyActiveProposal()) {
             // Skipping new proposal until the actor receives a ResponseDisputed event;
