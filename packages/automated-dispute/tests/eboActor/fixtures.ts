@@ -11,7 +11,6 @@ export const DEFAULT_MOCKED_REQUEST_CREATED_DATA: Request = {
     id: "0x01" as RequestId,
     chainId: "eip155:1",
     epoch: 1n,
-    epochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
     createdAt: 1n,
     prophetData: {
         disputeModule: "0x01" as Address,

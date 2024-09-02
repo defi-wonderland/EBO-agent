@@ -8,6 +8,7 @@ import { ContractFunctionRevertedError } from "viem";
 import {
     InvalidActorState,
     InvalidDisputeStatus,
+    PastEventEnqueueError,
     RequestMismatch,
     ResponseAlreadyProposed,
     UnknownEvent,
@@ -45,7 +46,14 @@ const EBO_EVENT_COMPARATOR = (e1: EboEvent<EboEventName>, e2: EboEvent<EboEventN
  * to an instant on an indexed chain.
  */
 export class EboActor {
+    /**
+     * Events queue that keeps the pending events to be processed.
+     *
+     * **NOTE**: the only place where `pop` should be called for the queue is during
+     * `processEvents`
+     */
     private readonly eventsQueue: Heap<EboEvent<EboEventName>>;
+    private lastEventProcessed: EboEvent<EboEventName> | undefined;
 
     /**
      * Creates an `EboActor` instance.
@@ -77,6 +85,18 @@ export class EboActor {
      * @param event EBO event
      */
     public enqueue(event: EboEvent<EboEventName>): void {
+        if (this.shouldHandleRequest(event.requestId)) {
+            this.logger.error(`The request ${event.requestId} is not handled by this actor.`);
+
+            throw new RequestMismatch(this.actorRequest.id, event.requestId);
+        }
+
+        if (this.lastEventProcessed) {
+            const isPastEvent = EBO_EVENT_COMPARATOR(this.lastEventProcessed, event) >= 0;
+
+            if (isPastEvent) throw new PastEventEnqueueError(this.lastEventProcessed, event);
+        }
+
         this.eventsQueue.push(event);
     }
 
@@ -99,20 +119,14 @@ export class EboActor {
      *
      * @throws {RequestMismatch} when an event from another request was enqueued in this actor
      */
-    public async processEvents(): Promise<void> {
+    public processEvents(): Promise<void> {
         // TODO: check for actor expiration (ie if it makes no sense to still handle the request events)
 
         return this.eventProcessingMutex.runExclusive(async () => {
             let event: EboEvent<EboEventName> | undefined;
 
             while ((event = this.eventsQueue.pop())) {
-                if (this.shouldHandleRequest(event.requestId)) {
-                    this.logger.error(
-                        `The request ${event.requestId} is not handled by this actor.`,
-                    );
-
-                    throw new RequestMismatch(this.actorRequest.id, event.requestId);
-                }
+                this.lastEventProcessed = event;
 
                 const updateStateCommand = this.buildUpdateStateCommand(event);
 
@@ -141,6 +155,9 @@ export class EboActor {
 
     /**
      * Update internal state for Request, Response and Dispute instances.
+     *
+     * TODO: move to a Factory and use it as EboActor dependency, right now we have to mock
+     *  this private method which is eww
      *
      * @param _event EBO event
      */
