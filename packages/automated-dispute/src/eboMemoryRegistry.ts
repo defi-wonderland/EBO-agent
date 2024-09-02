@@ -1,21 +1,22 @@
 import { DisputeNotFound } from "./exceptions/eboRegistry/disputeNotFound.js";
 import { EboRegistry } from "./interfaces/eboRegistry.js";
-import { Dispute, DisputeStatus, Request, Response } from "./types/prophet.js";
+import { Dispute, DisputeStatus, Request, RequestId, Response } from "./types/prophet.js";
 
 export class EboMemoryRegistry implements EboRegistry {
     constructor(
-        private requests: Map<string, Request> = new Map(),
+        private requests: Map<RequestId, Request> = new Map(),
         private responses: Map<string, Response> = new Map(),
+        private responsesDisputes: Map<string, string> = new Map(),
         private disputes: Map<string, Dispute> = new Map(),
     ) {}
 
     /** @inheritdoc */
-    public addRequest(requestId: string, request: Request) {
-        this.requests.set(requestId, request);
+    public addRequest(request: Request) {
+        this.requests.set(request.id, request);
     }
 
     /** @inheritdoc */
-    public getRequest(requestId: string) {
+    public getRequest(requestId: RequestId) {
         return this.requests.get(requestId);
     }
 
@@ -26,7 +27,7 @@ export class EboMemoryRegistry implements EboRegistry {
 
     /** @inheritdoc */
     public getResponses() {
-        return this.responses;
+        return [...this.responses.values()];
     }
 
     /** @inheritdoc */
@@ -37,11 +38,26 @@ export class EboMemoryRegistry implements EboRegistry {
     /** @inheritdoc */
     public addDispute(disputeId: string, dispute: Dispute): void {
         this.disputes.set(disputeId, dispute);
+        this.responsesDisputes.set(dispute.prophetData.responseId, dispute.id);
+    }
+
+    /** @inheritdoc */
+    public getDisputes(): Dispute[] {
+        return [...this.disputes.values()];
     }
 
     /** @inheritdoc */
     public getDispute(disputeId: string): Dispute | undefined {
         return this.disputes.get(disputeId);
+    }
+
+    /** @inheritdoc */
+    public getResponseDispute(response: Response): Dispute | undefined {
+        const disputeId = this.responsesDisputes.get(response.id);
+
+        if (!disputeId) return undefined;
+
+        return this.getDispute(disputeId);
     }
 
     /** @inheritdoc */

@@ -20,5 +20,21 @@ export const DEFAULT_MOCKED_REQUEST_CREATED_DATA: Request = {
         resolutionModule: "0x04" as Address,
         responseModule: "0x05" as Address,
         requester: "0x10" as Address,
+        responseModuleData: {
+            accountingExtension: "0x01" as Address,
+            bondToken: "0x02" as Address,
+            bondSize: 1n,
+            deadline: 10n,
+            disputeWindow: 1n,
+        },
+        disputeModuleData: {
+            accountingExtension: "0x01" as Address,
+            bondToken: "0x01" as Address,
+            bondEscalationDeadline: 5n,
+            bondSize: 1n,
+            disputeWindow: 1n,
+            maxNumberOfEscalations: 5n,
+            tyingBuffer: 1n,
+        },
     },
 };

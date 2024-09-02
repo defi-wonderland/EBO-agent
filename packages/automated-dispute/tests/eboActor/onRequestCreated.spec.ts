@@ -4,11 +4,11 @@ import { ILogger } from "@ebo-agent/shared";
 import { Address } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { EboActor } from "../../src/eboActor.js";
 import { EboMemoryRegistry } from "../../src/eboMemoryRegistry.js";
 import { RequestMismatch } from "../../src/exceptions/index.js";
 import { ProtocolProvider } from "../../src/protocolProvider.js";
-import { EboEvent, Response } from "../../src/types/index.js";
+import { EboActor } from "../../src/services/index.js";
+import { EboEvent } from "../../src/types/index.js";
 import mocks from "../mocks/index.js";
 import {
     DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
@@ -131,22 +131,21 @@ describe("EboActor", () => {
                 logger,
             );
 
-            const previousResponses = new Map<string, Response>();
-            previousResponses.set("0x01", {
-                id: "0x01",
-                wasDisputed: false,
-                prophetData: {
-                    proposer: "0x02",
-                    requestId: requestId,
-                    response: {
-                        block: indexedEpochBlockNumber,
-                        chainId: requestCreatedEvent.metadata.chainId,
-                        epoch: protocolEpoch.currentEpoch,
+            vi.spyOn(registry, "getResponses").mockReturnValue([
+                {
+                    id: "0x01",
+                    createdAt: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                    prophetData: {
+                        proposer: "0x02",
+                        requestId: requestId,
+                        response: {
+                            block: indexedEpochBlockNumber,
+                            chainId: requestCreatedEvent.metadata.chainId,
+                            epoch: protocolEpoch.currentEpoch,
+                        },
                     },
                 },
-            });
-
-            vi.spyOn(registry, "getResponses").mockReturnValue(previousResponses);
+            ]);
 
             await actor.onRequestCreated(requestCreatedEvent);
 
