@@ -1,13 +1,13 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types";
 import { ILogger } from "@ebo-agent/shared";
-import { vi } from "vitest";
+import { Mutex } from "async-mutex";
 
-import { EboActor } from "../../src/eboActor";
-import { EboMemoryRegistry } from "../../src/eboMemoryRegistry";
-import { ProtocolProvider } from "../../src/protocolProvider";
+import { EboActor } from "../../src/eboActor.js";
+import { ProtocolProvider } from "../../src/protocolProvider.js";
+import { EboMemoryRegistry } from "../../src/services/index.js";
 import { Dispute, Request, Response } from "../../src/types/index.js";
-import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "../eboActor/fixtures";
+import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "../eboActor/fixtures.js";
 
 /**
  * Builds a base `EboActor` scaffolded with all its dependencies.
@@ -17,9 +17,7 @@ import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "../eboActor/fixtures";
  * @returns
  */
 export function buildEboActor(request: Request, logger: ILogger) {
-    const { id, chainId, epoch, epochTimestamp } = request;
-
-    const onTerminate = vi.fn();
+    const { id, chainId, epoch } = request;
 
     const protocolProviderRpcUrls = ["http://localhost:8538"];
     const protocolProvider = new ProtocolProvider(
@@ -34,21 +32,23 @@ export function buildEboActor(request: Request, logger: ILogger) {
 
     const registry = new EboMemoryRegistry();
 
+    const eventProcessingMutex = new Mutex();
+
     const actor = new EboActor(
-        { id, epoch, epochTimestamp },
-        onTerminate,
+        { id, epoch },
         protocolProvider,
         blockNumberService,
         registry,
+        eventProcessingMutex,
         logger,
     );
 
     return {
         actor,
-        onTerminate,
         protocolProvider,
         blockNumberService,
         registry,
+        eventProcessingMutex,
         logger,
     };
 }
@@ -63,7 +63,7 @@ export function buildEboActor(request: Request, logger: ILogger) {
 export function buildResponse(request: Request, attributes: Partial<Response> = {}): Response {
     const baseResponse: Response = {
         id: "0x01",
-        wasDisputed: false,
+        createdAt: request.createdAt + 1n,
         prophetData: {
             proposer: "0x01",
             requestId: request.id,
@@ -89,6 +89,7 @@ export function buildDispute(
     const baseDispute: Dispute = {
         id: "0x01",
         status: "Active",
+        createdAt: response.createdAt + 1n,
         prophetData: {
             disputer: "0x01",
             proposer: response.prophetData.proposer,

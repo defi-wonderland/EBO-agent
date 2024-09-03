@@ -80,32 +80,18 @@ export class ProtocolProvider {
         };
     }
 
+    async getLastFinalizedBlock(): Promise<bigint> {
+        const { number } = await this.client.getBlock({ blockTag: "finalized" });
+
+        return number;
+    }
+
     async getEvents(_fromBlock: bigint, _toBlock: bigint): Promise<EboEvent<EboEventName>[]> {
         // TODO: implement actual method.
         //
         // We should decode events using the corresponding ABI and also "fabricate" new events
         // if for some triggers there are no events (e.g. dispute window ended)
-        const eboRequestCreatorEvents = [
-            {
-                name: "RequestCreated",
-                blockNumber: 1n,
-                logIndex: 1,
-                requestId: "0x01",
-                metadata: {
-                    requestId: "0x01",
-                    chainId: "eip155:1",
-                    epoch: 1n,
-                    request: {
-                        requester: "0x12345678901234567890123456789012",
-                        requestModule: "0x12345678901234567890123456789012",
-                        responseModule: "0x12345678901234567890123456789012",
-                        disputeModule: "0x12345678901234567890123456789012",
-                        resolutionModule: "0x12345678901234567890123456789012",
-                        finalityModule: "0x12345678901234567890123456789012",
-                    },
-                },
-            } as EboEvent<"RequestCreated">,
-        ];
+        const eboRequestCreatorEvents: EboEvent<EboEventName>[] = [];
 
         const oracleEvents = [
             {
@@ -144,13 +130,6 @@ export class ProtocolProvider {
                     },
                 },
             } as EboEvent<"ResponseDisputed">,
-            {
-                name: "DisputeStatusChanged",
-                blockNumber: 4n,
-                logIndex: 20,
-                requestId: "0x01",
-                metadata: { disputeId: "0x03", status: "Won", blockNumber: 4n },
-            } as EboEvent<"DisputeStatusChanged">,
         ];
 
         return this.mergeEventStreams(eboRequestCreatorEvents, oracleEvents);
@@ -231,10 +210,31 @@ export class ProtocolProvider {
         return;
     }
 
+    async settleDispute(
+        _request: Request["prophetData"],
+        _response: Response["prophetData"],
+        _dispute: Dispute["prophetData"],
+    ): Promise<void> {
+        // TODO: implement actual method
+        return;
+    }
+
+    async escalateDispute(
+        _request: Request["prophetData"],
+        _response: Response["prophetData"],
+        _dispute: Dispute["prophetData"],
+    ): Promise<void> {
+        // TODO: implement actual method
+        return;
+    }
+
     // Pending confirmation from onchain team
     // releasePledge(args):void;
 
-    async finalize(_request: Request, _response: Response): Promise<void> {
+    async finalize(
+        _request: Request["prophetData"],
+        _response: Response["prophetData"],
+    ): Promise<void> {
         //TODO: implement actual method
         return;
     }

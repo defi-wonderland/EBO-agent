@@ -1,3 +1,7 @@
+export * from "./eboActor/index.js";
+export * from "./eboProcessor/index.js";
+export * from "./eboRegistry/index.js";
+
 export * from "./invalidActorState.exception.js";
 export * from "./invalidDisputeStatus.exception.js";
 export * from "./requestAlreadyHandled.exception.js";

@@ -1,38 +1,87 @@
+import { beforeEach } from "node:test";
+import { BlockNumberService } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { EboActorsManager } from "../src/eboActorsManager.js";
 import { RequestAlreadyHandled } from "../src/exceptions/index.js";
-import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./eboActor/fixtures.js";
+import { ProtocolProvider } from "../src/protocolProvider.js";
+import {
+    DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
+    DEFAULT_MOCKED_REQUEST_CREATED_DATA,
+} from "./eboActor/fixtures.js";
 import mocks from "./mocks/index.js";
 
 const logger: ILogger = mocks.mockLogger();
 
 describe("EboActorsManager", () => {
-    describe("registerActor", () => {
-        it("registers the actor correctly", () => {
-            const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
-            const { actor } = mocks.buildEboActor(request, logger);
+    const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
+    const actorRequest = {
+        id: request.id,
+        epoch: request.epoch,
+    };
+    const chainId = request.chainId;
+
+    let protocolProvider: ProtocolProvider;
+    let blockNumberService: BlockNumberService;
+
+    beforeEach(() => {
+        const protocolProviderRpcUrls = ["http://localhost:8538"];
+        protocolProvider = new ProtocolProvider(
+            protocolProviderRpcUrls,
+            DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
+        );
+
+        const blockNumberRpcUrls = new Map<Caip2ChainId, string[]>([
+            [chainId, ["http://localhost:8539"]],
+        ]);
+        blockNumberService = new BlockNumberService(blockNumberRpcUrls, logger);
+    });
+
+    describe("createActor", () => {
+        it("creates the actor", () => {
             const actorsManager = new EboActorsManager();
-            const mockSetRequestActorMap = vi.spyOn(actorsManager["requestActorMap"], "set");
+            const actor = actorsManager.createActor(
+                actorRequest,
+                protocolProvider,
+                blockNumberService,
+                logger,
+            );
 
-            actorsManager.registerActor(actor);
+            expect(actor).toMatchObject({
+                actorRequest: expect.objectContaining({
+                    id: request.id,
+                    epoch: request.epoch,
+                }),
+            });
+        });
 
-            expect(mockSetRequestActorMap).toHaveBeenCalledWith(request.id, actor);
-            expect(actorsManager.getActor(actor.getRequestId())).toBe(actor);
+        it("registers the actor to be fetchable by id", () => {
+            const actorsManager = new EboActorsManager();
+
+            expect(actorsManager.getActor(request.id)).toBeUndefined();
+
+            actorsManager.createActor(actorRequest, protocolProvider, blockNumberService, logger);
+
+            const actor = actorsManager.getActor(request.id);
+
+            expect(actor).toBeDefined();
         });
 
         it("throws if the request has already an actor linked to it", () => {
-            const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
-            const { actor: firstActor } = mocks.buildEboActor(request, logger);
-            const { actor: secondActor } = mocks.buildEboActor(request, logger);
             const actorsManager = new EboActorsManager();
 
-            actorsManager.registerActor(firstActor);
+            actorsManager.createActor(actorRequest, protocolProvider, blockNumberService, logger);
 
-            expect(() => actorsManager.registerActor(secondActor)).toThrowError(
-                RequestAlreadyHandled,
-            );
+            expect(() => {
+                actorsManager.createActor(
+                    actorRequest,
+                    protocolProvider,
+                    blockNumberService,
+                    logger,
+                );
+            }).toThrowError(RequestAlreadyHandled);
         });
     });
 
@@ -44,25 +93,28 @@ describe("EboActorsManager", () => {
         });
 
         it("returns the request's linked actor", () => {
-            const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
-            const { actor } = mocks.buildEboActor(request, logger);
             const actorsManager = new EboActorsManager();
 
-            actorsManager.registerActor(actor);
+            actorsManager.createActor(actorRequest, protocolProvider, blockNumberService, logger);
 
-            expect(actorsManager.getActor(request.id)).toBe(actor);
+            const actor = actorsManager.getActor(request.id);
+
+            expect(actor).toMatchObject({
+                actorRequest: expect.objectContaining({
+                    id: request.id,
+                    epoch: request.epoch,
+                }),
+            });
         });
     });
 
     describe("deleteActor", () => {
         it("deletes the actor linked to the request", () => {
-            const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
-            const { actor } = mocks.buildEboActor(request, logger);
             const actorsManager = new EboActorsManager();
 
-            actorsManager.registerActor(actor);
+            actorsManager.createActor(actorRequest, protocolProvider, blockNumberService, logger);
 
-            expect(actorsManager.getActor(request.id)).toBe(actor);
+            expect(actorsManager.getActor(request.id)).toBeDefined();
 
             actorsManager.deleteActor(request.id);
 

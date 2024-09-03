@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { Logger } from "../src/logger.js";
+import { Logger } from "../../src/services/index.js";
 
 describe("Logger Singleton", () => {
     it("creates a logger instance with the given log level", () => {
