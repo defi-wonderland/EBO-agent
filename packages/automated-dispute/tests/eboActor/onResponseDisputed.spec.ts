@@ -2,11 +2,11 @@ import { ILogger } from "@ebo-agent/shared";
 import { ContractFunctionRevertedError } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
-import { InvalidActorState } from "../../src/exceptions/invalidActorState.exception";
-import { EboEvent } from "../../src/types/events";
-import { Response } from "../../src/types/prophet";
+import { InvalidActorState } from "../../src/exceptions/invalidActorState.exception.js";
+import { EboEvent } from "../../src/types/events.js";
+import { Response } from "../../src/types/prophet.js";
 import mocks from "../mocks/index.js";
-import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures";
+import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
 
 const logger: ILogger = mocks.mockLogger();
 

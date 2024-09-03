@@ -13,7 +13,7 @@ export class AddResponse implements EboRegistryCommand {
     static buildFromEvent(event: EboEvent<"ResponseProposed">, registry: EboRegistry) {
         const response: Response = {
             id: event.metadata.responseId,
-            wasDisputed: false, // All responses are created undisputed
+            createdAt: event.blockNumber,
             prophetData: event.metadata.response,
         };
 

@@ -17,12 +17,29 @@ export interface Request {
         disputeModule: Address;
         resolutionModule: Address;
         finalityModule: Address;
+        // Modules' data
+        responseModuleData: {
+            accountingExtension: Address;
+            bondToken: Address;
+            bondSize: bigint;
+            deadline: bigint;
+            disputeWindow: bigint;
+        };
+        disputeModuleData: {
+            accountingExtension: Address;
+            bondToken: Address;
+            bondSize: bigint;
+            maxNumberOfEscalations: bigint;
+            bondEscalationDeadline: bigint;
+            tyingBuffer: bigint;
+            disputeWindow: bigint;
+        };
     }>;
 }
 
 export interface Response {
     id: string;
-    wasDisputed: boolean;
+    createdAt: bigint;
 
     prophetData: Readonly<{
         proposer: Address;
@@ -43,6 +60,7 @@ export type DisputeStatus = "None" | "Active" | "Escalated" | "Won" | "Lost" | "
 
 export interface Dispute {
     id: string;
+    createdAt: bigint;
     status: DisputeStatus;
 
     prophetData: {

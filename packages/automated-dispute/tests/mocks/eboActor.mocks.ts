@@ -63,7 +63,7 @@ export function buildEboActor(request: Request, logger: ILogger) {
 export function buildResponse(request: Request, attributes: Partial<Response> = {}): Response {
     const baseResponse: Response = {
         id: "0x01",
-        wasDisputed: false,
+        createdAt: request.createdAt + 1n,
         prophetData: {
             proposer: "0x01",
             requestId: request.id,
@@ -89,6 +89,7 @@ export function buildDispute(
     const baseDispute: Dispute = {
         id: "0x01",
         status: "Active",
+        createdAt: response.createdAt + 1n,
         prophetData: {
             disputer: "0x01",
             proposer: response.prophetData.proposer,
