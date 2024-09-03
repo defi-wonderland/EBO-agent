@@ -1,10 +1,11 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Address, ILogger } from "@ebo-agent/shared";
+import { Mutex } from "async-mutex";
 
 import { EboActor } from "./eboActor.js";
-import { EboMemoryRegistry } from "./eboMemoryRegistry.js";
 import { RequestAlreadyHandled } from "./exceptions/index.js";
 import { ProtocolProvider } from "./protocolProvider.js";
+import { EboMemoryRegistry } from "./services/eboRegistry/eboMemoryRegistry.js";
 import { RequestId } from "./types/prophet.js";
 
 export class EboActorsManager {
@@ -32,7 +33,6 @@ export class EboActorsManager {
         actorRequest: {
             id: RequestId;
             epoch: bigint;
-            epochTimestamp: bigint;
         },
         protocolProvider: ProtocolProvider,
         blockNumberService: BlockNumberService,
@@ -43,11 +43,15 @@ export class EboActorsManager {
         if (this.requestActorMap.has(requestId)) throw new RequestAlreadyHandled(requestId);
 
         const registry = new EboMemoryRegistry();
+
+        const eventProcessingMutex = new Mutex();
+
         const actor = new EboActor(
             actorRequest,
             protocolProvider,
             blockNumberService,
             registry,
+            eventProcessingMutex,
             logger,
         );
 

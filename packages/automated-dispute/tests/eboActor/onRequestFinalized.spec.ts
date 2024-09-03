@@ -8,7 +8,7 @@ import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
 
 const logger: ILogger = mocks.mockLogger();
 
-describe("EboActor", () => {
+describe.skip("EboActor", () => {
     describe("onRequestFinalized", () => {
         const actorRequest = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
 

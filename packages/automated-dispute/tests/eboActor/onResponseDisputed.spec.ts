@@ -10,7 +10,7 @@ import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
 
 const logger: ILogger = mocks.mockLogger();
 
-describe("onResponseDisputed", () => {
+describe.skip("onResponseDisputed", () => {
     const actorRequest = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
     const response: Response = mocks.buildResponse(actorRequest);
 

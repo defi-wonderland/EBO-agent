@@ -1,19 +1,46 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
+import { Mutex } from "async-mutex";
+import { Heap } from "heap-js";
 import { ContractFunctionRevertedError } from "viem";
 
 import { DisputeWithoutResponse } from "./exceptions/eboActor/disputeWithoutResponse.exception.js";
 import {
     InvalidActorState,
     InvalidDisputeStatus,
+    PastEventEnqueueError,
     RequestMismatch,
     ResponseAlreadyProposed,
+    UnknownEvent,
 } from "./exceptions/index.js";
-import { EboRegistry } from "./interfaces/eboRegistry.js";
+import { EboRegistry, EboRegistryCommand } from "./interfaces/index.js";
 import { ProtocolProvider } from "./protocolProvider.js";
-import { EboEvent, EboEventName } from "./types/events.js";
-import { Dispute, Request, RequestId, Response, ResponseBody } from "./types/prophet.js";
+import { AddRequest, AddResponse } from "./services/index.js";
+import {
+    Dispute,
+    EboEvent,
+    EboEventName,
+    Request,
+    RequestId,
+    Response,
+    ResponseBody,
+} from "./types/index.js";
+
+/**
+ * Compare function to sort events chronologically in ascending order by block number
+ * and log index.
+ *
+ * @param e1 EBO event
+ * @param e2 EBO event
+ * @returns 1 if `e2` is older than `e1`, -1 if `e1` is older than `e2`, 0 otherwise
+ */
+const EBO_EVENT_COMPARATOR = (e1: EboEvent<EboEventName>, e2: EboEvent<EboEventName>) => {
+    if (e1.blockNumber > e2.blockNumber) return 1;
+    if (e1.blockNumber < e2.blockNumber) return -1;
+
+    return e1.logIndex - e2.logIndex;
+};
 
 /**
  * Actor that handles a singular Prophet's request asking for the block number that corresponds
@@ -21,12 +48,19 @@ import { Dispute, Request, RequestId, Response, ResponseBody } from "./types/pro
  */
 export class EboActor {
     /**
+     * Events queue that keeps the pending events to be processed.
+     *
+     * **NOTE**: the only place where `pop` should be called for the queue is during
+     * `processEvents`
+     */
+    private readonly eventsQueue: Heap<EboEvent<EboEventName>>;
+    private lastEventProcessed: EboEvent<EboEventName> | undefined;
+
+    /**
      * Creates an `EboActor` instance.
      *
      * @param actorRequest.id request ID this actor will handle
      * @param actorRequest.epoch requested epoch
-     * @param actorRequest.epoch requested epoch's timestamp
-     * @param onTerminate callback to be run when this instance is being terminated
      * @param protocolProvider a `ProtocolProvider` instance
      * @param blockNumberService a `BlockNumberService` instance
      * @param registry an `EboRegistry` instance
@@ -36,22 +70,115 @@ export class EboActor {
         private readonly actorRequest: {
             id: RequestId;
             epoch: bigint;
-            epochTimestamp: bigint;
         },
         private readonly protocolProvider: ProtocolProvider,
         private readonly blockNumberService: BlockNumberService,
         private readonly registry: EboRegistry,
+        private readonly eventProcessingMutex: Mutex,
         private readonly logger: ILogger,
-    ) {}
+    ) {
+        this.eventsQueue = new Heap(EBO_EVENT_COMPARATOR);
+    }
+
+    /**
+     * Enqueue events to be processed by the actor.
+     *
+     * @param event EBO event
+     */
+    public enqueue(event: EboEvent<EboEventName>): void {
+        if (this.shouldHandleRequest(event.requestId)) {
+            this.logger.error(`The request ${event.requestId} is not handled by this actor.`);
+
+            throw new RequestMismatch(this.actorRequest.id, event.requestId);
+        }
+
+        if (this.lastEventProcessed) {
+            const isPastEvent = EBO_EVENT_COMPARATOR(this.lastEventProcessed, event) >= 0;
+
+            if (isPastEvent) throw new PastEventEnqueueError(this.lastEventProcessed, event);
+        }
+
+        this.eventsQueue.push(event);
+    }
+
+    /**
+     * Process all enqueued events synchronously and sequentially, based on their block numbers.
+     *
+     * The processing will update the internal state of the actor and, if the event is the most
+     * recent one, it will try to react to it by interacting with the protocol smart contracts.
+     *
+     * An error thrown after updating the internal state will cause a rollback for the internal
+     * state update and will keep the not-processed yet events, so those can be retried in the
+     * future, where there are two scenarios:
+     *
+     * 1) New events were fetched, the failing event was handled by another agent and event
+     *      processing resumes.
+     * 2) No new events were fetched, the failing event processing will be retried until it
+     *      succeeds, new events are fetched or the actor expires.
+     *
+     * The actor is supposed to process the events until the request expires somehow.
+     *
+     * @throws {RequestMismatch} when an event from another request was enqueued in this actor
+     */
+    public processEvents(): Promise<void> {
+        // TODO: check for actor expiration (ie if it makes no sense to still handle the request events)
+
+        return this.eventProcessingMutex.runExclusive(async () => {
+            let event: EboEvent<EboEventName> | undefined;
+
+            while ((event = this.eventsQueue.pop())) {
+                this.lastEventProcessed = event;
+
+                const updateStateCommand = this.buildUpdateStateCommand(event);
+
+                updateStateCommand.run();
+
+                try {
+                    if (this.eventsQueue.isEmpty()) {
+                        // `event` is the last and most recent event thus
+                        // it needs to run some RPCs to keep Prophet's flow going on
+                        await this.onNewEvent(event);
+                    }
+                } catch (err) {
+                    this.logger.error(`Error processing event ${event.name}: ${err}`);
+
+                    // Enqueue the event again as it's supposed to be reprocessed
+                    this.eventsQueue.push(event);
+
+                    // Undo last state update
+                    updateStateCommand.undo();
+
+                    return;
+                }
+            }
+        });
+    }
 
     /**
      * Update internal state for Request, Response and Dispute instances.
      *
+     * TODO: move to a Factory and use it as EboActor dependency, right now we have to mock
+     *  this private method which is eww
+     *
      * @param _event EBO event
      */
-    public updateState(_event: EboEvent<EboEventName>) {
-        // TODO
-        throw new Error("Implement me");
+    private buildUpdateStateCommand(event: EboEvent<EboEventName>): EboRegistryCommand {
+        switch (event.name) {
+            case "RequestCreated":
+                return AddRequest.buildFromEvent(
+                    event as EboEvent<"RequestCreated">,
+                    this.registry,
+                );
+
+            case "ResponseProposed":
+                return AddResponse.buildFromEvent(
+                    event as EboEvent<"ResponseProposed">,
+                    this.registry,
+                );
+
+            default:
+                throw new UnknownEvent(event.name);
+        }
     }
 
     /**
@@ -61,9 +188,9 @@ export class EboActor {
      *
      * @param _event EBO event
      */
-    public onNewEvent(_event: EboEvent<EboEventName>) {
+    private async onNewEvent(_event: EboEvent<EboEventName>) {
         // TODO
-        throw new Error("Implement me");
+        return;
     }
 
     /**
@@ -266,7 +393,6 @@ export class EboActor {
             id: this.actorRequest.id,
             chainId: event.metadata.chainId,
             epoch: this.actorRequest.epoch,
-            epochTimestamp: this.actorRequest.epochTimestamp,
             createdAt: event.blockNumber,
             prophetData: event.metadata.request,
         };
@@ -342,8 +468,12 @@ export class EboActor {
      * @returns a response body
      */
     private async buildResponse(chainId: Caip2ChainId): Promise<ResponseBody> {
+        // FIXME(non-current epochs): adapt this code to fetch timestamps corresponding
+        //  to the first block of any epoch, not just the current epoch
+        const { currentEpochTimestamp } = await this.protocolProvider.getCurrentEpoch();
+
         const epochBlockNumber = await this.blockNumberService.getEpochBlockNumber(
-            this.actorRequest.epochTimestamp,
+            currentEpochTimestamp,
             chainId,
         );
 
@@ -404,7 +534,7 @@ export class EboActor {
             prophetData: event.metadata.response,
         };
 
-        this.registry.addResponse(event.metadata.responseId, response);
+        this.registry.addResponse(response);
 
         const eventResponse = event.metadata.response;
         const actorResponse = await this.buildResponse(eventResponse.response.chainId);
@@ -441,15 +571,10 @@ export class EboActor {
      * Validate that the actor should handle the request by its ID.
      *
      * @param requestId request ID
+     * @returns `true` if the actor is handling the request, `false` otherwise
      */
     private shouldHandleRequest(requestId: string) {
-        if (this.actorRequest.id.toLowerCase() !== requestId.toLowerCase()) {
-            this.logger.error(`The request ${requestId} is not handled by this actor.`);
-
-            // We want to fail the actor as receiving events from other requests
-            // will most likely cause a corrupted state.
-            throw new InvalidActorState();
-        }
+        return this.actorRequest.id.toLowerCase() !== requestId.toLowerCase();
     }
 
     /**

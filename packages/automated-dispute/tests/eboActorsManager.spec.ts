@@ -20,7 +20,6 @@ describe("EboActorsManager", () => {
     const actorRequest = {
         id: request.id,
         epoch: request.epoch,
-        epochTimestamp: request.epochTimestamp,
     };
     const chainId = request.chainId;
 
@@ -54,7 +53,6 @@ describe("EboActorsManager", () => {
                 actorRequest: expect.objectContaining({
                     id: request.id,
                     epoch: request.epoch,
-                    epochTimestamp: request.epochTimestamp,
                 }),
             });
         });
@@ -105,7 +103,6 @@ describe("EboActorsManager", () => {
                 actorRequest: expect.objectContaining({
                     id: request.id,
                     epoch: request.epoch,
-                    epochTimestamp: request.epochTimestamp,
                 }),
             });
         });
