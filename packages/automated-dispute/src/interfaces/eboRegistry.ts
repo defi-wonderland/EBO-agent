@@ -65,10 +65,9 @@ export interface EboRegistry {
     /**
      * Add a dispute by ID.
      *
-     * @param disputeId the ID of the `Dispute` to use as index
      * @param dispute the `Dispute`
      */
-    addDispute(disputeId: string, dispute: Dispute): void;
+    addDispute(dispute: Dispute): void;
 
     /**
      * Get all disputes
@@ -92,4 +91,12 @@ export interface EboRegistry {
      * @param status the `Dispute`
      */
     updateDisputeStatus(disputeId: string, status: DisputeStatus): void;
+
+    /**
+     * Remove a `Dispute` by its ID.
+     *
+     * @param disputeId dispute ID
+     * @returns `true` if the dispute in the registry existed and has been removed, or `false` if the dispute does not exist
+     */
+    removeDispute(disputeId: string): boolean;
 }
