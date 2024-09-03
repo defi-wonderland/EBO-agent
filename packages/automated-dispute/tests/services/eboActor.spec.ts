@@ -102,6 +102,49 @@ describe("EboActor", () => {
             expect(mockEventsQueuePush).toHaveBeenNthCalledWith(2, event);
         });
 
+        it("enqueues again an event at the top if its processing throws", async () => {
+            const { actor } = mocks.buildEboActor(request, logger);
+            const queue = actor["eventsQueue"];
+
+            const firstEvent = { ...event };
+            const secondEvent = { ...firstEvent, blockNumber: firstEvent.blockNumber + 1n };
+
+            actor["onNewEvent"] = vi.fn().mockImplementation(() => {
+                return new Promise((resolve, reject) => {
+                    setTimeout(() => {
+                        reject();
+                    }, 10);
+                });
+            });
+
+            setTimeout(async () => {
+                actor.enqueue(firstEvent);
+
+                await actor.processEvents();
+            }, 5);
+
+            setTimeout(() => {
+                actor.enqueue(secondEvent);
+            }, 10);
+
+            // First enqueue
+            await vi.advanceTimersByTimeAsync(5);
+
+            expect(queue.size()).toEqual(0);
+
+            // Second enqueue
+            await vi.advanceTimersByTimeAsync(5);
+
+            expect(queue.size()).toEqual(1);
+            expect(queue.peek()).toEqual(secondEvent);
+
+            // processEvents throws and re-enqueues first event
+            await vi.advanceTimersByTime(10);
+
+            expect(queue.size()).toEqual(2);
+            expect(queue.peek()).toEqual(firstEvent);
+        });
+
         it("does not allow interleaved event processing", async () => {
             /**
              * This case aims to cover the scenario in which the first call keeps awaiting to
