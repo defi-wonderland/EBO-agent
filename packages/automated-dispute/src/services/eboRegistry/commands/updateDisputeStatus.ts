@@ -1,6 +1,6 @@
 import { CommandAlreadyRun, CommandNotRun, DisputeNotFound } from "../../../exceptions/index.js";
 import { EboRegistry, EboRegistryCommand } from "../../../interfaces/index.js";
-import { DisputeStatus, EboEvent } from "../../../types/index.js";
+import { DisputeStatus, EboEvent, EboEventName } from "../../../types/index.js";
 
 export class UpdateDisputeStatus implements EboRegistryCommand {
     private wasRun: boolean = false;
@@ -13,13 +13,22 @@ export class UpdateDisputeStatus implements EboRegistryCommand {
     ) {}
 
     public static buildFromEvent(
-        event: EboEvent<"DisputeStatusChanged">,
+        event: EboEvent<"DisputeStatusChanged" | "DisputeEscalated">,
         registry: EboRegistry,
     ): UpdateDisputeStatus {
         const disputeId = event.metadata.disputeId;
-        const status = event.metadata.status;
+
+        const status = this.isDisputeStatusChangedEvent(event)
+            ? event.metadata.status
+            : "Escalated";
 
         return new UpdateDisputeStatus(registry, disputeId, status);
+    }
+
+    private static isDisputeStatusChangedEvent(
+        event: EboEvent<EboEventName>,
+    ): event is EboEvent<"DisputeStatusChanged"> {
+        return event.name === "DisputeStatusChanged";
     }
 
     run(): void {

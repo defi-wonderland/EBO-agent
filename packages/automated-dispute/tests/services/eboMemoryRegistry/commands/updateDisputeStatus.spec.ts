@@ -46,6 +46,27 @@ describe("UpdateDisputeStatus", () => {
             );
         });
 
+        it("escalates when the event is DisputeEscalated", () => {
+            const escalatedDisputeEvent: EboEvent<"DisputeEscalated"> = {
+                ...event,
+                name: "DisputeEscalated",
+                metadata: {
+                    disputeId: "0x01",
+                    blockNumber: event.blockNumber,
+                    caller: "0x01",
+                },
+            };
+
+            const command = UpdateDisputeStatus.buildFromEvent(escalatedDisputeEvent, registry);
+
+            command.run();
+
+            expect(registry.updateDisputeStatus).toHaveBeenCalledWith(
+                event.metadata.disputeId,
+                "Escalated",
+            );
+        });
+
         it("throws if the command was already run", () => {
             const command = UpdateDisputeStatus.buildFromEvent(event, registry);
 

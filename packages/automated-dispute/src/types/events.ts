@@ -1,5 +1,5 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
-import { Log } from "viem";
+import { Address, Log } from "viem";
 
 import { Dispute, DisputeStatus, Request, RequestId, Response } from "./prophet.js";
 
@@ -43,6 +43,12 @@ export interface DisputeStatusChanged {
     blockNumber: bigint;
 }
 
+export interface DisputeEscalated {
+    caller: Address;
+    disputeId: string;
+    blockNumber: bigint;
+}
+
 export interface RequestFinalized {
     requestId: string;
     responseId: string;
@@ -60,9 +66,11 @@ export type EboEventData<E extends EboEventName> = E extends "NewEpoch"
           ? ResponseDisputed
           : E extends "DisputeStatusChanged"
             ? DisputeStatusChanged
-            : E extends "RequestFinalized"
-              ? RequestFinalized
-              : never;
+            : E extends "DisputeEscalated"
+              ? DisputeEscalated
+              : E extends "RequestFinalized"
+                ? RequestFinalized
+                : never;
 
 export type EboEvent<T extends EboEventName> = {
     name: T;

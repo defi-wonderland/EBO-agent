@@ -194,6 +194,12 @@ export class EboActor {
                     this.registry,
                 );
 
+            case "DisputeEscalated":
+                return UpdateDisputeStatus.buildFromEvent(
+                    event as EboEvent<"DisputeEscalated">,
+                    this.registry,
+                );
+
             case "RequestFinalized":
                 return Noop.buildFromEvent();
 
@@ -711,11 +717,7 @@ export class EboActor {
             case "Active": // Case handled by ResponseDisputed
             case "Lost": // Relevant during periodic request state checks
             case "Won": // Relevant during periodic request state checks
-                break;
-
-            case "Escalated":
-                await this.onDisputeEscalated(disputeId, request);
-
+            case "Escalated": // Case handled by DisputeEscalated
                 break;
 
             case "NoResolution":
