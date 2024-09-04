@@ -14,6 +14,7 @@ import mocks from "../mocks/index.js";
 import {
     DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
     DEFAULT_MOCKED_REQUEST_CREATED_DATA,
+    privateKey,
 } from "./fixtures.js";
 
 const logger: ILogger = mocks.mockLogger();
@@ -52,6 +53,7 @@ describe("EboActor", () => {
                 protocolProvider = new ProtocolProvider(
                     ["http://localhost:8538"],
                     DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
+                    privateKey,
                 );
 
                 const chainRpcUrls = new Map<Caip2ChainId, string[]>();

@@ -5,13 +5,14 @@ import { ILogger } from "@ebo-agent/shared";
 import { EboActorsManager } from "../../src/eboActorsManager";
 import { ProtocolProvider } from "../../src/protocolProvider";
 import { EboProcessor } from "../../src/services";
-import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "../eboActor/fixtures";
+import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS, privateKey } from "../eboActor/fixtures";
 
 export function buildEboProcessor(logger: ILogger) {
     const protocolProviderRpcUrls = ["http://localhost:8538"];
     const protocolProvider = new ProtocolProvider(
         protocolProviderRpcUrls,
         DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
+        privateKey,
     );
 
     const blockNumberRpcUrls = new Map<Caip2ChainId, string[]>([

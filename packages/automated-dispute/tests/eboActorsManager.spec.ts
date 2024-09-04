@@ -10,6 +10,7 @@ import { ProtocolProvider } from "../src/protocolProvider.js";
 import {
     DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
     DEFAULT_MOCKED_REQUEST_CREATED_DATA,
+    privateKey,
 } from "./eboActor/fixtures.js";
 import mocks from "./mocks/index.js";
 
@@ -31,6 +32,7 @@ describe("EboActorsManager", () => {
         protocolProvider = new ProtocolProvider(
             protocolProviderRpcUrls,
             DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
+            privateKey,
         );
 
         const blockNumberRpcUrls = new Map<Caip2ChainId, string[]>([

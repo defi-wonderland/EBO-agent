@@ -2,9 +2,12 @@ import { Address } from "viem";
 
 import { Request, RequestId } from "../../src/types/prophet";
 
+export const privateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+
 export const DEFAULT_MOCKED_PROTOCOL_CONTRACTS = {
     oracle: "0x123456" as Address,
     epochManager: "0x654321" as Address,
+    eboRequestCreator: "0xabcdef" as Address,
 };
 
 export const DEFAULT_MOCKED_REQUEST_CREATED_DATA: Request = {

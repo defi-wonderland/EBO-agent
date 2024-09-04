@@ -48,22 +48,28 @@ export class ProtocolProvider {
      * Creates a new ProtocolProvider instance
      * @param rpcUrls The RPC URLs to connect to the Arbitrum chain
      * @param contracts The addresses of the protocol contracts that will be instantiated
+     * @param privateKey The private key of the account that will be used to interact with the contracts
      */
-    constructor(rpcUrls: string[], contracts: ProtocolContractsAddresses) {
+    constructor(
+        rpcUrls: string[],
+        contracts: ProtocolContractsAddresses,
+        privateKey: `0x${string}`,
+    ) {
         if (rpcUrls.length === 0) {
             throw new RpcUrlsEmpty();
         }
+
         this.client = createPublicClient({
             chain: arbitrum,
             transport: fallback(rpcUrls.map((url) => http(url))),
         });
 
-        const account = privateKeyToAccount(process.env.WALLET_CLIENT_PRIVATE_KEY as `0x${string}`);
+        const account = privateKeyToAccount(privateKey);
 
         this.walletClient = createWalletClient({
-            account: account,
             chain: arbitrum,
             transport: fallback(rpcUrls.map((url) => http(url))),
+            account: account,
         });
 
         // Instantiate all the protocol contracts
@@ -202,6 +208,17 @@ export class ProtocolProvider {
     }
 
     // TODO: waiting for ChainId to be merged for _chains parameter
+    /**
+     * Creates a new request for the specified epoch and chains.
+     *
+     * @param epoch The epoch for which to create the request
+     * @param chains An array of chain IDs for which to create the request
+     * @throws {EBORequestCreator_InvalidEpoch} If the epoch is invalid
+     * @throws {Oracle_InvalidRequestBody} If the request body is invalid
+     * @throws {EBORequestModule_InvalidRequester} If the requester is invalid
+     * @throws {EBORequestCreator_ChainNotAdded} If one of the specified chains is not added
+     * @throws {ContractFunctionReverted} If the contract function reverts for any other reason
+     */
     async createRequest(epoch: bigint, chains: string[]): Promise<void> {
         try {
             if (!this.eboRequestCreatorContract?.write?.createRequests) {

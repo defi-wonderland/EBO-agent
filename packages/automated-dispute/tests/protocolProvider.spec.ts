@@ -1,12 +1,14 @@
-import { createPublicClient, fallback, getContract, http } from "viem";
+import { createPublicClient, createWalletClient, fallback, getContract, http } from "viem";
 import { arbitrum } from "viem/chains";
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from "vitest";
 
+import { eboRequestCreatorAbi } from "../src/abis/eboRequestCreator.js";
 import { epochManagerAbi } from "../src/abis/epochManager.js";
 import { oracleAbi } from "../src/abis/oracle.js";
 import { RpcUrlsEmpty } from "../src/exceptions/rpcUrlsEmpty.exception.js";
 import { ProtocolProvider } from "../src/index.js";
 import { ProtocolContractsAddresses } from "../src/types/index.js";
+import { privateKey } from "./eboActor/fixtures.js";
 
 vi.mock("viem", async () => {
     const actual = await vi.importActual("viem");
@@ -15,6 +17,7 @@ vi.mock("viem", async () => {
         http: vi.fn(),
         fallback: vi.fn(),
         createPublicClient: vi.fn(),
+        createWalletClient: vi.fn(),
         getContract: vi.fn(),
     };
 });
@@ -24,7 +27,9 @@ describe("ProtocolProvider", () => {
     const mockContractAddress: ProtocolContractsAddresses = {
         oracle: "0x1234567890123456789012345678901234567890",
         epochManager: "0x1234567890123456789012345678901234567890",
+        eboRequestCreator: "0x1234567890123456789012345678901234567890",
     };
+
     beforeEach(() => {
         (getContract as Mock).mockImplementation(({ address, abi }) => {
             if (abi == oracleAbi && address == mockContractAddress.oracle) {
@@ -35,6 +40,13 @@ describe("ProtocolProvider", () => {
                     read: {
                         currentEpoch: vi.fn(),
                         currentEpochBlock: vi.fn(),
+                    },
+                };
+            }
+            if (abi == eboRequestCreatorAbi && address == mockContractAddress.eboRequestCreator) {
+                return {
+                    write: {
+                        createRequests: vi.fn(),
                     },
                 };
             }
@@ -50,12 +62,31 @@ describe("ProtocolProvider", () => {
 
     describe("constructor", () => {
         it("creates a new ProtocolProvider instance successfully", () => {
-            const protocolProvider = new ProtocolProvider(mockRpcUrls, mockContractAddress);
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                privateKey,
+            );
 
             expect(createPublicClient).toHaveBeenCalledWith({
                 chain: arbitrum,
                 transport: fallback(mockRpcUrls.map((url) => http(url))),
             });
+
+            expect(createWalletClient).toHaveBeenCalledWith({
+                chain: arbitrum,
+                transport: fallback(mockRpcUrls.map((url) => http(url))),
+                account: expect.objectContaining({
+                    address: expect.any(String),
+                    publicKey: expect.any(String),
+                    signMessage: expect.any(Function),
+                    signTransaction: expect.any(Function),
+                    signTypedData: expect.any(Function),
+                    source: "privateKey",
+                    type: "local",
+                }),
+            });
+
             expect(getContract).toHaveBeenCalledWith({
                 address: mockContractAddress.oracle,
                 abi: oracleAbi,
@@ -68,7 +99,9 @@ describe("ProtocolProvider", () => {
             });
         });
         it("throws if rpcUrls are empty", () => {
-            expect(() => new ProtocolProvider([], mockContractAddress)).toThrowError(RpcUrlsEmpty);
+            expect(() => new ProtocolProvider([], mockContractAddress, privateKey)).toThrowError(
+                RpcUrlsEmpty,
+            );
         });
     });
     describe("getCurrentEpoch", () => {
@@ -81,7 +114,11 @@ describe("ProtocolProvider", () => {
                 getBlock: vi.fn().mockResolvedValue({ timestamp: mockEpochTimestamp }),
             });
 
-            const protocolProvider = new ProtocolProvider(mockRpcUrls, mockContractAddress);
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                privateKey,
+            );
 
             (protocolProvider["epochManagerContract"].read.currentEpoch as Mock).mockResolvedValue(
                 mockEpoch,
@@ -97,7 +134,11 @@ describe("ProtocolProvider", () => {
             expect(result.currentEpochBlockNumber).toBe(mockEpochBlock);
         });
         it("throws when current epoch request fails", async () => {
-            const protocolProvider = new ProtocolProvider(mockRpcUrls, mockContractAddress);
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                privateKey,
+            );
             const error = new Error("Failed to get current epoch");
             const mockEpochBlock = BigInt(12345);
 
@@ -111,7 +152,11 @@ describe("ProtocolProvider", () => {
             await expect(protocolProvider.getCurrentEpoch()).rejects.toThrow(error);
         });
         it("throws when current epoch block request fails", async () => {
-            const protocolProvider = new ProtocolProvider(mockRpcUrls, mockContractAddress);
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                privateKey,
+            );
             const error = new Error("Failed to get current epoch block");
             const mockEpoch = BigInt(12345);
 
