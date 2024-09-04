@@ -46,8 +46,8 @@ export class EboMemoryRegistry implements EboRegistry {
     }
 
     /** @inheritdoc */
-    public addDispute(disputeId: string, dispute: Dispute): void {
-        this.disputes.set(disputeId, dispute);
+    public addDispute(dispute: Dispute): void {
+        this.disputes.set(dispute.id, dispute);
         this.responsesDisputes.set(dispute.prophetData.responseId, dispute.id);
     }
 
@@ -80,5 +80,10 @@ export class EboMemoryRegistry implements EboRegistry {
             ...dispute,
             status: status,
         });
+    }
+
+    /** @inheritdoc */
+    removeDispute(disputeId: string): boolean {
+        return this.disputes.delete(disputeId);
     }
 }

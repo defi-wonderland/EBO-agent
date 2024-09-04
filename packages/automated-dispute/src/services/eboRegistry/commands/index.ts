@@ -1,4 +1,5 @@
 export * from "./addRequest.js";
 export * from "./addResponse.js";
-
-// TODO: add the rest of the commands
+export * from "./addDispute.js";
+export * from "./noop.js";
+export * from "./updateDisputeStatus.js";

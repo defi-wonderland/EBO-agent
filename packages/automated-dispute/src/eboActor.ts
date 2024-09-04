@@ -16,7 +16,13 @@ import {
 } from "./exceptions/index.js";
 import { EboRegistry, EboRegistryCommand } from "./interfaces/index.js";
 import { ProtocolProvider } from "./protocolProvider.js";
-import { AddRequest, AddResponse } from "./services/index.js";
+import {
+    AddDispute,
+    AddRequest,
+    AddResponse,
+    Noop,
+    UpdateDisputeStatus,
+} from "./services/index.js";
 import {
     Dispute,
     EboEvent,
@@ -175,6 +181,21 @@ export class EboActor {
                     event as EboEvent<"ResponseProposed">,
                     this.registry,
                 );
+
+            case "ResponseDisputed":
+                return AddDispute.buildFromEvent(
+                    event as EboEvent<"ResponseDisputed">,
+                    this.registry,
+                );
+
+            case "DisputeStatusChanged":
+                return UpdateDisputeStatus.buildFromEvent(
+                    event as EboEvent<"DisputeStatusChanged">,
+                    this.registry,
+                );
+
+            case "RequestFinalized":
+                return Noop.buildFromEvent();
 
             default:
                 throw new UnknownEvent(event.name);
@@ -378,9 +399,6 @@ export class EboActor {
      * @param event `RequestCreated` event
      */
     public async onRequestCreated(event: EboEvent<"RequestCreated">): Promise<void> {
-        if (event.metadata.requestId != this.actorRequest.id)
-            throw new RequestMismatch(this.actorRequest.id, event.metadata.requestId);
-
         if (this.registry.getRequest(event.metadata.requestId)) {
             this.logger.error(
                 `The request ${event.metadata.requestId} was already being handled by an actor.`,
@@ -388,16 +406,6 @@ export class EboActor {
 
             throw new InvalidActorState();
         }
-
-        const request: Request = {
-            id: this.actorRequest.id,
-            chainId: event.metadata.chainId,
-            epoch: this.actorRequest.epoch,
-            createdAt: event.blockNumber,
-            prophetData: event.metadata.request,
-        };
-
-        this.registry.addRequest(request);
 
         if (this.anyActiveProposal()) {
             // Skipping new proposal until the actor receives a ResponseDisputed event;
@@ -526,16 +534,6 @@ export class EboActor {
      * @returns void
      */
     public async onResponseProposed(event: EboEvent<"ResponseProposed">): Promise<void> {
-        this.shouldHandleRequest(event.metadata.requestId);
-
-        const response: Response = {
-            id: event.metadata.responseId,
-            createdAt: event.blockNumber,
-            prophetData: event.metadata.response,
-        };
-
-        this.registry.addResponse(response);
-
         const eventResponse = event.metadata.response;
         const actorResponse = await this.buildResponse(eventResponse.response.chainId);
 
@@ -597,16 +595,12 @@ export class EboActor {
      * @param event `ResponseDisputed` event.
      */
     public async onResponseDisputed(event: EboEvent<"ResponseDisputed">): Promise<void> {
-        this.shouldHandleRequest(event.metadata.dispute.requestId);
+        const dispute = this.registry.getDispute(event.metadata.disputeId);
 
-        const dispute: Dispute = {
-            id: event.metadata.disputeId,
-            createdAt: event.blockNumber,
-            status: "Active",
-            prophetData: event.metadata.dispute,
-        };
-
-        this.registry.addDispute(event.metadata.disputeId, dispute);
+        if (!dispute)
+            throw new InvalidActorState(
+                `Dispute ${event.metadata.disputeId} needs to be added to the internal registry.`,
+            );
 
         const request = this.getActorRequest();
         const proposedResponse = this.registry.getResponse(event.metadata.responseId);
@@ -700,15 +694,9 @@ export class EboActor {
      * @param event `DisputeStatusChanged` event
      */
     public async onDisputeStatusChanged(event: EboEvent<"DisputeStatusChanged">): Promise<void> {
-        const requestId = event.metadata.dispute.requestId;
-
-        this.shouldHandleRequest(requestId);
-
         const request = this.getActorRequest();
         const disputeId = event.metadata.disputeId;
         const disputeStatus = event.metadata.status;
-
-        this.registry.updateDisputeStatus(disputeId, disputeStatus);
 
         this.logger.info(`Dispute ${disputeId} status changed to ${disputeStatus}.`);
 

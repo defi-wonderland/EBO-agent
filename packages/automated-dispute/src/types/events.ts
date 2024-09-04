@@ -27,7 +27,7 @@ export interface RequestCreated {
     epoch: bigint;
     chainId: Caip2ChainId;
     request: Request["prophetData"];
-    requestId: string;
+    requestId: RequestId;
 }
 
 export interface ResponseDisputed {
