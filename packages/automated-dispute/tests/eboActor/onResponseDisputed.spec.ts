@@ -1,8 +1,6 @@
 import { ILogger } from "@ebo-agent/shared";
-import { ContractFunctionRevertedError } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
-import { InvalidActorState } from "../../src/exceptions/invalidActorState.exception.js";
 import { EboEvent } from "../../src/types/events.js";
 import { Response } from "../../src/types/prophet.js";
 import mocks from "../mocks/index.js";
@@ -10,12 +8,13 @@ import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
 
 const logger: ILogger = mocks.mockLogger();
 
-describe.skip("onResponseDisputed", () => {
+describe("onResponseDisputed", () => {
     const actorRequest = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
     const response: Response = mocks.buildResponse(actorRequest);
 
     const event: EboEvent<"ResponseDisputed"> = {
         name: "ResponseDisputed",
+        requestId: actorRequest.id,
         blockNumber: 1n,
         logIndex: 1,
         metadata: {
@@ -39,13 +38,21 @@ describe.skip("onResponseDisputed", () => {
         vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
         vi.spyOn(registry, "getResponse").mockReturnValue(response);
 
+        vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
+            currentEpoch: actorRequest.epoch,
+            currentEpochBlockNumber: response.prophetData.response.block,
+            currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 1, 0, 0, 0)),
+        });
+
         vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
             response.prophetData.response.block + 1n,
         );
 
         const mockPledgeForDispute = vi.spyOn(protocolProvider, "pledgeForDispute");
 
-        await actor.onResponseDisputed(event);
+        actor.enqueue(event);
+
+        await actor.processEvents();
 
         expect(mockPledgeForDispute).toHaveBeenCalled();
     });
@@ -59,13 +66,21 @@ describe.skip("onResponseDisputed", () => {
         vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
         vi.spyOn(registry, "getResponse").mockReturnValue(response);
 
+        vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
+            currentEpoch: actorRequest.epoch,
+            currentEpochBlockNumber: response.prophetData.response.block,
+            currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 1, 0, 0, 0)),
+        });
+
         vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
             response.prophetData.response.block,
         );
 
         const mockPledgeAgainstDispute = vi.spyOn(protocolProvider, "pledgeAgainstDispute");
 
-        await actor.onResponseDisputed(event);
+        actor.enqueue(event);
+
+        await actor.processEvents();
 
         expect(mockPledgeAgainstDispute).toHaveBeenCalled();
     });
@@ -79,6 +94,12 @@ describe.skip("onResponseDisputed", () => {
         vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
         vi.spyOn(registry, "getResponse").mockReturnValue(response);
 
+        vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
+            currentEpoch: actorRequest.epoch,
+            currentEpochBlockNumber: response.prophetData.response.block,
+            currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 1, 0, 0, 0)),
+        });
+
         vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
             response.prophetData.response.block,
         );
@@ -87,63 +108,14 @@ describe.skip("onResponseDisputed", () => {
 
         const addResponseMock = vi.spyOn(registry, "addDispute");
 
-        await actor.onResponseDisputed(event);
+        actor.enqueue(event);
+
+        await actor.processEvents();
 
         expect(addResponseMock).toHaveBeenCalled();
     });
 
-    it("resolves if the pledge is reverted", async () => {
-        const { actor, blockNumberService, protocolProvider, registry } = mocks.buildEboActor(
-            actorRequest,
-            logger,
-        );
-
-        vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
-        vi.spyOn(registry, "getResponse").mockReturnValue(response);
-
-        vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-            response.prophetData.response.block + 1n,
-        );
-
-        vi.spyOn(protocolProvider, "pledgeForDispute").mockRejectedValue(
-            Object.create(ContractFunctionRevertedError.prototype),
-        );
-
-        expect(actor.onResponseDisputed(event)).resolves.toBeUndefined();
-    });
-
-    it("throws if protocol provider cannot complete pledge", () => {
-        const { actor, blockNumberService, protocolProvider, registry } = mocks.buildEboActor(
-            actorRequest,
-            logger,
-        );
-
-        vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
-        vi.spyOn(registry, "getResponse").mockReturnValue(response);
-
-        vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-            response.prophetData.response.block + 1n,
-        );
-
-        vi.spyOn(protocolProvider, "pledgeForDispute").mockRejectedValue(new Error());
-
-        expect(actor.onResponseDisputed(event)).rejects.toThrow();
-    });
-
-    it("throws if the response's request is not handled by actor", () => {
-        const { actor } = mocks.buildEboActor(actorRequest, logger);
-
-        const otherRequestEvent = {
-            ...event,
-            metadata: {
-                ...event.metadata,
-                dispute: {
-                    ...event.metadata.dispute,
-                    requestId: "0x02",
-                },
-            },
-        };
-
-        expect(actor.onResponseDisputed(otherRequestEvent)).rejects.toThrow(InvalidActorState);
-    });
+    // TODO: handle when error handling of reverts is implemented
+    it.todo("resolves if the pledge is reverted");
+    it.todo("throws if protocol provider cannot complete pledge");
 });

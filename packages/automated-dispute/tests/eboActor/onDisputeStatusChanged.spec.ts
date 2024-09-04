@@ -12,7 +12,7 @@ const logger: ILogger = {
     debug: vi.fn(),
 };
 
-describe.skip("onDisputeStatusChanged", () => {
+describe("onDisputeStatusChanged", () => {
     const actorRequest = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
     const response = mocks.buildResponse(actorRequest);
 
@@ -20,6 +20,7 @@ describe.skip("onDisputeStatusChanged", () => {
         const dispute = mocks.buildDispute(actorRequest, response, { status: "None" });
         const event: EboEvent<"DisputeStatusChanged"> = {
             name: "DisputeStatusChanged",
+            requestId: actorRequest.id,
             blockNumber: 1n,
             logIndex: 1,
             metadata: {
@@ -37,17 +38,18 @@ describe.skip("onDisputeStatusChanged", () => {
 
         const mockUpdateDisputeStatus = vi.spyOn(registry, "updateDisputeStatus");
 
-        await actor.onDisputeStatusChanged(event);
+        actor.enqueue(event);
+
+        await actor.processEvents();
 
         expect(mockUpdateDisputeStatus).toHaveBeenCalledWith(dispute.id, "Lost");
     });
-
-    it.skip("notifies when dispute has been escalated");
 
     it("proposes a new response when dispute status goes into NoResolution", async () => {
         const dispute = mocks.buildDispute(actorRequest, response, { status: "Escalated" });
         const event: EboEvent<"DisputeStatusChanged"> = {
             name: "DisputeStatusChanged",
+            requestId: actorRequest.id,
             blockNumber: 1n,
             logIndex: 1,
             metadata: {
@@ -65,13 +67,22 @@ describe.skip("onDisputeStatusChanged", () => {
 
         vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
         vi.spyOn(registry, "getDispute").mockReturnValue(dispute);
+
+        vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
+            currentEpoch: actorRequest.epoch,
+            currentEpochBlockNumber: actorRequest.createdAt,
+            currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0)),
+        });
+
         vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
             response.prophetData.response.block + 1n,
         );
 
         const mockProposeResponse = vi.spyOn(protocolProvider, "proposeResponse");
 
-        await actor.onDisputeStatusChanged(event);
+        actor.enqueue(event);
+
+        await actor.processEvents();
 
         expect(mockProposeResponse).toHaveBeenCalledWith(
             actorRequest.id,
@@ -81,5 +92,6 @@ describe.skip("onDisputeStatusChanged", () => {
         );
     });
 
+    it.skip("notifies when dispute has been escalated");
     it.skip("notifies if it will duplicate old proposal when handling NoResolution");
 });
