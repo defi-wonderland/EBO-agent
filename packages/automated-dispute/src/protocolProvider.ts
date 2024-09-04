@@ -20,7 +20,6 @@ import type { EboEvent, EboEventName } from "./types/events.js";
 import type { Dispute, Request, Response } from "./types/prophet.js";
 import { eboRequestCreatorAbi, epochManagerAbi, oracleAbi } from "./abis/index.js";
 import {
-    ContractFunctionReverted,
     EBORequestCreator_ChainNotAdded,
     EBORequestCreator_InvalidEpoch,
     EBORequestModule_InvalidRequester,
@@ -217,7 +216,6 @@ export class ProtocolProvider {
      * @throws {Oracle_InvalidRequestBody} If the request body is invalid
      * @throws {EBORequestModule_InvalidRequester} If the requester is invalid
      * @throws {EBORequestCreator_ChainNotAdded} If one of the specified chains is not added
-     * @throws {ContractFunctionReverted} If the contract function reverts for any other reason
      */
     async createRequest(epoch: bigint, chains: string[]): Promise<void> {
         try {
@@ -234,8 +232,6 @@ export class ProtocolProvider {
                 throw new EBORequestModule_InvalidRequester();
             } else if (error instanceof EBORequestCreator_ChainNotAdded) {
                 throw new EBORequestCreator_ChainNotAdded();
-            } else if (error instanceof ContractFunctionReverted) {
-                throw new ContractFunctionReverted();
             } else {
                 throw error;
             }

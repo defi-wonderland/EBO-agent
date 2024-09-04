@@ -6,7 +6,6 @@ import { eboRequestCreatorAbi } from "../src/abis/eboRequestCreator.js";
 import { epochManagerAbi } from "../src/abis/epochManager.js";
 import { oracleAbi } from "../src/abis/oracle.js";
 import { EBORequestCreator_ChainNotAdded } from "../src/exceptions/chainNotAdded.exception.js";
-import { ContractFunctionReverted } from "../src/exceptions/contractFunctionReverted.exception.js";
 import { EBORequestCreator_InvalidEpoch } from "../src/exceptions/invalidEpoch.exception.js";
 import { Oracle_InvalidRequestBody } from "../src/exceptions/invalidRequestBody.exception.js";
 import { EBORequestModule_InvalidRequester } from "../src/exceptions/invalidRequester.exception.js";
@@ -281,26 +280,6 @@ describe("ProtocolProvider", () => {
 
             await expect(protocolProvider.createRequest(mockEpoch, mockChains)).rejects.toThrow(
                 EBORequestCreator_ChainNotAdded,
-            );
-        });
-
-        it("throws ContractFunctionReverted if the contract function reverts for any other reason", async () => {
-            const mockEpoch = BigInt(1);
-            const mockChains = ["eip155:1", "eip155:42161"];
-            const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
-                mockContractAddress,
-                privateKey,
-            );
-
-            const mockCreateRequests = vi.fn().mockRejectedValue(new ContractFunctionReverted());
-            vi.spyOn(
-                protocolProvider["eboRequestCreatorContract"].write,
-                "createRequests",
-            ).mockImplementation(mockCreateRequests);
-
-            await expect(protocolProvider.createRequest(mockEpoch, mockChains)).rejects.toThrow(
-                ContractFunctionReverted,
             );
         });
 
