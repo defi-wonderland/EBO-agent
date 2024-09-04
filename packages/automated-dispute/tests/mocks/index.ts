@@ -1,4 +1,11 @@
-import { buildDispute, buildEboActor, buildResponse } from "./eboActor.js";
-import { mockLogger } from "./logger.js";
+import { buildDispute, buildEboActor, buildResponse } from "./eboActor.mocks.js";
+import { buildEboProcessor } from "./eboProcessor.mocks.js";
+import { mockLogger } from "./logger.mocks.js";
 
-export default { buildEboActor, buildResponse, buildDispute, mockLogger };
+export default {
+    buildDispute,
+    buildEboActor,
+    buildEboProcessor,
+    buildResponse,
+    mockLogger,
+};

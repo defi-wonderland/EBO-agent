@@ -1,14 +1,13 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
-import { Timestamp } from "@ebo-agent/shared";
+import { NormalizedAddress } from "@ebo-agent/shared";
 import { Address } from "viem";
 
-export type RequestId = string;
+export type RequestId = NormalizedAddress;
 
 export interface Request {
     id: RequestId;
     chainId: Caip2ChainId;
     epoch: bigint;
-    epochTimestamp: Timestamp;
     createdAt: bigint;
 
     prophetData: Readonly<{
@@ -18,12 +17,29 @@ export interface Request {
         disputeModule: Address;
         resolutionModule: Address;
         finalityModule: Address;
+        // Modules' data
+        responseModuleData: {
+            accountingExtension: Address;
+            bondToken: Address;
+            bondSize: bigint;
+            deadline: bigint;
+            disputeWindow: bigint;
+        };
+        disputeModuleData: {
+            accountingExtension: Address;
+            bondToken: Address;
+            bondSize: bigint;
+            maxNumberOfEscalations: bigint;
+            bondEscalationDeadline: bigint;
+            tyingBuffer: bigint;
+            disputeWindow: bigint;
+        };
     }>;
 }
 
 export interface Response {
     id: string;
-    wasDisputed: boolean;
+    createdAt: bigint;
 
     prophetData: Readonly<{
         proposer: Address;
@@ -44,6 +60,7 @@ export type DisputeStatus = "None" | "Active" | "Escalated" | "Won" | "Lost" | "
 
 export interface Dispute {
     id: string;
+    createdAt: bigint;
     status: DisputeStatus;
 
     prophetData: {
