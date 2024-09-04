@@ -3,6 +3,7 @@ import { Timestamp } from "@ebo-agent/shared";
 import {
     Address,
     createPublicClient,
+    createWalletClient,
     fallback,
     FallbackTransport,
     getContract,
@@ -10,21 +11,36 @@ import {
     http,
     HttpTransport,
     PublicClient,
+    WalletClient,
 } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum } from "viem/chains";
 
 import type { EboEvent, EboEventName } from "./types/events.js";
 import type { Dispute, Request, Response } from "./types/prophet.js";
-import { epochManagerAbi, oracleAbi } from "./abis/index.js";
+import { eboRequestCreatorAbi, epochManagerAbi, oracleAbi } from "./abis/index.js";
+import {
+    ContractFunctionReverted,
+    EBORequestCreator_ChainNotAdded,
+    EBORequestCreator_InvalidEpoch,
+    EBORequestModule_InvalidRequester,
+    Oracle_InvalidRequestBody,
+} from "./exceptions/index.js";
 import { RpcUrlsEmpty } from "./exceptions/rpcUrlsEmpty.exception.js";
 import { ProtocolContractsAddresses } from "./types/protocolProvider.js";
 
 export class ProtocolProvider {
     private client: PublicClient<FallbackTransport<HttpTransport[]>>;
+    private walletClient: WalletClient<FallbackTransport<HttpTransport[]>>;
     private oracleContract: GetContractReturnType<typeof oracleAbi, typeof this.client, Address>;
     private epochManagerContract: GetContractReturnType<
         typeof epochManagerAbi,
         typeof this.client,
+        Address
+    >;
+    private eboRequestCreatorContract: GetContractReturnType<
+        typeof eboRequestCreatorAbi,
+        typeof this.walletClient,
         Address
     >;
 
@@ -41,6 +57,15 @@ export class ProtocolProvider {
             chain: arbitrum,
             transport: fallback(rpcUrls.map((url) => http(url))),
         });
+
+        const account = privateKeyToAccount(process.env.WALLET_CLIENT_PRIVATE_KEY as `0x${string}`);
+
+        this.walletClient = createWalletClient({
+            account: account,
+            chain: arbitrum,
+            transport: fallback(rpcUrls.map((url) => http(url))),
+        });
+
         // Instantiate all the protocol contracts
         this.oracleContract = getContract({
             address: contracts.oracle,
@@ -51,6 +76,14 @@ export class ProtocolProvider {
             address: contracts.epochManager,
             abi: epochManagerAbi,
             client: this.client,
+        });
+        this.eboRequestCreatorContract = getContract({
+            address: contracts.eboRequestCreator,
+            abi: eboRequestCreatorAbi,
+            client: {
+                public: this.client,
+                wallet: this.walletClient,
+            },
         });
     }
 
@@ -190,10 +223,26 @@ export class ProtocolProvider {
     }
 
     // TODO: waiting for ChainId to be merged for _chains parameter
-    async createRequest(_epoch: bigint, _chains: string[]): Promise<void> {
-        // TODO: implement actual method
-
-        return;
+    async createRequest(epoch: bigint, chains: string[]): Promise<void> {
+        try {
+            if (!this.eboRequestCreatorContract?.write?.createRequests) {
+                throw new Error("createRequests function is not available on the ABI");
+            }
+            await this.eboRequestCreatorContract.write.createRequests([epoch, chains]);
+        } catch (error) {
+            if (error instanceof ContractFunctionReverted) {
+            } else if (error instanceof EBORequestCreator_InvalidEpoch) {
+                // TODO: Implement error
+            } else if (error instanceof Oracle_InvalidRequestBody) {
+                // TODO: Implement error
+            } else if (error instanceof EBORequestModule_InvalidRequester) {
+                // TODO: Implement error
+            } else if (error instanceof EBORequestCreator_ChainNotAdded) {
+                // TODO: Implement error
+            } else {
+                throw error;
+            }
+        }
     }
 
     async proposeResponse(

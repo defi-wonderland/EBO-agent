@@ -4,8 +4,12 @@ import { ILogger } from "@ebo-agent/shared";
 import { ContractFunctionRevertedError } from "viem";
 
 import {
+    EBORequestCreator_ChainNotAdded,
+    EBORequestCreator_InvalidEpoch,
+    EBORequestModule_InvalidRequester,
     InvalidActorState,
     InvalidDisputeStatus,
+    Oracle_InvalidRequestBody,
     RequestMismatch,
     ResponseAlreadyProposed,
 } from "./exceptions/index.js";
@@ -99,7 +103,17 @@ export class EboActor {
             await this.proposeResponse(chainId);
         } catch (err) {
             if (err instanceof ResponseAlreadyProposed) this.logger.info(err.message);
-            else throw err;
+            else if (err instanceof EBORequestCreator_InvalidEpoch) {
+                // TODO: Handle error
+            } else if (err instanceof Oracle_InvalidRequestBody) {
+                // TODO: Handle error
+            } else if (err instanceof EBORequestModule_InvalidRequester) {
+                // TODO: Handle error
+            } else if (err instanceof EBORequestCreator_ChainNotAdded) {
+                // TODO: Handle error
+            } else {
+                throw err;
+            }
         }
     }
 
