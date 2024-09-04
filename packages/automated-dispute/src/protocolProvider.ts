@@ -226,15 +226,16 @@ export class ProtocolProvider {
             }
             await this.eboRequestCreatorContract.write.createRequests([epoch, chains]);
         } catch (error) {
-            if (error instanceof ContractFunctionReverted) {
-            } else if (error instanceof EBORequestCreator_InvalidEpoch) {
-                // TODO: Implement error
+            if (error instanceof EBORequestCreator_InvalidEpoch) {
+                throw new EBORequestCreator_InvalidEpoch();
             } else if (error instanceof Oracle_InvalidRequestBody) {
-                // TODO: Implement error
+                throw new Oracle_InvalidRequestBody();
             } else if (error instanceof EBORequestModule_InvalidRequester) {
-                // TODO: Implement error
+                throw new EBORequestModule_InvalidRequester();
             } else if (error instanceof EBORequestCreator_ChainNotAdded) {
-                // TODO: Implement error
+                throw new EBORequestCreator_ChainNotAdded();
+            } else if (error instanceof ContractFunctionReverted) {
+                throw new ContractFunctionReverted();
             } else {
                 throw error;
             }

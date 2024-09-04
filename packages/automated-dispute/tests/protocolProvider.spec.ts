@@ -5,6 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, Mock, vi } from "vitest";
 import { eboRequestCreatorAbi } from "../src/abis/eboRequestCreator.js";
 import { epochManagerAbi } from "../src/abis/epochManager.js";
 import { oracleAbi } from "../src/abis/oracle.js";
+import { EBORequestCreator_ChainNotAdded } from "../src/exceptions/chainNotAdded.exception.js";
+import { ContractFunctionReverted } from "../src/exceptions/contractFunctionReverted.exception.js";
+import { EBORequestCreator_InvalidEpoch } from "../src/exceptions/invalidEpoch.exception.js";
+import { Oracle_InvalidRequestBody } from "../src/exceptions/invalidRequestBody.exception.js";
+import { EBORequestModule_InvalidRequester } from "../src/exceptions/invalidRequester.exception.js";
 import { RpcUrlsEmpty } from "../src/exceptions/rpcUrlsEmpty.exception.js";
 import { ProtocolProvider } from "../src/index.js";
 import { ProtocolContractsAddresses } from "../src/types/index.js";
@@ -104,6 +109,7 @@ describe("ProtocolProvider", () => {
             );
         });
     });
+
     describe("getCurrentEpoch", () => {
         it("returns currentEpoch and currentEpochBlock successfully", async () => {
             const mockEpoch = BigInt(1);
@@ -171,56 +177,151 @@ describe("ProtocolProvider", () => {
         });
     });
 
-    describe.skip("getEvents", () => {
-        it("returns all events ordered asc by block and log index");
-        it.skip("includes `new epoch` event if needed"); // TODO: confirm if this is needed
-        it.skip("includes `request can be finalized` event if needed"); // TODO: confirm if this is needed
-        it("throws if the block range is not consistent");
-        it("throws if the RPC client fails");
-    });
+    describe("createRequest", () => {
+        it("succeeds if the RPC client sent the request", async () => {
+            const mockEpoch = BigInt(1);
+            const mockChains = ["eip155:1", "eip155:42161"];
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                privateKey,
+            );
 
-    describe.skip("hasStakedAssets", () => {
-        it("returns true if the address has more than 0 assets staked");
-        it("returns false if the address has 0 staked assets");
-    });
+            const mockCreateRequests = vi.fn().mockResolvedValue(undefined);
+            vi.spyOn(
+                protocolProvider["eboRequestCreatorContract"].write,
+                "createRequests",
+            ).mockImplementation(mockCreateRequests);
 
-    describe.skip("createRequest", () => {
-        it("succeeds if the RPC client sent the request");
-        // NOTE: Should we validate if the request was created by
-        // tracking the transaction result somehow? I feel like it's
-        // somewhat brittle to just wish for the tx to be processed.
-        it("throws if the epoch is not current");
-        it("throws if chains is empty");
-        it("throws if the RPC client fails");
-    });
+            await protocolProvider.createRequest(mockEpoch, mockChains);
 
-    describe.skip("getAvailableChains", () => {
-        it("returns an array of available chains in CAIP-2 compliant format");
-        it("throws if the RPC client fails");
-    });
+            expect(mockCreateRequests).toHaveBeenCalledWith([mockEpoch, mockChains]);
+        });
 
-    describe.skip("proposeResponse", () => {
-        it("returns if the RPC client sent the response");
-        it("throws if the RPC client fails");
-    });
+        it("throws EBORequestCreator_InvalidEpoch if the epoch is invalid", async () => {
+            const mockEpoch = BigInt(0);
+            const mockChains = ["eip155:1", "eip155:42161"];
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                privateKey,
+            );
 
-    describe.skip("disputeResponse", () => {
-        it("returns if the RPC client sent the dispute");
-        it("throws if the RPC client fails");
-    });
+            const mockCreateRequests = vi
+                .fn()
+                .mockRejectedValue(new EBORequestCreator_InvalidEpoch());
+            vi.spyOn(
+                protocolProvider["eboRequestCreatorContract"].write,
+                "createRequests",
+            ).mockImplementation(mockCreateRequests);
 
-    describe.skip("pledgeForDispute", () => {
-        it("returns if the RPC client sent the pledge");
-        it("throws if the RPC client fails");
-    });
+            await expect(protocolProvider.createRequest(mockEpoch, mockChains)).rejects.toThrow(
+                EBORequestCreator_InvalidEpoch,
+            );
+        });
 
-    describe.skip("pledgeAgainsDispute", () => {
-        it("returns if the RPC client sent the pledge");
-        it("throws if the RPC client fails");
-    });
+        it("throws Oracle_InvalidRequestBody if the request body is invalid", async () => {
+            const mockEpoch = BigInt(1);
+            const mockChains = ["eip155:1", "eip155:42161"];
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                privateKey,
+            );
 
-    describe.skip("finalize", () => {
-        it("returns if the RPC client finalizes the pledge");
-        it("throws if the RPC client fails");
+            const mockCreateRequests = vi.fn().mockRejectedValue(new Oracle_InvalidRequestBody());
+            vi.spyOn(
+                protocolProvider["eboRequestCreatorContract"].write,
+                "createRequests",
+            ).mockImplementation(mockCreateRequests);
+
+            await expect(protocolProvider.createRequest(mockEpoch, mockChains)).rejects.toThrow(
+                Oracle_InvalidRequestBody,
+            );
+        });
+
+        it("throws EBORequestModule_InvalidRequester if the requester is invalid", async () => {
+            const mockEpoch = BigInt(1);
+            const mockChains = ["eip155:1", "eip155:42161"];
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                privateKey,
+            );
+
+            const mockCreateRequests = vi
+                .fn()
+                .mockRejectedValue(new EBORequestModule_InvalidRequester());
+            vi.spyOn(
+                protocolProvider["eboRequestCreatorContract"].write,
+                "createRequests",
+            ).mockImplementation(mockCreateRequests);
+
+            await expect(protocolProvider.createRequest(mockEpoch, mockChains)).rejects.toThrow(
+                EBORequestModule_InvalidRequester,
+            );
+        });
+
+        it("throws EBORequestCreator_ChainNotAdded if one of the specified chains is not added", async () => {
+            const mockEpoch = BigInt(1);
+            const mockChains = ["eip155:1", "eip155:42161"];
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                privateKey,
+            );
+
+            const mockCreateRequests = vi
+                .fn()
+                .mockRejectedValue(new EBORequestCreator_ChainNotAdded());
+            vi.spyOn(
+                protocolProvider["eboRequestCreatorContract"].write,
+                "createRequests",
+            ).mockImplementation(mockCreateRequests);
+
+            await expect(protocolProvider.createRequest(mockEpoch, mockChains)).rejects.toThrow(
+                EBORequestCreator_ChainNotAdded,
+            );
+        });
+
+        it("throws ContractFunctionReverted if the contract function reverts for any other reason", async () => {
+            const mockEpoch = BigInt(1);
+            const mockChains = ["eip155:1", "eip155:42161"];
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                privateKey,
+            );
+
+            const mockCreateRequests = vi.fn().mockRejectedValue(new ContractFunctionReverted());
+            vi.spyOn(
+                protocolProvider["eboRequestCreatorContract"].write,
+                "createRequests",
+            ).mockImplementation(mockCreateRequests);
+
+            await expect(protocolProvider.createRequest(mockEpoch, mockChains)).rejects.toThrow(
+                ContractFunctionReverted,
+            );
+        });
+
+        it("throws if the RPC client fails", async () => {
+            const mockEpoch = BigInt(1);
+            const mockChains = ["eip155:1", "eip155:42161"];
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                privateKey,
+            );
+
+            const mockCreateRequests = vi.fn().mockRejectedValue(new Error("RPC client error"));
+            vi.spyOn(
+                protocolProvider["eboRequestCreatorContract"].write,
+                "createRequests",
+            ).mockImplementation(mockCreateRequests);
+
+            await expect(protocolProvider.createRequest(mockEpoch, mockChains)).rejects.toThrow(
+                "RPC client error",
+            );
+        });
     });
 });
