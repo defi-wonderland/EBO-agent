@@ -92,7 +92,7 @@ export class EboActor {
      * @param event EBO event
      */
     public enqueue(event: EboEvent<EboEventName>): void {
-        if (this.shouldHandleRequest(event.requestId)) {
+        if (!this.shouldHandleRequest(event.requestId)) {
             this.logger.error(`The request ${event.requestId} is not handled by this actor.`);
 
             throw new RequestMismatch(this.actorRequest.id, event.requestId);
@@ -602,7 +602,7 @@ export class EboActor {
      * @returns `true` if the actor is handling the request, `false` otherwise
      */
     private shouldHandleRequest(requestId: string) {
-        return this.actorRequest.id.toLowerCase() !== requestId.toLowerCase();
+        return this.actorRequest.id.toLowerCase() === requestId.toLowerCase();
     }
 
     /**
