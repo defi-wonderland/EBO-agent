@@ -54,7 +54,7 @@ describe("EboActor", () => {
             const { actor } = mocks.buildEboActor(request, logger);
 
             // TODO: mock the procol provider instead
-            actor["onNewEvent"] = vi.fn().mockImplementation(() => Promise.resolve());
+            actor["onLastEvent"] = vi.fn().mockImplementation(() => Promise.resolve());
 
             actor.enqueue(processedEvent);
 
@@ -77,6 +77,8 @@ describe("EboActor", () => {
             const { actor } = mocks.buildEboActor(request, logger);
             const queue = actor["eventsQueue"];
 
+            actor["onLastEvent"] = vi.fn().mockImplementation(() => Promise.resolve());
+
             actor.enqueue(event);
 
             expect(queue.size()).toEqual(1);
@@ -92,7 +94,7 @@ describe("EboActor", () => {
 
             const mockEventsQueuePush = vi.spyOn(queue, "push");
 
-            actor["onNewEvent"] = vi.fn().mockImplementation(() => Promise.reject());
+            actor["onLastEvent"] = vi.fn().mockImplementation(() => Promise.reject());
 
             actor.enqueue(event);
 
@@ -109,7 +111,7 @@ describe("EboActor", () => {
             const firstEvent = { ...event };
             const secondEvent = { ...firstEvent, blockNumber: firstEvent.blockNumber + 1n };
 
-            actor["onNewEvent"] = vi.fn().mockImplementation(() => {
+            actor["onLastEvent"] = vi.fn().mockImplementation(() => {
                 return new Promise((resolve, reject) => {
                     setTimeout(() => {
                         reject();
@@ -186,7 +188,7 @@ describe("EboActor", () => {
 
             const { actor } = mocks.buildEboActor(request, logger);
 
-            const onNewEventDelay20 = () => {
+            const onLastEventDelay20 = () => {
                 callOrder.push(1);
 
                 return new Promise((resolve) => {
@@ -198,7 +200,7 @@ describe("EboActor", () => {
                 });
             };
 
-            const onNewEventDelay1 = () => {
+            const onLastEventDelay1 = () => {
                 callOrder.push(2);
 
                 return new Promise((resolve) => {
@@ -210,10 +212,10 @@ describe("EboActor", () => {
                 });
             };
 
-            actor["onNewEvent"] = vi
+            actor["onLastEvent"] = vi
                 .fn()
-                .mockImplementationOnce(onNewEventDelay20)
-                .mockImplementationOnce(onNewEventDelay1);
+                .mockImplementationOnce(onLastEventDelay20)
+                .mockImplementationOnce(onLastEventDelay1);
 
             setTimeout(() => {
                 actor.enqueue(firstEvent);
