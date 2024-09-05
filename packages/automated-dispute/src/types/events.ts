@@ -4,18 +4,12 @@ import { Address, Log } from "viem";
 import { Dispute, DisputeStatus, Request, RequestId, Response } from "./prophet.js";
 
 export type EboEventName =
-    | "NewEpoch"
     | "RequestCreated"
     | "ResponseProposed"
     | "ResponseDisputed"
     | "DisputeStatusChanged"
     | "DisputeEscalated"
     | "RequestFinalized";
-
-export interface NewEpoch {
-    epoch: bigint;
-    epochBlockNumber: bigint;
-}
 
 export interface ResponseProposed {
     requestId: string;
@@ -56,21 +50,19 @@ export interface RequestFinalized {
     blockNumber: bigint;
 }
 
-export type EboEventData<E extends EboEventName> = E extends "NewEpoch"
-    ? NewEpoch
-    : E extends "RequestCreated"
-      ? RequestCreated
-      : E extends "ResponseProposed"
-        ? ResponseProposed
-        : E extends "ResponseDisputed"
-          ? ResponseDisputed
-          : E extends "DisputeStatusChanged"
-            ? DisputeStatusChanged
-            : E extends "DisputeEscalated"
-              ? DisputeEscalated
-              : E extends "RequestFinalized"
-                ? RequestFinalized
-                : never;
+export type EboEventData<E extends EboEventName> = E extends "RequestCreated"
+    ? RequestCreated
+    : E extends "ResponseProposed"
+      ? ResponseProposed
+      : E extends "ResponseDisputed"
+        ? ResponseDisputed
+        : E extends "DisputeStatusChanged"
+          ? DisputeStatusChanged
+          : E extends "DisputeEscalated"
+            ? DisputeEscalated
+            : E extends "RequestFinalized"
+              ? RequestFinalized
+              : never;
 
 export type EboEvent<T extends EboEventName> = {
     name: T;
