@@ -406,4 +406,4 @@ export const eboRequestCreatorAbi = [
     { type: "error", name: "EBORequestCreator_ChainNotAdded", inputs: [] },
     { type: "error", name: "EBORequestCreator_InvalidEpoch", inputs: [] },
     { type: "error", name: "EBORequestCreator_InvalidNonce", inputs: [] },
-];
+] as const;
