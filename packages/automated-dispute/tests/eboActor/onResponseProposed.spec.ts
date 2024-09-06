@@ -1,7 +1,6 @@
 import { ILogger } from "@ebo-agent/shared";
 import { describe, expect, it, vi } from "vitest";
 
-import { InvalidActorState } from "../../src/exceptions/invalidActorState.exception";
 import { EboEvent } from "../../src/types/events";
 import mocks from "../mocks/index.ts";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.ts";
@@ -56,23 +55,7 @@ describe("EboActor", () => {
                 expect(addResponseMock).toHaveBeenCalled();
             });
 
-            it.skip("throws if the response's request is not handled by actor", () => {
-                const { actor } = mocks.buildEboActor(actorRequest, logger);
-
-                const otherRequestEvent = {
-                    ...responseProposedEvent,
-                    metadata: {
-                        ...responseProposedEvent.metadata,
-                        requestId: responseProposedEvent.metadata.requestId + "123",
-                    },
-                };
-
-                expect(actor.onResponseProposed(otherRequestEvent)).rejects.toThrowError(
-                    InvalidActorState,
-                );
-            });
-
-            it.skip("does not dispute the response if seems valid", async () => {
+            it("does not dispute the response if seems valid", async () => {
                 const { actor, registry, blockNumberService, protocolProvider } =
                     mocks.buildEboActor(actorRequest, logger);
 
@@ -84,16 +67,24 @@ describe("EboActor", () => {
 
                 const mockDisputeResponse = vi.spyOn(protocolProvider, "disputeResponse");
 
-                await actor.onResponseProposed(responseProposedEvent);
+                actor.enqueue(responseProposedEvent);
+
+                await actor.processEvents();
 
                 expect(mockDisputeResponse).not.toHaveBeenCalled();
             });
 
-            it.skip("dispute the response if it should be different", async () => {
+            it("disputes the response if it should be different", async () => {
                 const { actor, registry, blockNumberService, protocolProvider } =
                     mocks.buildEboActor(actorRequest, logger);
 
                 vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
+
+                vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
+                    currentEpoch: proposeData.epoch,
+                    currentEpochBlockNumber: 1n,
+                    currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                });
 
                 vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
                     proposeData.block + 1n,
@@ -101,7 +92,9 @@ describe("EboActor", () => {
 
                 const mockDisputeResponse = vi.spyOn(protocolProvider, "disputeResponse");
 
-                await actor.onResponseProposed(responseProposedEvent);
+                actor.enqueue(responseProposedEvent);
+
+                await actor.processEvents();
 
                 expect(mockDisputeResponse).toHaveBeenCalled();
             });

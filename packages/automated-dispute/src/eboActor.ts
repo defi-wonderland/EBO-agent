@@ -20,7 +20,13 @@ import {
 } from "./exceptions/index.js";
 import { EboRegistry, EboRegistryCommand } from "./interfaces/index.js";
 import { ProtocolProvider } from "./protocolProvider.js";
-import { AddRequest, AddResponse } from "./services/index.js";
+import {
+    AddDispute,
+    AddRequest,
+    AddResponse,
+    Noop,
+    UpdateDisputeStatus,
+} from "./services/index.js";
 import {
     Dispute,
     EboEvent,
@@ -90,7 +96,7 @@ export class EboActor {
      * @param event EBO event
      */
     public enqueue(event: EboEvent<EboEventName>): void {
-        if (this.shouldHandleRequest(event.requestId)) {
+        if (!this.shouldHandleRequest(event.requestId)) {
             this.logger.error(`The request ${event.requestId} is not handled by this actor.`);
 
             throw new RequestMismatch(this.actorRequest.id, event.requestId);
@@ -141,7 +147,7 @@ export class EboActor {
                     if (this.eventsQueue.isEmpty()) {
                         // `event` is the last and most recent event thus
                         // it needs to run some RPCs to keep Prophet's flow going on
-                        await this.onNewEvent(event);
+                        await this.onLastEvent(event);
                     }
                 } catch (err) {
                     this.logger.error(`Error processing event ${event.name}: ${err}`);
@@ -180,21 +186,74 @@ export class EboActor {
                     this.registry,
                 );
 
+            case "ResponseDisputed":
+                return AddDispute.buildFromEvent(
+                    event as EboEvent<"ResponseDisputed">,
+                    this.registry,
+                );
+
+            case "DisputeStatusChanged":
+                return UpdateDisputeStatus.buildFromEvent(
+                    event as EboEvent<"DisputeStatusChanged">,
+                    this.registry,
+                );
+
+            case "DisputeEscalated":
+                return UpdateDisputeStatus.buildFromEvent(
+                    event as EboEvent<"DisputeEscalated">,
+                    this.registry,
+                );
+
+            case "RequestFinalized":
+                return Noop.buildFromEvent();
+
             default:
                 throw new UnknownEvent(event.name);
         }
     }
 
     /**
-     * Handle a new event and triggers reactive interactions with smart contracts.
+     * Handle the last known event and triggers reactive interactions with smart contracts.
      *
      * A basic example would be reacting to a new request by proposing a response.
      *
-     * @param _event EBO event
+     * @param event EBO event
      */
-    private async onNewEvent(_event: EboEvent<EboEventName>) {
-        // TODO
-        return;
+    private async onLastEvent(event: EboEvent<EboEventName>) {
+        switch (event.name) {
+            case "RequestCreated":
+                await this.onRequestCreated(event as EboEvent<"RequestCreated">);
+
+                break;
+
+            case "ResponseProposed":
+                await this.onResponseProposed(event as EboEvent<"ResponseProposed">);
+
+                break;
+
+            case "ResponseDisputed":
+                await this.onResponseDisputed(event as EboEvent<"ResponseDisputed">);
+
+                break;
+
+            case "DisputeStatusChanged":
+                await this.onDisputeStatusChanged(event as EboEvent<"DisputeStatusChanged">);
+
+                break;
+
+            case "DisputeEscalated":
+                await this.onDisputeEscalated(event as EboEvent<"DisputeEscalated">);
+
+                break;
+
+            case "RequestFinalized":
+                await this.onRequestFinalized(event as EboEvent<"RequestFinalized">);
+
+                break;
+
+            default:
+                throw new UnknownEvent(event.name);
+        }
     }
 
     /**
@@ -381,28 +440,7 @@ export class EboActor {
      *
      * @param event `RequestCreated` event
      */
-    public async onRequestCreated(event: EboEvent<"RequestCreated">): Promise<void> {
-        if (event.metadata.requestId != this.actorRequest.id)
-            throw new RequestMismatch(this.actorRequest.id, event.metadata.requestId);
-
-        if (this.registry.getRequest(event.metadata.requestId)) {
-            this.logger.error(
-                `The request ${event.metadata.requestId} was already being handled by an actor.`,
-            );
-
-            throw new InvalidActorState();
-        }
-
-        const request: Request = {
-            id: this.actorRequest.id,
-            chainId: event.metadata.chainId,
-            epoch: this.actorRequest.epoch,
-            createdAt: event.blockNumber,
-            prophetData: event.metadata.request,
-        };
-
-        this.registry.addRequest(request);
-
+    private async onRequestCreated(event: EboEvent<"RequestCreated">): Promise<void> {
         if (this.anyActiveProposal()) {
             // Skipping new proposal until the actor receives a ResponseDisputed event;
             // at that moment, it will be possible to re-propose again.
@@ -539,17 +577,7 @@ export class EboActor {
      * @param event a `ResponseProposed` event
      * @returns void
      */
-    public async onResponseProposed(event: EboEvent<"ResponseProposed">): Promise<void> {
-        this.shouldHandleRequest(event.metadata.requestId);
-
-        const response: Response = {
-            id: event.metadata.responseId,
-            createdAt: event.blockNumber,
-            prophetData: event.metadata.response,
-        };
-
-        this.registry.addResponse(response);
-
+    private async onResponseProposed(event: EboEvent<"ResponseProposed">): Promise<void> {
         const eventResponse = event.metadata.response;
         const actorResponse = await this.buildResponse(eventResponse.response.chainId);
 
@@ -588,7 +616,7 @@ export class EboActor {
      * @returns `true` if the actor is handling the request, `false` otherwise
      */
     private shouldHandleRequest(requestId: string) {
-        return this.actorRequest.id.toLowerCase() !== requestId.toLowerCase();
+        return this.actorRequest.id.toLowerCase() === requestId.toLowerCase();
     }
 
     /**
@@ -610,17 +638,13 @@ export class EboActor {
      *
      * @param event `ResponseDisputed` event.
      */
-    public async onResponseDisputed(event: EboEvent<"ResponseDisputed">): Promise<void> {
-        this.shouldHandleRequest(event.metadata.dispute.requestId);
+    private async onResponseDisputed(event: EboEvent<"ResponseDisputed">): Promise<void> {
+        const dispute = this.registry.getDispute(event.metadata.disputeId);
 
-        const dispute: Dispute = {
-            id: event.metadata.disputeId,
-            createdAt: event.blockNumber,
-            status: "Active",
-            prophetData: event.metadata.dispute,
-        };
-
-        this.registry.addDispute(event.metadata.disputeId, dispute);
+        if (!dispute)
+            throw new InvalidActorState(
+                `Dispute ${event.metadata.disputeId} needs to be added to the internal registry.`,
+            );
 
         const request = this.getActorRequest();
         const proposedResponse = this.registry.getResponse(event.metadata.responseId);
@@ -713,16 +737,10 @@ export class EboActor {
      *
      * @param event `DisputeStatusChanged` event
      */
-    public async onDisputeStatusChanged(event: EboEvent<"DisputeStatusChanged">): Promise<void> {
-        const requestId = event.metadata.dispute.requestId;
-
-        this.shouldHandleRequest(requestId);
-
+    private async onDisputeStatusChanged(event: EboEvent<"DisputeStatusChanged">): Promise<void> {
         const request = this.getActorRequest();
         const disputeId = event.metadata.disputeId;
         const disputeStatus = event.metadata.status;
-
-        this.registry.updateDisputeStatus(disputeId, disputeStatus);
 
         this.logger.info(`Dispute ${disputeId} status changed to ${disputeStatus}.`);
 
@@ -737,11 +755,7 @@ export class EboActor {
             case "Active": // Case handled by ResponseDisputed
             case "Lost": // Relevant during periodic request state checks
             case "Won": // Relevant during periodic request state checks
-                break;
-
-            case "Escalated":
-                await this.onDisputeEscalated(disputeId, request);
-
+            case "Escalated": // Case handled by DisputeEscalated
                 break;
 
             case "NoResolution":
@@ -754,9 +768,14 @@ export class EboActor {
         }
     }
 
-    private async onDisputeEscalated(disputeId: string, request: Request) {
+    private async onDisputeEscalated(event: EboEvent<"DisputeEscalated">) {
+        const request = this.getActorRequest();
+
         // TODO: notify
-        this.logger.info(`Dispute ${disputeId} for request ${request.id} has been escalated.`);
+
+        this.logger.info(
+            `Dispute ${event.metadata.disputeId} for request ${request.id} has been escalated.`,
+        );
     }
 
     private async onDisputeWithNoResolution(disputeId: string, request: Request) {
@@ -787,9 +806,7 @@ export class EboActor {
      *
      * @param event `ResponseFinalized` event
      */
-    public async onRequestFinalized(event: EboEvent<"RequestFinalized">): Promise<void> {
-        this.shouldHandleRequest(event.metadata.requestId);
-
+    private async onRequestFinalized(_event: EboEvent<"RequestFinalized">): Promise<void> {
         const request = this.getActorRequest();
 
         this.logger.info(`Request ${request.id} has been finalized.`);
