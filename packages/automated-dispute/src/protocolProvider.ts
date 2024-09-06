@@ -31,12 +31,12 @@ import {
     ProtocolContractsAddresses,
 } from "./interfaces/index.js";
 
-export class ProtocolProvider implements IProtocolProvider {
-    // TODO: these constants should be env vars
-    private TRANSACTION_RECEIPT_CONFIRMATIONS = 1;
-    private TIMEOUT = 10000;
-    private RETRY_INTERVAL = 150;
+// TODO: these constants should be env vars
+const TRANSACTION_RECEIPT_CONFIRMATIONS = 1;
+const TIMEOUT = 10000;
+const RETRY_INTERVAL = 150;
 
+export class ProtocolProvider implements IProtocolProvider {
     private readClient: PublicClient<FallbackTransport<HttpTransport[]>>;
     private writeClient: WalletClient<FallbackTransport<HttpTransport[]>>;
     private oracleContract: GetContractReturnType<
@@ -71,8 +71,8 @@ export class ProtocolProvider implements IProtocolProvider {
             transport: fallback(
                 rpcUrls.map((url) =>
                     http(url, {
-                        timeout: this.TIMEOUT,
-                        retryDelay: this.RETRY_INTERVAL,
+                        timeout: TIMEOUT,
+                        retryDelay: RETRY_INTERVAL,
                     }),
                 ),
             ),
@@ -85,8 +85,8 @@ export class ProtocolProvider implements IProtocolProvider {
             transport: fallback(
                 rpcUrls.map((url) =>
                     http(url, {
-                        timeout: this.TIMEOUT,
-                        retryDelay: this.RETRY_INTERVAL,
+                        timeout: TIMEOUT,
+                        retryDelay: RETRY_INTERVAL,
                     }),
                 ),
             ),
@@ -284,7 +284,7 @@ export class ProtocolProvider implements IProtocolProvider {
 
             const receipt = await this.readClient.waitForTransactionReceipt({
                 hash,
-                confirmations: this.TRANSACTION_RECEIPT_CONFIRMATIONS,
+                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
             });
 
             if (receipt.status !== "success") {
