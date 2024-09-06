@@ -41,7 +41,7 @@ export class ProtocolProvider implements IProtocolProvider {
     private writeClient: WalletClient<FallbackTransport<HttpTransport[]>>;
     private oracleContract: GetContractReturnType<
         typeof oracleAbi,
-        typeof this.readClient,
+        typeof this.writeClient,
         Address
     >;
     private epochManagerContract: GetContractReturnType<
