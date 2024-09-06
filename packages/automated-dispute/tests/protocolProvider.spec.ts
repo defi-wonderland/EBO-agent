@@ -14,8 +14,8 @@ vi.mock("viem", async () => {
     const actual = await vi.importActual("viem");
     return {
         ...actual,
-        http: vi.fn(),
-        fallback: vi.fn(),
+        http: vi.fn((url, options) => ({ url, ...options })),
+        fallback: vi.fn((transports) => transports),
         createPublicClient: vi.fn(),
         createWalletClient: vi.fn(),
         getContract: vi.fn(),
@@ -89,12 +89,26 @@ describe("ProtocolProvider", () => {
 
             expect(createPublicClient).toHaveBeenCalledWith({
                 chain: arbitrum,
-                transport: fallback(mockRpcUrls.map((url) => http(url))),
+                transport: fallback(
+                    mockRpcUrls.map((url) =>
+                        http(url, {
+                            timeout: protocolProvider["TIMEOUT"],
+                            retryDelay: protocolProvider["RETRY_INTERVAL"],
+                        }),
+                    ),
+                ),
             });
 
             expect(createWalletClient).toHaveBeenCalledWith({
                 chain: arbitrum,
-                transport: fallback(mockRpcUrls.map((url) => http(url))),
+                transport: fallback(
+                    mockRpcUrls.map((url) =>
+                        http(url, {
+                            timeout: protocolProvider["TIMEOUT"],
+                            retryDelay: protocolProvider["RETRY_INTERVAL"],
+                        }),
+                    ),
+                ),
                 account: expect.objectContaining({
                     address: expect.any(String),
                     publicKey: expect.any(String),
@@ -109,8 +123,9 @@ describe("ProtocolProvider", () => {
             expect(getContract).toHaveBeenCalledWith({
                 address: mockContractAddress.oracle,
                 abi: oracleAbi,
-                client: protocolProvider["readClient"],
+                client: protocolProvider["writeClient"],
             });
+
             expect(getContract).toHaveBeenCalledWith({
                 address: mockContractAddress.epochManager,
                 abi: epochManagerAbi,
@@ -247,14 +262,14 @@ describe("ProtocolProvider", () => {
     });
 
     describe("createRequest", () => {
-        it("creates a request successfully", async () => {
-            const mockRpcUrls = ["http://localhost:8545"];
-            const mockContractAddress: ProtocolContractsAddresses = {
-                oracle: "0x1234567890123456789012345678901234567890",
-                epochManager: "0x1234567890123456789012345678901234567890",
-                eboRequestCreator: "0x1234567890123456789012345678901234567890",
-            };
+        const mockRpcUrls = ["http://localhost:8545"];
+        const mockContractAddress: ProtocolContractsAddresses = {
+            oracle: "0x1234567890123456789012345678901234567890",
+            epochManager: "0x1234567890123456789012345678901234567890",
+            eboRequestCreator: "0x1234567890123456789012345678901234567890",
+        };
 
+        it("creates a request successfully", async () => {
             const protocolProvider = new ProtocolProvider(
                 mockRpcUrls,
                 mockContractAddress,

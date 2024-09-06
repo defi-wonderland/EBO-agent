@@ -34,9 +34,14 @@ import {
     IReadProvider,
     IWriteProvider,
     ProtocolContractsAddresses,
-} from "./types/protocolProvider.js";
+} from "./interfaces/index.js";
 
 export class ProtocolProvider implements IProtocolProvider {
+    // TODO: these constants should be env vars
+    private TRANSACTION_RECEIPT_CONFIRMATIONS = 1;
+    private TIMEOUT = 10000;
+    private RETRY_INTERVAL = 150;
+
     private readClient: PublicClient<FallbackTransport<HttpTransport[]>>;
     private writeClient: WalletClient<FallbackTransport<HttpTransport[]>>;
     private oracleContract: GetContractReturnType<
@@ -68,14 +73,28 @@ export class ProtocolProvider implements IProtocolProvider {
 
         this.readClient = createPublicClient({
             chain: arbitrum,
-            transport: fallback(rpcUrls.map((url) => http(url))),
+            transport: fallback(
+                rpcUrls.map((url) =>
+                    http(url, {
+                        timeout: this.TIMEOUT,
+                        retryDelay: this.RETRY_INTERVAL,
+                    }),
+                ),
+            ),
         });
 
         const account = privateKeyToAccount(privateKey);
 
         this.writeClient = createWalletClient({
             chain: arbitrum,
-            transport: fallback(rpcUrls.map((url) => http(url))),
+            transport: fallback(
+                rpcUrls.map((url) =>
+                    http(url, {
+                        timeout: this.TIMEOUT,
+                        retryDelay: this.RETRY_INTERVAL,
+                    }),
+                ),
+            ),
             account: account,
         });
 
@@ -83,7 +102,7 @@ export class ProtocolProvider implements IProtocolProvider {
         this.oracleContract = getContract({
             address: contracts.oracle,
             abi: oracleAbi,
-            client: this.readClient,
+            client: this.writeClient,
         });
         this.epochManagerContract = getContract({
             address: contracts.epochManager,
@@ -270,7 +289,7 @@ export class ProtocolProvider implements IProtocolProvider {
 
             const receipt = await this.readClient.waitForTransactionReceipt({
                 hash,
-                confirmations: 1,
+                confirmations: this.TRANSACTION_RECEIPT_CONFIRMATIONS,
             });
 
             if (receipt.status !== "success") {
