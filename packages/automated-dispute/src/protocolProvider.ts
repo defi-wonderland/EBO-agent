@@ -22,12 +22,7 @@ import { arbitrum } from "viem/chains";
 import type { EboEvent, EboEventName } from "./types/events.js";
 import type { Dispute, Request, Response } from "./types/prophet.js";
 import { eboRequestCreatorAbi, epochManagerAbi, oracleAbi } from "./abis/index.js";
-import {
-    EBORequestCreator_ChainNotAdded,
-    EBORequestCreator_InvalidEpoch,
-    EBORequestModule_InvalidRequester,
-    Oracle_InvalidRequestBody,
-} from "./exceptions/index.js";
+import { ErrorFactory } from "./exceptions/errorFactory.js";
 import { RpcUrlsEmpty } from "./exceptions/rpcUrlsEmpty.exception.js";
 import {
     IProtocolProvider,
@@ -302,18 +297,7 @@ export class ProtocolProvider implements IProtocolProvider {
                 );
                 if (revertError instanceof ContractFunctionRevertedError) {
                     const errorName = revertError.data?.errorName ?? "";
-                    switch (errorName) {
-                        case "EBORequestCreator_InvalidEpoch":
-                            throw new EBORequestCreator_InvalidEpoch();
-                        case "Oracle_InvalidRequestBody":
-                            throw new Oracle_InvalidRequestBody();
-                        case "EBORequestModule_InvalidRequester":
-                            throw new EBORequestModule_InvalidRequester();
-                        case "EBORequestCreator_ChainNotAdded":
-                            throw new EBORequestCreator_ChainNotAdded();
-                        default:
-                            throw new Error(`Unknown error: ${errorName}`);
-                    }
+                    throw ErrorFactory.createError(errorName);
                 }
             }
             throw error;
