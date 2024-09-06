@@ -144,7 +144,7 @@ export class EboProcessor {
         await actor.processEvents();
         await actor.onLastBlockUpdated(lastBlock);
 
-        if (actor.canBeTerminated()) {
+        if (actor.canBeTerminated(lastBlock)) {
             this.terminateActor(requestId);
         }
     }
