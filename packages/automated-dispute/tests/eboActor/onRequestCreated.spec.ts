@@ -1,16 +1,11 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
 import { Address } from "viem";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { ProtocolProvider } from "../../src/protocolProvider.js";
 import { EboEvent, Response } from "../../src/types/index.js";
 import mocks from "../mocks/index.js";
-import {
-    DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
-    DEFAULT_MOCKED_REQUEST_CREATED_DATA,
-    mockedPrivateKey,
-} from "./fixtures.js";
+import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
 
 const logger: ILogger = mocks.mockLogger();
 
@@ -40,26 +35,6 @@ describe("EboActor", () => {
                     request: request.prophetData,
                 },
             };
-
-            let protocolProvider: ProtocolProvider;
-            let blockNumberService: BlockNumberService;
-            let registry: EboMemoryRegistry;
-            let eventProcessingMutex: Mutex;
-
-            beforeEach(() => {
-                protocolProvider = new ProtocolProvider(
-                    ["http://localhost:8538"],
-                    DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
-                    mockedPrivateKey,
-                );
-
-                const chainRpcUrls = new Map<Caip2ChainId, string[]>();
-                chainRpcUrls.set(indexedChainId, ["http://localhost:8539"]);
-
-                blockNumberService = new BlockNumberService(chainRpcUrls, logger);
-                registry = new EboMemoryRegistry();
-                eventProcessingMutex = new Mutex();
-            });
 
             it("stores the new request", async () => {
                 const { actor, blockNumberService, protocolProvider, registry } =
