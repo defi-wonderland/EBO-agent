@@ -433,7 +433,7 @@ export class EboActor {
      */
     public canBeTerminated(blockNumber: bigint): boolean {
         const request = this.getActorRequest();
-        const isRequestFinalized = request.status === "finalized";
+        const isRequestFinalized = request.status === "Finalized";
         const nonSettledProposals = this.activeProposals(blockNumber);
 
         return isRequestFinalized && nonSettledProposals.length === 0;

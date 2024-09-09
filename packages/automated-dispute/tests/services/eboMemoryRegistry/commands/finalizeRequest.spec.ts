@@ -39,7 +39,7 @@ describe("FinalizeRequest", () => {
 
             command.run();
 
-            expect(registry.updateRequestStatus).toHaveBeenCalledWith(request.id, "finalized");
+            expect(registry.updateRequestStatus).toHaveBeenCalledWith(request.id, "Finalized");
         });
 
         it("throws if the command was already run", () => {
@@ -62,7 +62,7 @@ describe("FinalizeRequest", () => {
             expect(registry.updateRequestStatus).toHaveBeenNthCalledWith(
                 1,
                 request.id,
-                "finalized",
+                "Finalized",
             );
 
             expect(registry.updateRequestStatus).toHaveBeenNthCalledWith(

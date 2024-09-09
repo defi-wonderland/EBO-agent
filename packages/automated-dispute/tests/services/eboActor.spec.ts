@@ -272,7 +272,7 @@ describe("EboActor", () => {
         it("returns false if the request is finalized but there's one active dispute", () => {
             const request: Request = {
                 ...DEFAULT_MOCKED_REQUEST_CREATED_DATA,
-                status: "finalized",
+                status: "Finalized",
             };
 
             const response = mocks.buildResponse(request);
@@ -294,7 +294,7 @@ describe("EboActor", () => {
         it("returns true once everything is settled", () => {
             const request: Request = {
                 ...DEFAULT_MOCKED_REQUEST_CREATED_DATA,
-                status: "finalized",
+                status: "Finalized",
             };
 
             const disputedResponse = mocks.buildResponse(request, { id: "0x01" });

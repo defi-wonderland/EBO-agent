@@ -3,7 +3,7 @@ import { NormalizedAddress } from "@ebo-agent/shared";
 import { Address } from "viem";
 
 export type RequestId = NormalizedAddress;
-export type RequestStatus = "active" | "finalized";
+export type RequestStatus = "Active" | "Finalized";
 
 export interface Request {
     id: RequestId;

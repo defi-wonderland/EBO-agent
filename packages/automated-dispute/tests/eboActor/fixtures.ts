@@ -12,7 +12,7 @@ export const DEFAULT_MOCKED_REQUEST_CREATED_DATA: Request = {
     chainId: "eip155:1",
     epoch: 1n,
     createdAt: 1n,
-    status: "active",
+    status: "Active",
     prophetData: {
         disputeModule: "0x01" as Address,
         finalityModule: "0x02" as Address,

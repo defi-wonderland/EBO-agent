@@ -28,7 +28,7 @@ export class FinalizeRequest implements EboRegistryCommand {
 
         this.previousStatus = this.request.status;
 
-        this.registry.updateRequestStatus(this.request.id, "finalized");
+        this.registry.updateRequestStatus(this.request.id, "Finalized");
 
         this.wasRun = true;
     }
