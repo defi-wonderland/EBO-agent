@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PastEventEnqueueError, RequestMismatch } from "../../src/exceptions/index.js";
-import { EboEvent, RequestId } from "../../src/types/index.js";
+import { EboEvent, Request, RequestId } from "../../src/types/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../eboActor/fixtures.js";
 import mocks from "../mocks/index.js";
 
@@ -9,6 +9,7 @@ const logger = mocks.mockLogger();
 
 describe("EboActor", () => {
     const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
+
     const event: EboEvent<"RequestCreated"> = {
         name: "RequestCreated",
         blockNumber: 2n,
@@ -241,6 +242,97 @@ describe("EboActor", () => {
 
             expect(callOrder).toEqual([1, 1, 2, 2]);
             expect(callOrder).not.toEqual([1, 2, 2, 1]); // Case with no mutexes
+        });
+    });
+
+    describe("canBeTerminated", () => {
+        it("returns false if the request has not been finalized yet", () => {
+            const { actor, registry } = mocks.buildEboActor(request, logger);
+            const currentBlockNumber = request.prophetData.responseModuleData.disputeWindow - 1n;
+
+            vi.spyOn(registry, "getRequest").mockReturnValue(request);
+            vi.spyOn(registry, "getResponses").mockReturnValue([]);
+
+            expect(actor.canBeTerminated(currentBlockNumber)).toBe(false);
+        });
+
+        it("returns false if there's one disputable response", () => {
+            const response = mocks.buildResponse(request);
+            const { actor, registry } = mocks.buildEboActor(request, logger);
+            const currentBlockNumber =
+                response.createdAt + request.prophetData.disputeModuleData.disputeWindow - 1n;
+
+            vi.spyOn(registry, "getRequest").mockReturnValue(request);
+            vi.spyOn(registry, "getResponses").mockReturnValue([response]);
+            vi.spyOn(registry, "getResponseDispute").mockReturnValue(undefined);
+
+            expect(actor.canBeTerminated(currentBlockNumber)).toBe(false);
+        });
+
+        it("returns false if the request is finalized but there's one active dispute", () => {
+            const request: Request = {
+                ...DEFAULT_MOCKED_REQUEST_CREATED_DATA,
+                status: "Finalized",
+            };
+
+            const response = mocks.buildResponse(request);
+            const dispute = mocks.buildDispute(request, response, { status: "Active" });
+
+            const { actor, registry } = mocks.buildEboActor(request, logger);
+            const currentBlockNumber =
+                response.createdAt + request.prophetData.disputeModuleData.disputeWindow - 1n;
+
+            vi.spyOn(registry, "getRequest").mockReturnValue(request);
+            vi.spyOn(registry, "getResponses").mockReturnValue([response]);
+            vi.spyOn(registry, "getResponseDispute").mockReturnValue(dispute);
+
+            const canBeTerminated = actor.canBeTerminated(currentBlockNumber);
+
+            expect(canBeTerminated).toBe(false);
+        });
+
+        it("returns true once everything is settled", () => {
+            const request: Request = {
+                ...DEFAULT_MOCKED_REQUEST_CREATED_DATA,
+                status: "Finalized",
+            };
+
+            const disputedResponse = mocks.buildResponse(request, { id: "0x01" });
+            const undisputedResponse = mocks.buildResponse(request, {
+                id: "0x02",
+                createdAt: request.prophetData.responseModuleData.deadline - 1n,
+            });
+
+            const escalatedDispute = mocks.buildDispute(request, disputedResponse, {
+                status: "Escalated",
+            });
+
+            const { actor, registry } = mocks.buildEboActor(request, logger);
+            const currentBlockNumber =
+                undisputedResponse.createdAt +
+                request.prophetData.disputeModuleData.disputeWindow +
+                1n;
+
+            vi.spyOn(registry, "getRequest").mockReturnValue(request);
+
+            vi.spyOn(registry, "getResponses").mockReturnValue([
+                disputedResponse,
+                undisputedResponse,
+            ]);
+
+            vi.spyOn(registry, "getResponseDispute").mockImplementation((response) => {
+                switch (response.id) {
+                    case disputedResponse.id:
+                        return escalatedDispute;
+
+                    case undisputedResponse.id:
+                        return undefined;
+                }
+            });
+
+            const canBeTerminated = actor.canBeTerminated(currentBlockNumber);
+
+            expect(canBeTerminated).toBe(true);
         });
     });
 });

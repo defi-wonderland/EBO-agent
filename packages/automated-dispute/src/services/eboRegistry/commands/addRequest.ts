@@ -20,6 +20,7 @@ export class AddRequest implements EboRegistryCommand {
             epoch: event.metadata.epoch,
             createdAt: event.blockNumber,
             prophetData: event.metadata.request,
+            status: "Active",
         };
 
         return new AddRequest(registry, request);
