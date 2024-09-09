@@ -20,7 +20,7 @@ import {
     AddDispute,
     AddRequest,
     AddResponse,
-    Noop,
+    FinalizeRequest,
     UpdateDisputeStatus,
 } from "./services/index.js";
 import {
@@ -202,7 +202,10 @@ export class EboActor {
                 );
 
             case "RequestFinalized":
-                return Noop.buildFromEvent();
+                return FinalizeRequest.buildFromEvent(
+                    event as EboEvent<"RequestFinalized">,
+                    this.registry,
+                );
 
             default:
                 throw new UnknownEvent(event.name);
