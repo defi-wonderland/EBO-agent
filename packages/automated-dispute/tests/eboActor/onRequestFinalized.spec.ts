@@ -47,13 +47,21 @@ describe("EboActor", () => {
 
                 vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
 
-                const mockBuildFromEvent = vi.spyOn(FinalizeRequest, "buildFromEvent");
+                const mockFinalizeRequest = {
+                    run: vi.fn(),
+                    undo: vi.fn(),
+                } as unknown as FinalizeRequest;
+
+                const mockBuildFromEvent = vi
+                    .spyOn(FinalizeRequest, "buildFromEvent")
+                    .mockReturnValue(mockFinalizeRequest);
 
                 actor.enqueue(event);
 
                 await actor.processEvents();
 
                 expect(mockBuildFromEvent).toHaveBeenCalledWith(event, registry);
+                expect(mockFinalizeRequest.run).toHaveBeenCalled();
             });
         });
     });
