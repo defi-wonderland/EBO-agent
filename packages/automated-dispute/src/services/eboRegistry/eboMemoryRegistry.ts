@@ -1,6 +1,13 @@
-import { DisputeNotFound } from "../../exceptions/index.js";
+import { DisputeNotFound, RequestNotFound } from "../../exceptions/index.js";
 import { EboRegistry } from "../../interfaces/index.js";
-import { Dispute, DisputeStatus, Request, RequestId, Response } from "../../types/index.js";
+import {
+    Dispute,
+    DisputeStatus,
+    Request,
+    RequestId,
+    RequestStatus,
+    Response,
+} from "../../types/index.js";
 
 export class EboMemoryRegistry implements EboRegistry {
     constructor(
@@ -18,6 +25,17 @@ export class EboMemoryRegistry implements EboRegistry {
     /** @inheritdoc */
     public getRequest(requestId: RequestId) {
         return this.requests.get(requestId);
+    }
+
+    public updateRequestStatus(requestId: RequestId, status: RequestStatus): void {
+        const request = this.getRequest(requestId);
+
+        if (request === undefined) throw new RequestNotFound(requestId);
+
+        this.requests.set(requestId, {
+            ...request,
+            status: status,
+        });
     }
 
     /** @inheritdoc */

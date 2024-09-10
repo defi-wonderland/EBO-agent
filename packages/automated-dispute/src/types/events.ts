@@ -44,7 +44,7 @@ export interface DisputeEscalated {
 }
 
 export interface RequestFinalized {
-    requestId: string;
+    requestId: RequestId;
     responseId: string;
     caller: string;
     blockNumber: bigint;

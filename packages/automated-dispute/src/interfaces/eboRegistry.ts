@@ -1,4 +1,11 @@
-import { Dispute, DisputeStatus, Request, RequestId, Response } from "../types/prophet.js";
+import {
+    Dispute,
+    DisputeStatus,
+    Request,
+    RequestId,
+    RequestStatus,
+    Response,
+} from "../types/index.js";
 
 /** Registry that stores Prophet entities (ie. requests, responses and disputes) */
 export interface EboRegistry {
@@ -16,6 +23,14 @@ export interface EboRegistry {
      * @returns the request if already added into registry, `undefined` otherwise
      */
     getRequest(requestId: RequestId): Request | undefined;
+
+    /**
+     * Update the request status based on its ID.
+     *
+     * @param requestId the ID of the `Request`
+     * @param status the `Request` status
+     */
+    updateRequestStatus(requestId: string, status: RequestStatus): void;
 
     /**
      * Remove a `Request` by its ID.
