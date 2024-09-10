@@ -24,11 +24,12 @@ import {
     AddDispute,
     AddRequest,
     AddResponse,
-    Noop,
+    FinalizeRequest,
     UpdateDisputeStatus,
 } from "./services/index.js";
 import {
     Dispute,
+    DisputeStatus,
     EboEvent,
     EboEventName,
     Request,
@@ -205,7 +206,10 @@ export class EboActor {
                 );
 
             case "RequestFinalized":
-                return Noop.buildFromEvent();
+                return FinalizeRequest.buildFromEvent(
+                    event as EboEvent<"RequestFinalized">,
+                    this.registry,
+                );
 
             default:
                 throw new UnknownEvent(event.name);
@@ -412,7 +416,7 @@ export class EboActor {
         const request = this.getActorRequest();
         const dispute = this.registry.getResponseDispute(response);
         const disputeWindow =
-            response.createdAt + request.prophetData.responseModuleData.disputeWindow;
+            response.createdAt + request.prophetData.disputeModuleData.disputeWindow;
 
         // Response is still able to be disputed
         if (blockNumber <= disputeWindow) return false;
@@ -428,11 +432,41 @@ export class EboActor {
      *
      * Be aware that a request can be finalized but some of its disputes can still be pending resolution.
      *
+     * @param blockNumber block number to check entities at
      * @returns `true` if all entities are settled, otherwise `false`
      */
-    public canBeTerminated(): boolean {
-        // TODO
-        throw new Error("Implement me");
+    public canBeTerminated(blockNumber: bigint): boolean {
+        const request = this.getActorRequest();
+        const isRequestFinalized = request.status === "Finalized";
+        const nonSettledProposals = this.activeProposals(blockNumber);
+
+        return isRequestFinalized && nonSettledProposals.length === 0;
+    }
+
+    /**
+     * Check for any active proposals at a specific block number.
+     *
+     * @param blockNumber block number to check proposals' status against
+     * @returns an array of `Response` instances
+     */
+    private activeProposals(blockNumber: bigint): Response[] {
+        const responses = this.registry.getResponses();
+
+        return responses.filter((response) => {
+            if (this.isResponseAccepted(response, blockNumber)) return false;
+
+            const dispute = this.registry.getResponseDispute(response);
+
+            // Response has not been disputed but is not accepted yet, so it's active.
+            if (!dispute) return true;
+
+            // The rest of the status (ie "Escalated" | "Won" | "Lost" | "NoResolution")
+            // cannot be changed by the EBO agent once they've been reached so they make
+            // the proposal non-active.
+            const activeStatus: DisputeStatus[] = ["None", "Active"];
+
+            return activeStatus.includes(dispute.status);
+        });
     }
 
     /**

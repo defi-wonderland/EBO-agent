@@ -3,12 +3,14 @@ import { NormalizedAddress } from "@ebo-agent/shared";
 import { Address } from "viem";
 
 export type RequestId = NormalizedAddress;
+export type RequestStatus = "Active" | "Finalized";
 
 export interface Request {
     id: RequestId;
     chainId: Caip2ChainId;
     epoch: bigint;
     createdAt: bigint;
+    status: RequestStatus;
 
     prophetData: Readonly<{
         requester: Address;
