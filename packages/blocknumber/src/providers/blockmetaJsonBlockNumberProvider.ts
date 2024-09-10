@@ -108,9 +108,9 @@ export class BlockmetaJsonBlockNumberProvider implements BlockNumberProvider {
      *
      * @param response an AxiosResponse of a request to BlockByTime endpoint
      * @param isoTimestamp the timestamp that was sent in the request
-     * @returns
+     * @returns the block number inside a BlockByTime service response
      */
-    private parseBlockByTimeResponse(response: AxiosResponse, isoTimestamp: string) {
+    private parseBlockByTimeResponse(response: AxiosResponse, isoTimestamp: string): bigint {
         const { data } = response;
         // TODO: validate with zod instead
         const blockNumber = (data as BlockByTimeResponse)["num"];
