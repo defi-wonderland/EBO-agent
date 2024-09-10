@@ -7,6 +7,12 @@ export const EBO_SUPPORTED_CHAINS_CONFIG = {
             arbitrum: "42161",
         },
     },
+    solana: {
+        namespace: "solana",
+        references: {
+            mainnet: "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+        },
+    },
 } as const;
 
 export const EBO_SUPPORTED_CHAIN_IDS = Object.values(EBO_SUPPORTED_CHAINS_CONFIG).reduce(
