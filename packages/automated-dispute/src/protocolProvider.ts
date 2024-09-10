@@ -22,7 +22,6 @@ import { arbitrum } from "viem/chains";
 import type { EboEvent, EboEventName } from "./types/events.js";
 import type { Dispute, Request, Response } from "./types/prophet.js";
 import { eboRequestCreatorAbi, epochManagerAbi, oracleAbi } from "./abis/index.js";
-import { ErrorFactory } from "./exceptions/errorFactory.js";
 import { RpcUrlsEmpty } from "./exceptions/rpcUrlsEmpty.exception.js";
 import {
     IProtocolProvider,
@@ -30,6 +29,7 @@ import {
     IWriteProvider,
     ProtocolContractsAddresses,
 } from "./interfaces/index.js";
+import { ErrorFactory } from "./services/errorFactory.js";
 
 // TODO: these constants should be env vars
 const TRANSACTION_RECEIPT_CONFIRMATIONS = 1;

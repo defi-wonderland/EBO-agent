@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { EBORequestCreator_ChainNotAdded } from "../src/exceptions/chainNotAdded.exception.js";
-import { ErrorFactory } from "../src/exceptions/errorFactory.js";
 import { EBORequestCreator_InvalidEpoch } from "../src/exceptions/invalidEpoch.exception.js";
 import { Oracle_InvalidRequestBody } from "../src/exceptions/invalidRequestBody.exception.js";
 import { EBORequestModule_InvalidRequester } from "../src/exceptions/invalidRequester.exception.js";
+import { ErrorFactory } from "../src/services/errorFactory.js";
 
 describe("ErrorFactory", () => {
     it("creates EBORequestCreator_InvalidEpoch error", () => {

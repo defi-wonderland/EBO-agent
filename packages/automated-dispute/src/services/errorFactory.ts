@@ -1,7 +1,7 @@
-import { EBORequestCreator_ChainNotAdded } from "./chainNotAdded.exception.js";
-import { EBORequestCreator_InvalidEpoch } from "./invalidEpoch.exception.js";
-import { Oracle_InvalidRequestBody } from "./invalidRequestBody.exception.js";
-import { EBORequestModule_InvalidRequester } from "./invalidRequester.exception.js";
+import { EBORequestCreator_ChainNotAdded } from "../exceptions/chainNotAdded.exception.js";
+import { EBORequestCreator_InvalidEpoch } from "../exceptions/invalidEpoch.exception.js";
+import { Oracle_InvalidRequestBody } from "../exceptions/invalidRequestBody.exception.js";
+import { EBORequestModule_InvalidRequester } from "../exceptions/invalidRequester.exception.js";
 
 /**
  * A factory class for creating specific error instances based on the provided error name.
@@ -15,6 +15,8 @@ export class ErrorFactory {
      * @throws {Error} If the provided error name is unknown.
      */
     public static createError(errorName: string): Error {
+        // TODO: need to define structure of each error
+        // TODO: Need to define some base contract reverted error to distinguish from other errors
         switch (errorName) {
             case "EBORequestCreator_InvalidEpoch":
                 return new EBORequestCreator_InvalidEpoch();
