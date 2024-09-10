@@ -58,7 +58,7 @@ export class BlockmetaJsonBlockNumberProvider implements BlockNumberProvider {
 
             return blockNumberAt;
         } catch (err) {
-            const isAxios404 = isAxiosError(err) && err.status === 404;
+            const isAxios404 = isAxiosError(err) && err.response?.status === 404;
             const isUndefinedBlockNumber = err instanceof UndefinedBlockNumber;
 
             if (!isAxios404 && !isUndefinedBlockNumber) throw err;
