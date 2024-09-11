@@ -1,7 +1,9 @@
+import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { createPublicClient, createWalletClient, fallback, getContract, http } from "viem";
 import { arbitrum } from "viem/chains";
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from "vitest";
 
+import type { Dispute, Request, Response } from "../src/types/prophet.js";
 import { eboRequestCreatorAbi } from "../src/abis/eboRequestCreator.js";
 import { epochManagerAbi } from "../src/abis/epochManager.js";
 import { oracleAbi } from "../src/abis/oracle.js";
@@ -221,29 +223,55 @@ describe("ProtocolProvider", () => {
         it("returns false if the address has 0 staked assets");
     });
 
-    describe.skip("createRequest", () => {
-        it("succeeds if the RPC client sent the request");
-        // NOTE: Should we validate if the request was created by
-        // tracking the transaction result somehow? I feel like it's
-        // somewhat brittle to just wish for the tx to be processed.
-        it("throws if the epoch is not current");
-        it("throws if chains is empty");
-        it("throws if the RPC client fails");
-    });
-
     describe.skip("getAvailableChains", () => {
         it("returns an array of available chains in CAIP-2 compliant format");
         it("throws if the RPC client fails");
     });
 
-    describe.skip("proposeResponse", () => {
-        it("returns if the RPC client sent the response");
-        it("throws if the RPC client fails");
+    describe("proposeResponse", () => {
+        it("should successfully propose a response", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            await expect(
+                protocolProvider.proposeResponse("0x123", 1n, "eip155:1" as Caip2ChainId, 100n),
+            ).resolves.not.toThrow();
+        });
     });
 
-    describe.skip("disputeResponse", () => {
-        it("returns if the RPC client sent the dispute");
-        it("throws if the RPC client fails");
+    describe("disputeResponse", () => {
+        it("should successfully dispute a response", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            await expect(
+                protocolProvider.disputeResponse("0x123", "0x456", "0x789"),
+            ).resolves.not.toThrow();
+        });
+    });
+
+    describe("escalateDispute", () => {
+        it("should successfully escalate a dispute", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockRequest = {} as Request["prophetData"];
+            const mockResponse = {} as Response["prophetData"];
+            const mockDispute = {} as Dispute["prophetData"];
+
+            await expect(
+                protocolProvider.escalateDispute(mockRequest, mockResponse, mockDispute),
+            ).resolves.not.toThrow();
+        });
     });
 
     describe.skip("pledgeForDispute", () => {
@@ -256,9 +284,21 @@ describe("ProtocolProvider", () => {
         it("throws if the RPC client fails");
     });
 
-    describe.skip("finalize", () => {
-        it("returns if the RPC client finalizes the pledge");
-        it("throws if the RPC client fails");
+    describe("finalize", () => {
+        it("should successfully finalize a request", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockRequest = {} as Request["prophetData"];
+            const mockResponse = {} as Response["prophetData"];
+
+            await expect(
+                protocolProvider.finalize(mockRequest, mockResponse),
+            ).resolves.not.toThrow();
+        });
     });
 
     describe("createRequest", () => {

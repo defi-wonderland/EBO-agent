@@ -304,23 +304,96 @@ export class ProtocolProvider implements IProtocolProvider {
         }
     }
 
+    /**
+     * Proposes a response for a given request.
+     *
+     * @param {string} requestId - The ID of the request.
+     * @param {bigint} epoch - The epoch for which the response is proposed.
+     * @param {Caip2ChainId} chainId - The chain ID for which the response is proposed.
+     * @param {bigint} blockNumber - The block number proposed as the response.
+     * @throws {Error} If the transaction fails or if there's a contract revert.
+     * @returns {Promise<void>}
+     */
     async proposeResponse(
-        _requestId: string,
-        _epoch: bigint,
-        _chainId: Caip2ChainId,
-        _blockNumber: bigint,
+        requestId: string,
+        epoch: bigint,
+        chainId: Caip2ChainId,
+        blockNumber: bigint,
     ): Promise<void> {
-        // TODO: implement actual method
-        return;
+        try {
+            const { request } = await this.readClient.simulateContract({
+                address: this.oracleContract.address,
+                abi: oracleAbi,
+                functionName: "proposeResponse",
+                args: [requestId, { epoch, chainId, block: blockNumber }],
+                account: this.writeClient.account,
+            });
+
+            const hash = await this.writeClient.writeContract(request);
+
+            const receipt = await this.readClient.waitForTransactionReceipt({
+                hash,
+                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+            });
+
+            if (receipt.status !== "success") {
+                throw new Error("Transaction failed");
+            }
+        } catch (error) {
+            if (error instanceof BaseError) {
+                const revertError = error.walk(
+                    (err) => err instanceof ContractFunctionRevertedError,
+                );
+                if (revertError instanceof ContractFunctionRevertedError) {
+                    const errorName = revertError.data?.errorName ?? "";
+                    throw ErrorFactory.createError(errorName);
+                }
+            }
+            throw error;
+        }
     }
 
-    async disputeResponse(
-        _requestId: string,
-        _responseId: string,
-        _proposer: Address,
-    ): Promise<void> {
-        // TODO: implement actual method
-        return;
+    /**
+     * Disputes a proposed response.
+     *
+     * @param {string} requestId - The ID of the request.
+     * @param {string} responseId - The ID of the response being disputed.
+     * @param {Address} proposer - The address of the proposer of the disputed response.
+     * @throws {Error} If the transaction fails or if there's a contract revert.
+     * @returns {Promise<void>}
+     */
+    async disputeResponse(requestId: string, responseId: string, proposer: Address): Promise<void> {
+        try {
+            const { request } = await this.readClient.simulateContract({
+                address: this.oracleContract.address,
+                abi: oracleAbi,
+                functionName: "disputeResponse",
+                args: [requestId, responseId, proposer],
+                account: this.writeClient.account,
+            });
+
+            const hash = await this.writeClient.writeContract(request);
+
+            const receipt = await this.readClient.waitForTransactionReceipt({
+                hash,
+                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+            });
+
+            if (receipt.status !== "success") {
+                throw new Error("Transaction failed");
+            }
+        } catch (error) {
+            if (error instanceof BaseError) {
+                const revertError = error.walk(
+                    (err) => err instanceof ContractFunctionRevertedError,
+                );
+                if (revertError instanceof ContractFunctionRevertedError) {
+                    const errorName = revertError.data?.errorName ?? "";
+                    throw ErrorFactory.createError(errorName);
+                }
+            }
+            throw error;
+        }
     }
 
     async pledgeForDispute(
@@ -348,23 +421,95 @@ export class ProtocolProvider implements IProtocolProvider {
         return;
     }
 
+    /**
+     * Escalates a dispute to a higher authority.
+     *
+     * @param {Request["prophetData"]} request - The request data.
+     * @param {Response["prophetData"]} response - The response data.
+     * @param {Dispute["prophetData"]} dispute - The dispute data.
+     * @throws {Error} If the transaction fails or if there's a contract revert.
+     * @returns {Promise<void>}
+     */
     async escalateDispute(
-        _request: Request["prophetData"],
-        _response: Response["prophetData"],
-        _dispute: Dispute["prophetData"],
+        request: Request["prophetData"],
+        response: Response["prophetData"],
+        dispute: Dispute["prophetData"],
     ): Promise<void> {
-        // TODO: implement actual method
-        return;
+        try {
+            const { request: simulatedRequest } = await this.readClient.simulateContract({
+                address: this.oracleContract.address,
+                abi: oracleAbi,
+                functionName: "escalateDispute",
+                args: [request, response, dispute],
+                account: this.writeClient.account,
+            });
+
+            const hash = await this.writeClient.writeContract(simulatedRequest);
+
+            const receipt = await this.readClient.waitForTransactionReceipt({
+                hash,
+                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+            });
+
+            if (receipt.status !== "success") {
+                throw new Error("Transaction failed");
+            }
+        } catch (error) {
+            if (error instanceof BaseError) {
+                const revertError = error.walk(
+                    (err) => err instanceof ContractFunctionRevertedError,
+                );
+                if (revertError instanceof ContractFunctionRevertedError) {
+                    const errorName = revertError.data?.errorName ?? "";
+                    throw ErrorFactory.createError(errorName);
+                }
+            }
+            throw error;
+        }
     }
 
-    // Pending confirmation from onchain team
-    // releasePledge(args):void;
-
+    /**
+     * Finalizes a request with a given response.
+     *
+     * @param {Request["prophetData"]} request - The request data.
+     * @param {Response["prophetData"]} response - The response data to finalize.
+     * @throws {Error} If the transaction fails or if there's a contract revert.
+     * @returns {Promise<void>}
+     */
     async finalize(
-        _request: Request["prophetData"],
-        _response: Response["prophetData"],
+        request: Request["prophetData"],
+        response: Response["prophetData"],
     ): Promise<void> {
-        //TODO: implement actual method
-        return;
+        try {
+            const { request: simulatedRequest } = await this.readClient.simulateContract({
+                address: this.oracleContract.address,
+                abi: oracleAbi,
+                functionName: "finalize",
+                args: [request, response],
+                account: this.writeClient.account,
+            });
+
+            const hash = await this.writeClient.writeContract(simulatedRequest);
+
+            const receipt = await this.readClient.waitForTransactionReceipt({
+                hash,
+                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+            });
+
+            if (receipt.status !== "success") {
+                throw new Error("Transaction failed");
+            }
+        } catch (error) {
+            if (error instanceof BaseError) {
+                const revertError = error.walk(
+                    (err) => err instanceof ContractFunctionRevertedError,
+                );
+                if (revertError instanceof ContractFunctionRevertedError) {
+                    const errorName = revertError.data?.errorName ?? "";
+                    throw ErrorFactory.createError(errorName);
+                }
+            }
+            throw error;
+        }
     }
 }
