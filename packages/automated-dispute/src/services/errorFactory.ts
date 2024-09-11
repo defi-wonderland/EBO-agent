@@ -18,7 +18,6 @@ export class ErrorFactory {
         // TODO: need to define structure of each error
         // TODO: Need to define some base contract reverted error to distinguish from other errors
         switch (errorName) {
-            // Existing errors
             case "EBORequestCreator_InvalidEpoch":
                 return new EBORequestCreator_InvalidEpoch();
             case "Oracle_InvalidRequestBody":
@@ -27,7 +26,7 @@ export class ErrorFactory {
                 return new EBORequestModule_InvalidRequester();
             case "EBORequestCreator_ChainNotAdded":
                 return new EBORequestCreator_ChainNotAdded();
-                // TODO: refactor errors to be in a map & use new error factory rather than a new class for each
+                // TODO: refactor all errors to be in a map & use new error factory rather than a new class for each
                 // case "AccountExtension_InsufficientFunds":
                 // case "AccountingExtensions_NotAllowed":
                 // case "BondedResponseModule_AlreadyResponded":
