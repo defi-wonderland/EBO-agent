@@ -170,7 +170,6 @@ describe("EboActor", () => {
             vi.spyOn(registry, "getDispute").mockReturnValue(firstResponseDispute);
 
             const mockFinalize = vi.spyOn(protocolProvider, "finalize").mockImplementation(() => {
-                console.log("Mocked finalize method called");
                 return Promise.resolve();
             });
 
