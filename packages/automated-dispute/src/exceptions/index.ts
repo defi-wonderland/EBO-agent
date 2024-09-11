@@ -8,3 +8,7 @@ export * from "./requestAlreadyHandled.exception.js";
 export * from "./requestMismatch.exception.js";
 export * from "./responseAlreadyProposed.exception.js";
 export * from "./rpcUrlsEmpty.exception.js";
+export * from "./chainNotAdded.exception.js";
+export * from "./invalidEpoch.exception.js";
+export * from "./invalidRequestBody.exception.js";
+export * from "./invalidRequester.exception.js";

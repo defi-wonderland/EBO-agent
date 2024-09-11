@@ -1,3 +1,3 @@
 export * from "./events.js";
-export * from "./protocolProvider.js";
+export * from "../interfaces/protocolProvider.js";
 export * from "./prophet.js";

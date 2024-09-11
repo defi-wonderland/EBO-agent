@@ -2,29 +2,56 @@ import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { Timestamp } from "@ebo-agent/shared";
 import {
     Address,
+    BaseError,
+    ContractFunctionRevertedError,
     createPublicClient,
+    createWalletClient,
     fallback,
     FallbackTransport,
     getContract,
     GetContractReturnType,
+    Hex,
     http,
     HttpTransport,
     PublicClient,
+    WalletClient,
 } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum } from "viem/chains";
 
 import type { EboEvent, EboEventName } from "./types/events.js";
 import type { Dispute, Request, Response } from "./types/prophet.js";
-import { epochManagerAbi, oracleAbi } from "./abis/index.js";
+import { eboRequestCreatorAbi, epochManagerAbi, oracleAbi } from "./abis/index.js";
 import { RpcUrlsEmpty } from "./exceptions/rpcUrlsEmpty.exception.js";
-import { ProtocolContractsAddresses } from "./types/protocolProvider.js";
+import {
+    IProtocolProvider,
+    IReadProvider,
+    IWriteProvider,
+    ProtocolContractsAddresses,
+} from "./interfaces/index.js";
+import { ErrorFactory } from "./services/errorFactory.js";
 
-export class ProtocolProvider {
-    private client: PublicClient<FallbackTransport<HttpTransport[]>>;
-    private oracleContract: GetContractReturnType<typeof oracleAbi, typeof this.client, Address>;
+// TODO: these constants should be env vars
+const TRANSACTION_RECEIPT_CONFIRMATIONS = 1;
+const TIMEOUT = 10000;
+const RETRY_INTERVAL = 150;
+
+export class ProtocolProvider implements IProtocolProvider {
+    private readClient: PublicClient<FallbackTransport<HttpTransport[]>>;
+    private writeClient: WalletClient<FallbackTransport<HttpTransport[]>>;
+    private oracleContract: GetContractReturnType<
+        typeof oracleAbi,
+        typeof this.writeClient,
+        Address
+    >;
     private epochManagerContract: GetContractReturnType<
         typeof epochManagerAbi,
-        typeof this.client,
+        typeof this.readClient,
+        Address
+    >;
+    private eboRequestCreatorContract: GetContractReturnType<
+        typeof eboRequestCreatorAbi,
+        typeof this.writeClient,
         Address
     >;
 
@@ -32,27 +59,79 @@ export class ProtocolProvider {
      * Creates a new ProtocolProvider instance
      * @param rpcUrls The RPC URLs to connect to the Arbitrum chain
      * @param contracts The addresses of the protocol contracts that will be instantiated
+     * @param privateKey The private key of the account that will be used to interact with the contracts
      */
-    constructor(rpcUrls: string[], contracts: ProtocolContractsAddresses) {
+    constructor(rpcUrls: string[], contracts: ProtocolContractsAddresses, privateKey: Hex) {
         if (rpcUrls.length === 0) {
             throw new RpcUrlsEmpty();
         }
-        this.client = createPublicClient({
+
+        this.readClient = createPublicClient({
             chain: arbitrum,
-            transport: fallback(rpcUrls.map((url) => http(url))),
+            transport: fallback(
+                rpcUrls.map((url) =>
+                    http(url, {
+                        timeout: TIMEOUT,
+                        retryDelay: RETRY_INTERVAL,
+                    }),
+                ),
+            ),
         });
+
+        const account = privateKeyToAccount(privateKey);
+
+        this.writeClient = createWalletClient({
+            chain: arbitrum,
+            transport: fallback(
+                rpcUrls.map((url) =>
+                    http(url, {
+                        timeout: TIMEOUT,
+                        retryDelay: RETRY_INTERVAL,
+                    }),
+                ),
+            ),
+            account: account,
+        });
+
         // Instantiate all the protocol contracts
         this.oracleContract = getContract({
             address: contracts.oracle,
             abi: oracleAbi,
-            client: this.client,
+            client: this.writeClient,
         });
         this.epochManagerContract = getContract({
             address: contracts.epochManager,
             abi: epochManagerAbi,
-            client: this.client,
+            client: this.readClient,
+        });
+        this.eboRequestCreatorContract = getContract({
+            address: contracts.eboRequestCreator,
+            abi: eboRequestCreatorAbi,
+            client: {
+                public: this.readClient,
+                wallet: this.writeClient,
+            },
         });
     }
+
+    public write: IWriteProvider = {
+        createRequest: this.createRequest.bind(this),
+        proposeResponse: this.proposeResponse.bind(this),
+        disputeResponse: this.disputeResponse.bind(this),
+        pledgeForDispute: this.pledgeForDispute.bind(this),
+        pledgeAgainstDispute: this.pledgeAgainstDispute.bind(this),
+        settleDispute: this.settleDispute.bind(this),
+        escalateDispute: this.escalateDispute.bind(this),
+        finalize: this.finalize.bind(this),
+    };
+
+    public read: IReadProvider = {
+        getCurrentEpoch: this.getCurrentEpoch.bind(this),
+        getLastFinalizedBlock: this.getLastFinalizedBlock.bind(this),
+        getEvents: this.getEvents.bind(this),
+        hasStakedAssets: this.hasStakedAssets.bind(this),
+        getAvailableChains: this.getAvailableChains.bind(this),
+    };
 
     /**
      * Gets the current epoch, the block number and its timestamp of the current epoch
@@ -69,7 +148,7 @@ export class ProtocolProvider {
             this.epochManagerContract.read.currentEpochBlock(),
         ]);
 
-        const currentEpochBlock = await this.client.getBlock({
+        const currentEpochBlock = await this.readClient.getBlock({
             blockNumber: currentEpochBlockNumber,
         });
 
@@ -81,7 +160,7 @@ export class ProtocolProvider {
     }
 
     async getLastFinalizedBlock(): Promise<bigint> {
-        const { number } = await this.client.getBlock({ blockTag: "finalized" });
+        const { number } = await this.readClient.getBlock({ blockTag: "finalized" });
 
         return number;
     }
@@ -169,10 +248,60 @@ export class ProtocolProvider {
     }
 
     // TODO: waiting for ChainId to be merged for _chains parameter
-    async createRequest(_epoch: bigint, _chains: string[]): Promise<void> {
-        // TODO: implement actual method
+    /**
+     * Creates a request on the EBO Request Creator contract by simulating the transaction
+     * and then executing it if the simulation is successful.
+     *
+     * This function first simulates the `createRequests` call on the EBO Request Creator contract
+     * to validate that the transaction will succeed. If the simulation is successful, the transaction
+     * is executed by the `writeContract` method of the wallet client. The function also handles any
+     * potential errors that may occur during the simulation or transaction execution.
+     *
+     * @param {bigint} epoch - The epoch for which the request is being created.
+     * @param {string[]} chains - An array of chain identifiers where the request should be created.
+     * @throws {Error} Throws an error if the chains array is empty or if the transaction fails.
+     * @throws {EBORequestCreator_InvalidEpoch} Throws if the epoch is invalid.
+     * @throws {Oracle_InvalidRequestBody} Throws if the request body is invalid.
+     * @throws {EBORequestModule_InvalidRequester} Throws if the requester is invalid.
+     * @throws {EBORequestCreator_ChainNotAdded} Throws if the specified chain is not added.
+     * @returns {Promise<void>} A promise that resolves when the request is successfully created.
+     */
+    async createRequest(epoch: bigint, chains: string[]): Promise<void> {
+        if (chains.length === 0) {
+            throw new Error("Chains array cannot be empty");
+        }
 
-        return;
+        try {
+            const { request } = await this.readClient.simulateContract({
+                address: this.eboRequestCreatorContract.address,
+                abi: eboRequestCreatorAbi,
+                functionName: "createRequests",
+                args: [epoch, chains],
+                account: this.writeClient.account,
+            });
+
+            const hash = await this.writeClient.writeContract(request);
+
+            const receipt = await this.readClient.waitForTransactionReceipt({
+                hash,
+                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+            });
+
+            if (receipt.status !== "success") {
+                throw new Error("Transaction failed");
+            }
+        } catch (error) {
+            if (error instanceof BaseError) {
+                const revertError = error.walk(
+                    (err) => err instanceof ContractFunctionRevertedError,
+                );
+                if (revertError instanceof ContractFunctionRevertedError) {
+                    const errorName = revertError.data?.errorName ?? "";
+                    throw ErrorFactory.createError(errorName);
+                }
+            }
+            throw error;
+        }
     }
 
     async proposeResponse(
