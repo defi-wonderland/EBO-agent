@@ -81,24 +81,21 @@ describe("EboActor", () => {
 
                 const proposeResponseMock = vi.spyOn(protocolProvider, "proposeResponse");
 
-                proposeResponseMock.mockImplementation(
-                    (
-                        _requestId: string,
-                        _epoch: bigint,
-                        _chainId: Caip2ChainId,
-                        _blockNumbre: bigint,
-                    ) => Promise.resolve(),
-                );
-
                 actor.enqueue(requestCreatedEvent);
 
                 await actor.processEvents();
 
                 expect(proposeResponseMock).toHaveBeenCalledWith(
-                    requestCreatedEvent.metadata.requestId,
-                    protocolEpoch.currentEpoch,
-                    requestCreatedEvent.metadata.chainId,
-                    indexedEpochBlockNumber,
+                    expect.objectContaining(request.prophetData),
+                    expect.objectContaining({
+                        proposer: expect.any(String),
+                        requestId: requestCreatedEvent.metadata.requestId,
+                        response: {
+                            block: indexedEpochBlockNumber,
+                            chainId: requestCreatedEvent.metadata.chainId,
+                            epoch: protocolEpoch.currentEpoch,
+                        },
+                    }),
                 );
             });
 
@@ -113,15 +110,6 @@ describe("EboActor", () => {
                 );
 
                 const proposeResponseMock = vi.spyOn(protocolProvider, "proposeResponse");
-
-                proposeResponseMock.mockImplementation(
-                    (
-                        _requestId: string,
-                        _epoch: bigint,
-                        _chainId: Caip2ChainId,
-                        _blockNumbre: bigint,
-                    ) => Promise.resolve(),
-                );
 
                 const previousResponses = new Map<string, Response>();
                 previousResponses.set("0x01", {

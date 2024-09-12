@@ -85,10 +85,16 @@ describe("onDisputeStatusChanged", () => {
         await actor.processEvents();
 
         expect(mockProposeResponse).toHaveBeenCalledWith(
-            actorRequest.id,
-            actorRequest.epoch,
-            actorRequest.chainId,
-            response.prophetData.response.block + 1n,
+            expect.objectContaining({}),
+            expect.objectContaining({
+                proposer: expect.any(String),
+                requestId: "0x01",
+                response: {
+                    block: 2n,
+                    chainId: "eip155:1",
+                    epoch: 1n,
+                },
+            }),
         );
     });
 

@@ -1,4 +1,3 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { Timestamp } from "@ebo-agent/shared";
 import {
     Address,
@@ -22,7 +21,7 @@ import { arbitrum } from "viem/chains";
 import type { EboEvent, EboEventName } from "./types/events.js";
 import type { Dispute, Request, Response } from "./types/prophet.js";
 import { eboRequestCreatorAbi, epochManagerAbi, oracleAbi } from "./abis/index.js";
-import { RpcUrlsEmpty } from "./exceptions/rpcUrlsEmpty.exception.js";
+import { RpcUrlsEmpty, TransactionExecutionError } from "./exceptions/index.js";
 import {
     IProtocolProvider,
     IReadProvider,
@@ -252,11 +251,6 @@ export class ProtocolProvider implements IProtocolProvider {
      * Creates a request on the EBO Request Creator contract by simulating the transaction
      * and then executing it if the simulation is successful.
      *
-     * This function first simulates the `createRequests` call on the EBO Request Creator contract
-     * to validate that the transaction will succeed. If the simulation is successful, the transaction
-     * is executed by the `writeContract` method of the wallet client. The function also handles any
-     * potential errors that may occur during the simulation or transaction execution.
-     *
      * @param {bigint} epoch - The epoch for which the request is being created.
      * @param {string[]} chains - An array of chain identifiers where the request should be created.
      * @throws {Error} Throws an error if the chains array is empty or if the transaction fails.
@@ -288,7 +282,7 @@ export class ProtocolProvider implements IProtocolProvider {
             });
 
             if (receipt.status !== "success") {
-                throw new Error("Transaction failed");
+                throw new TransactionExecutionError("createRequest transaction failed");
             }
         } catch (error) {
             if (error instanceof BaseError) {
@@ -307,29 +301,26 @@ export class ProtocolProvider implements IProtocolProvider {
     /**
      * Proposes a response for a given request.
      *
-     * @param {string} requestId - The ID of the request.
-     * @param {bigint} epoch - The epoch for which the response is proposed.
-     * @param {Caip2ChainId} chainId - The chain ID for which the response is proposed.
-     * @param {bigint} blockNumber - The block number proposed as the response.
-     * @throws {Error} If the transaction fails or if there's a contract revert.
+     * @param {Request["prophetData"]} request - The request data.
+     * @param {Response["prophetData"]} response - The response data to propose.
+     * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
+     * @throws {ContractFunctionRevertedError} Throws if the contract function reverts.
      * @returns {Promise<void>}
      */
     async proposeResponse(
-        requestId: string,
-        epoch: bigint,
-        chainId: Caip2ChainId,
-        blockNumber: bigint,
+        request: Request["prophetData"],
+        response: Response["prophetData"],
     ): Promise<void> {
         try {
-            const { request } = await this.readClient.simulateContract({
+            const { request: simulatedRequest } = await this.readClient.simulateContract({
                 address: this.oracleContract.address,
                 abi: oracleAbi,
                 functionName: "proposeResponse",
-                args: [requestId, { epoch, chainId, block: blockNumber }],
+                args: [request, response],
                 account: this.writeClient.account,
             });
 
-            const hash = await this.writeClient.writeContract(request);
+            const hash = await this.writeClient.writeContract(simulatedRequest);
 
             const receipt = await this.readClient.waitForTransactionReceipt({
                 hash,
@@ -337,7 +328,7 @@ export class ProtocolProvider implements IProtocolProvider {
             });
 
             if (receipt.status !== "success") {
-                throw new Error("Transaction failed");
+                throw new TransactionExecutionError("proposeResponse transaction failed");
             }
         } catch (error) {
             if (error instanceof BaseError) {
@@ -356,23 +347,28 @@ export class ProtocolProvider implements IProtocolProvider {
     /**
      * Disputes a proposed response.
      *
-     * @param {string} requestId - The ID of the request.
-     * @param {string} responseId - The ID of the response being disputed.
-     * @param {Address} proposer - The address of the proposer of the disputed response.
-     * @throws {Error} If the transaction fails or if there's a contract revert.
+     * @param {Request["prophetData"]} request - The request data.
+     * @param {Response["prophetData"]} response - The response data to dispute.
+     * @param {Dispute["prophetData"]} dispute - The dispute data.
+     * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
+     * @throws {ContractFunctionRevertedError} Throws if the contract function reverts.
      * @returns {Promise<void>}
      */
-    async disputeResponse(requestId: string, responseId: string, proposer: Address): Promise<void> {
+    async disputeResponse(
+        request: Request["prophetData"],
+        response: Response["prophetData"],
+        dispute: Dispute["prophetData"],
+    ): Promise<void> {
         try {
-            const { request } = await this.readClient.simulateContract({
+            const { request: simulatedRequest } = await this.readClient.simulateContract({
                 address: this.oracleContract.address,
                 abi: oracleAbi,
                 functionName: "disputeResponse",
-                args: [requestId, responseId, proposer],
+                args: [request, response, dispute],
                 account: this.writeClient.account,
             });
 
-            const hash = await this.writeClient.writeContract(request);
+            const hash = await this.writeClient.writeContract(simulatedRequest);
 
             const receipt = await this.readClient.waitForTransactionReceipt({
                 hash,
@@ -380,7 +376,7 @@ export class ProtocolProvider implements IProtocolProvider {
             });
 
             if (receipt.status !== "success") {
-                throw new Error("Transaction failed");
+                throw new TransactionExecutionError("disputeResponse transaction failed");
             }
         } catch (error) {
             if (error instanceof BaseError) {
@@ -424,10 +420,16 @@ export class ProtocolProvider implements IProtocolProvider {
     /**
      * Escalates a dispute to a higher authority.
      *
+     * This function simulates the `escalateDispute` call on the Oracle contract
+     * to validate that the transaction will succeed. If the simulation is successful, the transaction
+     * is executed by the `writeContract` method of the wallet client. The function also handles any
+     * potential errors that may occur during the simulation or transaction execution.
+     *
      * @param {Request["prophetData"]} request - The request data.
      * @param {Response["prophetData"]} response - The response data.
      * @param {Dispute["prophetData"]} dispute - The dispute data.
-     * @throws {Error} If the transaction fails or if there's a contract revert.
+     * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
+     * @throws {ContractFunctionRevertedError} Throws if the contract function reverts.
      * @returns {Promise<void>}
      */
     async escalateDispute(
@@ -452,7 +454,7 @@ export class ProtocolProvider implements IProtocolProvider {
             });
 
             if (receipt.status !== "success") {
-                throw new Error("Transaction failed");
+                throw new TransactionExecutionError("escalateDispute transaction failed");
             }
         } catch (error) {
             if (error instanceof BaseError) {
@@ -471,11 +473,18 @@ export class ProtocolProvider implements IProtocolProvider {
     /**
      * Finalizes a request with a given response.
      *
+     * This function simulates the `finalize` call on the Oracle contract
+     * to validate that the transaction will succeed. If the simulation is successful, the transaction
+     * is executed by the `writeContract` method of the wallet client. The function also handles any
+     * potential errors that may occur during the simulation or transaction execution.
+     *
      * @param {Request["prophetData"]} request - The request data.
      * @param {Response["prophetData"]} response - The response data to finalize.
-     * @throws {Error} If the transaction fails or if there's a contract revert.
+     * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
+     * @throws {ContractFunctionRevertedError} Throws if the contract function reverts.
      * @returns {Promise<void>}
      */
+
     async finalize(
         request: Request["prophetData"],
         response: Response["prophetData"],
@@ -497,7 +506,7 @@ export class ProtocolProvider implements IProtocolProvider {
             });
 
             if (receipt.status !== "success") {
-                throw new Error("Transaction failed");
+                throw new TransactionExecutionError("finalize transaction failed");
             }
         } catch (error) {
             if (error instanceof BaseError) {

@@ -12,3 +12,4 @@ export * from "./chainNotAdded.exception.js";
 export * from "./invalidEpoch.exception.js";
 export * from "./invalidRequestBody.exception.js";
 export * from "./invalidRequester.exception.js";
+export * from "./transactionExecutionError.exception.js";

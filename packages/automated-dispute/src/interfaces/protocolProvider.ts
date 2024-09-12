@@ -1,4 +1,3 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { Timestamp } from "@ebo-agent/shared";
 import { Address } from "viem";
 
@@ -73,29 +72,28 @@ export interface IWriteProvider {
     /**
      * Proposes a response to a request.
      *
-     * @param _requestId The ID of the request.
-     * @param _epoch The epoch of the request.
-     * @param _chainId The chain ID where the request was made.
-     * @param _blockNumber The block number associated with the response.
+     * @param _request The request data.
+     * @param _response The response data.
      * @returns A promise that resolves when the response is proposed.
      */
     proposeResponse(
-        _requestId: string,
-        _epoch: bigint,
-        _chainId: Caip2ChainId,
-        _blockNumber: bigint,
+        _request: Request["prophetData"],
+        _response: Response["prophetData"],
     ): Promise<void>;
 
     /**
      * Disputes a proposed response.
      *
-     * @param _requestId The ID of the request.
-     * @param _responseId The ID of the response to dispute.
-     * @param _proposer The address of the proposer.
+     * @param _request The request  data.
+     * @param _response The response data.
+     * @param _dispute The dispute data.
      * @returns A promise that resolves when the response is disputed.
      */
-    disputeResponse(_requestId: string, _responseId: string, _proposer: Address): Promise<void>;
-
+    disputeResponse(
+        _request: Request["prophetData"],
+        _response: Response["prophetData"],
+        _dispute: Dispute["prophetData"],
+    ): Promise<void>;
     /**
      * Pledges support for a dispute.
      *
