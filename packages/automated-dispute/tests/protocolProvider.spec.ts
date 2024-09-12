@@ -1,4 +1,11 @@
-import { createPublicClient, createWalletClient, fallback, getContract, http } from "viem";
+import {
+    ContractFunctionRevertedError,
+    createPublicClient,
+    createWalletClient,
+    fallback,
+    getContract,
+    http,
+} from "viem";
 import { arbitrum } from "viem/chains";
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from "vitest";
 
@@ -228,7 +235,7 @@ describe("ProtocolProvider", () => {
     });
 
     describe("proposeResponse", () => {
-        it("should successfully propose a response", async () => {
+        it("successfully proposes a response", async () => {
             const protocolProvider = new ProtocolProvider(
                 mockRpcUrls,
                 mockContractAddress,
@@ -243,7 +250,7 @@ describe("ProtocolProvider", () => {
             ).resolves.not.toThrow();
         });
 
-        it("should throw TransactionExecutionError when transaction fails", async () => {
+        it("throws TransactionExecutionError when transaction fails", async () => {
             const protocolProvider = new ProtocolProvider(
                 mockRpcUrls,
                 mockContractAddress,
@@ -260,6 +267,66 @@ describe("ProtocolProvider", () => {
             await expect(
                 protocolProvider.proposeResponse(mockRequest, mockResponse),
             ).rejects.toThrow(TransactionExecutionError);
+        });
+
+        it("throws when transaction couldn't be confirmed", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            (protocolProvider["writeClient"].writeContract as Mock).mockRejectedValue(
+                new Error("Transaction couldn't be confirmed"),
+            );
+
+            const mockRequest = {} as Request["prophetData"];
+            const mockResponse = {} as Response["prophetData"];
+
+            await expect(
+                protocolProvider.proposeResponse(mockRequest, mockResponse),
+            ).rejects.toThrow("Transaction couldn't be confirmed");
+        });
+
+        it("throws ContractFunctionRevertedError when viem throws it", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            (protocolProvider["readClient"].simulateContract as Mock).mockRejectedValue(
+                new ContractFunctionRevertedError({
+                    abi: eboRequestCreatorAbi,
+                    functionName: "proposeResponse",
+                }),
+            );
+
+            const mockRequest = {} as Request["prophetData"];
+            const mockResponse = {} as Response["prophetData"];
+
+            await expect(
+                protocolProvider.proposeResponse(mockRequest, mockResponse),
+            ).rejects.toThrow("Unknown error: ");
+        });
+
+        it("should throw when waitForTransactionReceipt times out", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockRejectedValue(
+                new Error("Transaction receipt timeout"),
+            );
+
+            const mockRequest = {} as Request["prophetData"];
+            const mockResponse = {} as Response["prophetData"];
+
+            await expect(
+                protocolProvider.proposeResponse(mockRequest, mockResponse),
+            ).rejects.toThrow("Transaction receipt timeout");
         });
     });
 
