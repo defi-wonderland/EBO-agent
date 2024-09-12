@@ -1,6 +1,12 @@
 import { ILogger, Timestamp } from "@ebo-agent/shared";
-import axios, { AxiosInstance, AxiosResponse, isAxiosError } from "axios";
+import axios, {
+    AxiosInstance,
+    AxiosResponse,
+    InternalAxiosRequestConfig,
+    isAxiosError,
+} from "axios";
 
+import { BlockmetaConnectionFailed } from "../exceptions/blockmetaConnectionFailed.js";
 import { UndefinedBlockNumber } from "../exceptions/undefinedBlockNumber.js";
 import { BlockNumberProvider } from "./blockNumberProvider.js";
 
@@ -12,7 +18,10 @@ type BlockByTimeResponse = {
 
 export type BlockmetaClientConfig = {
     baseUrl: URL;
-    servicePath: string;
+    servicePaths: {
+        block: string;
+        blockByTime: string;
+    };
     bearerToken: string;
 };
 
@@ -28,10 +37,10 @@ export class BlockmetaJsonBlockNumberProvider implements BlockNumberProvider {
     private readonly axios: AxiosInstance;
 
     constructor(
-        private readonly options: BlockmetaClientConfig,
+        private readonly clientConfig: BlockmetaClientConfig,
         private readonly logger: ILogger,
     ) {
-        const { baseUrl, bearerToken } = options;
+        const { baseUrl, bearerToken } = clientConfig;
 
         this.axios = axios.create({
             baseURL: baseUrl.toString(),
@@ -42,6 +51,41 @@ export class BlockmetaJsonBlockNumberProvider implements BlockNumberProvider {
                 },
             },
         });
+
+        this.axios.interceptors.request.use(this.validateBearerToken);
+    }
+
+    public static async initialize(
+        config: BlockmetaClientConfig,
+        logger: ILogger,
+    ): Promise<BlockmetaJsonBlockNumberProvider> {
+        const provider = new BlockmetaJsonBlockNumberProvider(config, logger);
+
+        const connectedSuccessfully = await provider.testConnection();
+
+        if (!connectedSuccessfully) throw new BlockmetaConnectionFailed();
+
+        return provider;
+    }
+
+    async testConnection(): Promise<boolean> {
+        const blockPath = this.clientConfig.servicePaths.block;
+
+        try {
+            await this.axios.post(`${blockPath}/Head`);
+
+            return true;
+        } catch (err) {
+            if (isAxiosError(err)) return false;
+
+            throw err;
+        }
+    }
+
+    private validateBearerToken(config: InternalAxiosRequestConfig<any>) {
+        // TODO: read the expiration time of the JWT sent in the headers
+
+        return config;
     }
 
     /** @inheritdoc */
@@ -80,9 +124,9 @@ export class BlockmetaJsonBlockNumberProvider implements BlockNumberProvider {
      * @returns a promise with the block number at the timestamp
      */
     private async getBlockNumberAt(isoTimestamp: string): Promise<bigint> {
-        const { servicePath } = this.options;
+        const blockByTimePath = this.clientConfig.servicePaths.blockByTime;
 
-        const response = await this.axios.post(`${servicePath}/At`, { time: isoTimestamp });
+        const response = await this.axios.post(`${blockByTimePath}/At`, { time: isoTimestamp });
 
         return this.parseBlockByTimeResponse(response, isoTimestamp);
     }
@@ -96,9 +140,9 @@ export class BlockmetaJsonBlockNumberProvider implements BlockNumberProvider {
      * @returns a promise with the most recent block number before the specified timestamp
      */
     private async getBlockNumberBefore(isoTimestamp: string): Promise<bigint> {
-        const { servicePath } = this.options;
+        const blockByTimePath = this.clientConfig.servicePaths.blockByTime;
 
-        const response = await this.axios.post(`${servicePath}/Before`, { time: isoTimestamp });
+        const response = await this.axios.post(`${blockByTimePath}/Before`, { time: isoTimestamp });
 
         return this.parseBlockByTimeResponse(response, isoTimestamp);
     }
