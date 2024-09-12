@@ -5,6 +5,7 @@ import axios, {
     InternalAxiosRequestConfig,
     isAxiosError,
 } from "axios";
+import { InvalidTokenError, jwtDecode } from "jwt-decode";
 
 import { BlockmetaConnectionFailed } from "../exceptions/blockmetaConnectionFailed.js";
 import { UndefinedBlockNumber } from "../exceptions/undefinedBlockNumber.js";
@@ -23,6 +24,7 @@ export type BlockmetaClientConfig = {
         blockByTime: string;
     };
     bearerToken: string;
+    bearerTokenExpirationWindow: number;
 };
 
 /**
@@ -52,7 +54,9 @@ export class BlockmetaJsonBlockNumberProvider implements BlockNumberProvider {
             },
         });
 
-        this.axios.interceptors.request.use(this.validateBearerToken);
+        this.axios.interceptors.request.use((config) => {
+            return this.validateBearerToken(config);
+        });
     }
 
     public static async initialize(
@@ -82,15 +86,48 @@ export class BlockmetaJsonBlockNumberProvider implements BlockNumberProvider {
         }
     }
 
-    private validateBearerToken(config: InternalAxiosRequestConfig<any>) {
-        // TODO: read the expiration time of the JWT sent in the headers
+    private validateBearerToken(requestConfig: InternalAxiosRequestConfig<any>) {
+        const authorizationHeader = requestConfig.headers.Authorization?.toString();
+        const matches = /^Bearer (.*)$/.exec(authorizationHeader || "");
+        const token = matches ? matches[1] : undefined;
 
-        return config;
+        try {
+            const decodedToken = jwtDecode(token || "");
+            const currentTime = Date.now();
+            const expTime = decodedToken.exp;
+
+            // No expiration time, token will be forever valid.
+            if (!expTime) {
+                this.logger.debug("JWT token being used has no expiration time.");
+
+                return requestConfig;
+            }
+
+            const expirationWindow = this.clientConfig.bearerTokenExpirationWindow;
+
+            if (currentTime + expirationWindow >= expTime) {
+                const timeRemaining = expTime - currentTime;
+
+                this.logger.warn(`Token will expire soon in ${timeRemaining}`);
+
+                // TODO: notify
+            }
+
+            return requestConfig;
+        } catch (err) {
+            if (err instanceof InvalidTokenError) {
+                this.logger.error("Invalid JWT token.");
+
+                // TODO: notify
+            }
+
+            return requestConfig;
+        }
     }
 
     /** @inheritdoc */
     async getEpochBlockNumber(timestamp: Timestamp): Promise<bigint> {
-        if (timestamp > Number.MAX_SAFE_INTEGER || timestamp < Number.MIN_SAFE_INTEGER)
+        if (timestamp > Number.MAX_SAFE_INTEGER || timestamp < 0)
             throw new RangeError(`Timestamp ${timestamp.toString()} cannot be casted to a Number.`);
 
         const timestampNumber = Number(timestamp);
@@ -103,7 +140,7 @@ export class BlockmetaJsonBlockNumberProvider implements BlockNumberProvider {
             return blockNumberAt;
         } catch (err) {
             const isAxios404 = isAxiosError(err) && err.response?.status === 404;
-            const isUndefinedBlockNumber = err instanceof UndefinedBlockNumber;
+            const isUndefinedBlockNumber = !!(err instanceof UndefinedBlockNumber);
 
             if (!isAxios404 && !isUndefinedBlockNumber) throw err;
 

@@ -9,3 +9,4 @@ export * from "./unexpectedSearchRange.js";
 export * from "./unsupportedBlockNumber.js";
 export * from "./unsupportedBlockTimestamps.js";
 export * from "./unsupportedChain.js";
+export * from "./undefinedBlockNumber.js";

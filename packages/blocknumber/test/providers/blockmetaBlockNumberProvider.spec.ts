@@ -1,27 +1,32 @@
-import { Logger } from "@ebo-agent/shared";
+import { ILogger } from "@ebo-agent/shared";
 import MockAxiosAdapter from "axios-mock-adapter";
-import { describe, expect, it, vi } from "vitest";
+import jwt from "jsonwebtoken";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BlockmetaConnectionFailed } from "../../src/exceptions/blockmetaConnectionFailed.js";
-import { UndefinedBlockNumber } from "../../src/exceptions/undefinedBlockNumber.js";
+import { BlockmetaConnectionFailed, UndefinedBlockNumber } from "../../src/exceptions/index.js";
 import { BlockmetaJsonBlockNumberProvider } from "../../src/providers/index.js";
-
-const logger = {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-} as unknown as Logger;
 
 describe("BlockmetaBlockNumberService", () => {
     const config = {
         baseUrl: new URL("localhost:443"),
-        bearerToken: "bearer-token",
+        bearerToken: jwt.sign({}, "secret", { expiresIn: "10y" }),
+        bearerTokenExpirationWindow: 365 * 24 * 60 * 60 * 1000, // 1 year
         servicePaths: {
             blockByTime: "/sf.blockmeta.v2.BlockByTime",
             block: "/sf.blockmeta.v2.Block",
         },
     };
+
+    let logger: ILogger;
+
+    beforeEach(() => {
+        logger = {
+            debug: vi.fn(),
+            info: vi.fn(),
+            warn: vi.fn(),
+            error: vi.fn(),
+        };
+    });
 
     describe("initialize", () => {
         it("returns a validated provider", async () => {
@@ -92,7 +97,36 @@ describe("BlockmetaBlockNumberService", () => {
             expect(result).toBe(false);
         });
 
-        it.todo("warns if the token is expiring soon");
+        it("warns if the token is expiring soon", async () => {
+            const expirationWindow = 1 * 60 * 60 * 1000; // 1 day;
+            const token = jwt.sign({}, "secret-key", {
+                expiresIn: "1h",
+            });
+
+            const expiringSoonConfig = {
+                ...config,
+                bearerToken: token,
+                bearerTokenExpirationWindow: expirationWindow,
+            };
+
+            const provider = new BlockmetaJsonBlockNumberProvider(expiringSoonConfig, logger);
+
+            const mockProviderAxios = new MockAxiosAdapter(provider["axios"]);
+
+            mockProviderAxios
+                .onPost(`${config.servicePaths.block}/Head`, undefined, {
+                    headers: expect.objectContaining({
+                        Authorization: `Bearer ${config.bearerToken}`,
+                        "Content-Type": "application/json",
+                    }),
+                })
+                .reply(200);
+
+            await provider.testConnection();
+
+            expect(logger.warn).toHaveBeenCalledOnce();
+        });
+
         it.todo("notifies if the token is expiring soon");
     });
 
@@ -170,7 +204,7 @@ describe("BlockmetaBlockNumberService", () => {
             expect(result).toEqual(blockNumber);
         });
 
-        it("throws if response has no block number", async () => {
+        it("throws if response has no block number", () => {
             const provider = new BlockmetaJsonBlockNumberProvider(config, logger);
             const mockProviderAxios = new MockAxiosAdapter(provider["axios"]);
             const timestamp = BigInt(Date.UTC(2024, 0, 1, 0, 0, 0, 0));
@@ -218,12 +252,39 @@ describe("BlockmetaBlockNumberService", () => {
 
         it("throws when timestamp is too small", () => {
             const provider = new BlockmetaJsonBlockNumberProvider(config, logger);
-            const bigTimestamp = BigInt(Number.MIN_SAFE_INTEGER) - 1n;
+            const bigTimestamp = -1n;
 
             expect(provider.getEpochBlockNumber(bigTimestamp)).rejects.toThrow(RangeError);
         });
 
-        it.todo("warns if the token is expiring soon");
+        it("warns if the token is expiring soon", async () => {
+            const expirationWindow = 1 * 60 * 60 * 1000; // 1 day;
+            const token = jwt.sign({}, "secret-key", {
+                expiresIn: "1h",
+            });
+
+            const expiringSoonConfig = {
+                ...config,
+                bearerToken: token,
+                bearerTokenExpirationWindow: expirationWindow,
+            };
+
+            const provider = new BlockmetaJsonBlockNumberProvider(expiringSoonConfig, logger);
+
+            const timestamp = BigInt(Date.UTC(2024, 0, 1, 0, 0, 0, 0));
+            const mockProviderAxios = new MockAxiosAdapter(provider["axios"]);
+
+            mockProviderAxios.onPost(`${config.servicePaths.blockByTime}/At`).reply(200, {
+                id: "123abc",
+                num: "1",
+                time: "2024-01-01T00:00:00.000Z",
+            });
+
+            await provider.getEpochBlockNumber(timestamp);
+
+            expect(logger.warn).toHaveBeenCalledOnce();
+        });
+
         it.todo("notifies if the token is expiring soon");
     });
 });

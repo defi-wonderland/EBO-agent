@@ -4,7 +4,10 @@ import { FallbackTransport, HttpTransport, PublicClient } from "viem";
 import { UnsupportedChain } from "../exceptions/unsupportedChain.js";
 import { Caip2ChainId } from "../types.js";
 import { Caip2Utils } from "../utils/index.js";
-import { BlockmetaJsonBlockNumberProvider } from "./blockmetaJsonBlockNumberProvider.js";
+import {
+    BlockmetaClientConfig,
+    BlockmetaJsonBlockNumberProvider,
+} from "./blockmetaJsonBlockNumberProvider.js";
 import { EvmBlockNumberProvider } from "./evmBlockNumberProvider.js";
 
 const DEFAULT_PROVIDER_CONFIG = {
@@ -24,9 +27,11 @@ export class BlockNumberProviderFactory {
     public static buildProvider(
         chainId: Caip2ChainId,
         evmClient: PublicClient<FallbackTransport<HttpTransport[]>>,
-        blockmetaConfig: { baseUrl: URL; servicePath: string; bearerToken: string },
+        blockmetaConfig: BlockmetaClientConfig,
         logger: ILogger,
     ) {
+        // TODO: initialize factory instance with evmClient and blockmetaConfig and
+        //  remove them from this method parameters
         const chainNamespace = Caip2Utils.getNamespace(chainId);
 
         switch (chainNamespace) {
