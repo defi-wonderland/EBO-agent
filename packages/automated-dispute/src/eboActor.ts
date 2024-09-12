@@ -7,8 +7,12 @@ import { ContractFunctionRevertedError } from "viem";
 
 import { DisputeWithoutResponse } from "./exceptions/eboActor/disputeWithoutResponse.exception.js";
 import {
+    EBORequestCreator_ChainNotAdded,
+    EBORequestCreator_InvalidEpoch,
+    EBORequestModule_InvalidRequester,
     InvalidActorState,
     InvalidDisputeStatus,
+    Oracle_InvalidRequestBody,
     PastEventEnqueueError,
     RequestMismatch,
     ResponseAlreadyProposed,
@@ -487,7 +491,17 @@ export class EboActor {
             await this.proposeResponse(chainId);
         } catch (err) {
             if (err instanceof ResponseAlreadyProposed) this.logger.info(err.message);
-            else throw err;
+            else if (err instanceof EBORequestCreator_InvalidEpoch) {
+                // TODO: Handle error
+            } else if (err instanceof Oracle_InvalidRequestBody) {
+                // TODO: Handle error
+            } else if (err instanceof EBORequestModule_InvalidRequester) {
+                // TODO: Handle error
+            } else if (err instanceof EBORequestCreator_ChainNotAdded) {
+                // TODO: Handle error
+            } else {
+                throw err;
+            }
         }
     }
 

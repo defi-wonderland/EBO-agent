@@ -17,6 +17,12 @@ importers:
             "@commitlint/config-conventional":
                 specifier: 19.2.2
                 version: 19.2.2
+            "@defi-wonderland/prophet-core":
+                specifier: 0.0.0-5e1cf557
+                version: 0.0.0-5e1cf557
+            "@defi-wonderland/prophet-modules":
+                specifier: 0.0.0-e52f8cce
+                version: 0.0.0-e52f8cce
             "@ianvs/prettier-plugin-sort-imports":
                 specifier: 4.3.1
                 version: 4.3.1(prettier@3.3.3)
@@ -394,6 +400,24 @@ packages:
                 integrity: sha512-hrlQOIi7hAfzsMqlGSFyVucrx38O+j6wiGOf//H2ecvIEqYN4ADBSS2iLMh5UFyDunCNniUIPk/q3riFv45xRA==,
             }
 
+    "@defi-wonderland/prophet-core@0.0.0-2e39539b":
+        resolution:
+            {
+                integrity: sha512-EdYpDEO1XeO08uQikhOQ6NzG0LWYxANFk272j4vCyLSJ8kRyJNMv69JJCLcq5kV0B9IzXybmqjreemkZ05z3kQ==,
+            }
+
+    "@defi-wonderland/prophet-core@0.0.0-5e1cf557":
+        resolution:
+            {
+                integrity: sha512-NDNyAnw/qUtoKInfwG12LSy3z1UkXilxwtup6VFMsYZeC+OIKFFslVDaG7QSuuWU1Z5o4Zr5oNDq1N30rnEVMw==,
+            }
+
+    "@defi-wonderland/prophet-modules@0.0.0-e52f8cce":
+        resolution:
+            {
+                integrity: sha512-zNx602Z/GuisTqi120JLgoWcs3wiMKDYvnXJ/6xdYUCNNBQKk2GyCmS6M5Hu1vTbSfDlNRrugy1cDOkG5sSGdg==,
+            }
+
     "@esbuild/aix-ppc64@0.21.5":
         resolution:
             {
@@ -751,6 +775,12 @@ packages:
                 integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==,
             }
         engines: { node: ">= 8" }
+
+    "@openzeppelin/contracts@4.9.5":
+        resolution:
+            {
+                integrity: sha512-ZK+W5mVhRppff9BE6YdR8CC52C8zAvsVAiWhEtQ5+oNxFE6h1WdeWo+FJSF8KKvtxxVYZ7MTP/5KoVpAU3aSWg==,
+            }
 
     "@pkgjs/parseargs@0.11.0":
         resolution:
@@ -3051,6 +3081,13 @@ packages:
             }
         engines: { node: ">=18" }
 
+    solmate@https://codeload.github.com/transmissions11/solmate/tar.gz/bfc9c25865a274a7827fea5abf6e4fb64fc64e6c:
+        resolution:
+            {
+                tarball: https://codeload.github.com/transmissions11/solmate/tar.gz/bfc9c25865a274a7827fea5abf6e4fb64fc64e6c,
+            }
+        version: 6.1.0
+
     source-map-js@1.2.0:
         resolution:
             {
@@ -3867,6 +3904,16 @@ snapshots:
             enabled: 2.0.0
             kuler: 2.0.0
 
+    "@defi-wonderland/prophet-core@0.0.0-2e39539b": {}
+
+    "@defi-wonderland/prophet-core@0.0.0-5e1cf557": {}
+
+    "@defi-wonderland/prophet-modules@0.0.0-e52f8cce":
+        dependencies:
+            "@defi-wonderland/prophet-core": 0.0.0-2e39539b
+            "@openzeppelin/contracts": 4.9.5
+            solmate: https://codeload.github.com/transmissions11/solmate/tar.gz/bfc9c25865a274a7827fea5abf6e4fb64fc64e6c
+
     "@esbuild/aix-ppc64@0.21.5":
         optional: true
 
@@ -4033,6 +4080,8 @@ snapshots:
         dependencies:
             "@nodelib/fs.scandir": 2.1.5
             fastq: 1.17.1
+
+    "@openzeppelin/contracts@4.9.5": {}
 
     "@pkgjs/parseargs@0.11.0":
         optional: true
@@ -5314,6 +5363,9 @@ snapshots:
         dependencies:
             ansi-styles: 6.2.1
             is-fullwidth-code-point: 5.0.0
+
+    solmate@https://codeload.github.com/transmissions11/solmate/tar.gz/bfc9c25865a274a7827fea5abf6e4fb64fc64e6c:
+        {}
 
     source-map-js@1.2.0: {}
 

@@ -7,7 +7,7 @@ import { EboActor } from "../../src/eboActor.js";
 import { ProtocolProvider } from "../../src/protocolProvider.js";
 import { EboMemoryRegistry } from "../../src/services/index.js";
 import { Dispute, Request, Response } from "../../src/types/index.js";
-import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS } from "../eboActor/fixtures.js";
+import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS, mockedPrivateKey } from "../eboActor/fixtures.js";
 
 /**
  * Builds a base `EboActor` scaffolded with all its dependencies.
@@ -23,6 +23,7 @@ export function buildEboActor(request: Request, logger: ILogger) {
     const protocolProvider = new ProtocolProvider(
         protocolProviderRpcUrls,
         DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
+        mockedPrivateKey,
     );
 
     const blockNumberRpcUrls = new Map<Caip2ChainId, string[]>([

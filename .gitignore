@@ -9,3 +9,9 @@ dist/
 
 # Coverage
 coverage/
+
+# IDE project settings
+.idea/
+
+# Mac
+.DS_Store
