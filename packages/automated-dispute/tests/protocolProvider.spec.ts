@@ -310,7 +310,7 @@ describe("ProtocolProvider", () => {
             ).rejects.toThrow("Unknown error: ");
         });
 
-        it("should throw when waitForTransactionReceipt times out", async () => {
+        it("throw when waitForTransactionReceipt times out", async () => {
             const protocolProvider = new ProtocolProvider(
                 mockRpcUrls,
                 mockContractAddress,
@@ -331,7 +331,7 @@ describe("ProtocolProvider", () => {
     });
 
     describe("disputeResponse", () => {
-        it("should successfully dispute a response", async () => {
+        it("successfully disputes a response", async () => {
             const protocolProvider = new ProtocolProvider(
                 mockRpcUrls,
                 mockContractAddress,
@@ -347,7 +347,7 @@ describe("ProtocolProvider", () => {
             ).resolves.not.toThrow();
         });
 
-        it("should throw TransactionExecutionError when transaction fails", async () => {
+        it("throws TransactionExecutionError when transaction fails", async () => {
             const protocolProvider = new ProtocolProvider(
                 mockRpcUrls,
                 mockContractAddress,
@@ -369,7 +369,7 @@ describe("ProtocolProvider", () => {
     });
 
     describe("escalateDispute", () => {
-        it("should successfully escalate a dispute", async () => {
+        it("successfully escalates a dispute", async () => {
             const protocolProvider = new ProtocolProvider(
                 mockRpcUrls,
                 mockContractAddress,
@@ -385,7 +385,7 @@ describe("ProtocolProvider", () => {
             ).resolves.not.toThrow();
         });
 
-        it("should throw TransactionExecutionError when transaction fails", async () => {
+        it("throws TransactionExecutionError when transaction fails", async () => {
             const protocolProvider = new ProtocolProvider(
                 mockRpcUrls,
                 mockContractAddress,
@@ -417,7 +417,7 @@ describe("ProtocolProvider", () => {
     });
 
     describe("finalize", () => {
-        it("should successfully finalize a request", async () => {
+        it("successfully finalizes a request", async () => {
             const protocolProvider = new ProtocolProvider(
                 mockRpcUrls,
                 mockContractAddress,
@@ -432,7 +432,7 @@ describe("ProtocolProvider", () => {
             ).resolves.not.toThrow();
         });
 
-        it("should throw TransactionExecutionError when transaction fails", async () => {
+        it("throws TransactionExecutionError when transaction fails", async () => {
             const protocolProvider = new ProtocolProvider(
                 mockRpcUrls,
                 mockContractAddress,
