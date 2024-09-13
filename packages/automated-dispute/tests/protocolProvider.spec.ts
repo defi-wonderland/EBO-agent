@@ -82,16 +82,7 @@ describe("ProtocolProvider", () => {
                 },
             }),
             getBlock: vi.fn(),
-            waitForTransactionReceipt: vi.fn().mockImplementation(async ({ hash }) => {
-                await new Promise((resolve) => setTimeout(resolve, 100));
-                return {
-                    status: "success",
-                    transactionHash: hash,
-                    blockNumber: 123456n,
-                    blockHash: "0xmockedBlockHash",
-                    logs: [],
-                };
-            }),
+            waitForTransactionReceipt: vi.fn().mockResolvedValue({ status: "success" }),
         }));
 
         const mockAccount = privateKeyToAccount(mockedPrivateKey);
