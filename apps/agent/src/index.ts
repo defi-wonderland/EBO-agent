@@ -45,15 +45,13 @@ const main = async (): Promise<void> => {
 };
 
 process.on("unhandledRejection", (reason, p) => {
-    console.error(`Unhandled Rejection at: \n${inspect(p, undefined, 100)}, \nreason: ${reason}`);
+    logger.error(`Unhandled Rejection at: \n${inspect(p, undefined, 100)}, \nreason: ${reason}`);
 
     process.exit(1);
 });
 
 process.on("uncaughtException", (error: Error) => {
-    console.error(
-        `An uncaught exception occurred: ${error}\n` + `Exception origin: ${error.stack}`,
-    );
+    logger.error(`An uncaught exception occurred: ${error}\n` + `Exception origin: ${error.stack}`);
 
     process.exit(1);
 });
