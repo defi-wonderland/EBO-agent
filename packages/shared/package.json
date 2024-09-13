@@ -4,6 +4,7 @@
     "description": "",
     "main": "./dist/index.js",
     "type": "module",
+    "private": "true",
     "scripts": {
         "build": "tsc -p tsconfig.build.json",
         "lint": "eslint .",
@@ -15,7 +16,6 @@
     },
     "keywords": [],
     "author": "",
-    "license": "ISC",
     "dependencies": {
         "winston": "3.13.1"
     }
