@@ -5,18 +5,28 @@ import {
     fallback,
     getContract,
     http,
+    WaitForTransactionReceiptTimeoutError,
 } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum } from "viem/chains";
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from "vitest";
 
-import type { Dispute, Request, Response } from "../src/types/prophet.js";
 import { eboRequestCreatorAbi } from "../src/abis/eboRequestCreator.js";
 import { epochManagerAbi } from "../src/abis/epochManager.js";
 import { oracleAbi } from "../src/abis/oracle.js";
-import { RpcUrlsEmpty, TransactionExecutionError } from "../src/exceptions/index.js";
+import {
+    InvalidAccountOnClient,
+    RpcUrlsEmpty,
+    TransactionExecutionError,
+} from "../src/exceptions/index.js";
 import { ProtocolProvider } from "../src/index.js";
 import { ProtocolContractsAddresses } from "../src/types/index.js";
-import { mockedPrivateKey } from "./eboActor/fixtures.js";
+import {
+    DEFAULT_MOCKED_DISPUTE_DATA,
+    DEFAULT_MOCKED_REQUEST_CREATED_DATA,
+    DEFAULT_MOCKED_RESPONSE_DATA,
+    mockedPrivateKey,
+} from "./eboActor/fixtures.js";
 
 vi.mock("viem", async () => {
     const actual = await vi.importActual("viem");
@@ -72,11 +82,23 @@ describe("ProtocolProvider", () => {
                 },
             }),
             getBlock: vi.fn(),
-            waitForTransactionReceipt: vi.fn().mockResolvedValue({ status: "success" }),
+            waitForTransactionReceipt: vi.fn().mockImplementation(async ({ hash }) => {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+                return {
+                    status: "success",
+                    transactionHash: hash,
+                    blockNumber: 123456n,
+                    blockHash: "0xmockedBlockHash",
+                    logs: [],
+                };
+            }),
         }));
+
+        const mockAccount = privateKeyToAccount(mockedPrivateKey);
 
         (createWalletClient as Mock).mockReturnValue({
             writeContract: vi.fn().mockResolvedValue("0xmockedTransactionHash"),
+            account: mockAccount,
         });
 
         (http as Mock).mockImplementation((url) => url);
@@ -242,11 +264,11 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            const mockRequest = {} as Request["prophetData"];
-            const mockResponse = {} as Response["prophetData"];
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
 
             await expect(
-                protocolProvider.proposeResponse(mockRequest, mockResponse),
+                protocolProvider.proposeResponse(mockRequestProphetData, mockResponseProphetData),
             ).resolves.not.toThrow();
         });
 
@@ -261,11 +283,11 @@ describe("ProtocolProvider", () => {
                 status: "reverted",
             });
 
-            const mockRequest = {} as Request["prophetData"];
-            const mockResponse = {} as Response["prophetData"];
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
 
             await expect(
-                protocolProvider.proposeResponse(mockRequest, mockResponse),
+                protocolProvider.proposeResponse(mockRequestProphetData, mockResponseProphetData),
             ).rejects.toThrow(TransactionExecutionError);
         });
 
@@ -280,11 +302,11 @@ describe("ProtocolProvider", () => {
                 new Error("Transaction couldn't be confirmed"),
             );
 
-            const mockRequest = {} as Request["prophetData"];
-            const mockResponse = {} as Response["prophetData"];
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
 
             await expect(
-                protocolProvider.proposeResponse(mockRequest, mockResponse),
+                protocolProvider.proposeResponse(mockRequestProphetData, mockResponseProphetData),
             ).rejects.toThrow("Transaction couldn't be confirmed");
         });
 
@@ -302,15 +324,15 @@ describe("ProtocolProvider", () => {
                 }),
             );
 
-            const mockRequest = {} as Request["prophetData"];
-            const mockResponse = {} as Response["prophetData"];
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
 
             await expect(
-                protocolProvider.proposeResponse(mockRequest, mockResponse),
+                protocolProvider.proposeResponse(mockRequestProphetData, mockResponseProphetData),
             ).rejects.toThrow("Unknown error: ");
         });
 
-        it("throw when waitForTransactionReceipt times out", async () => {
+        it("throws WaitForTransactionReceiptTimeoutError when waitForTransactionReceipt times out", async () => {
             const protocolProvider = new ProtocolProvider(
                 mockRpcUrls,
                 mockContractAddress,
@@ -318,15 +340,15 @@ describe("ProtocolProvider", () => {
             );
 
             (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockRejectedValue(
-                new Error("Transaction receipt timeout"),
+                new WaitForTransactionReceiptTimeoutError({ hash: "0xmockedTransactionHash" }),
             );
 
-            const mockRequest = {} as Request["prophetData"];
-            const mockResponse = {} as Response["prophetData"];
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
 
             await expect(
-                protocolProvider.proposeResponse(mockRequest, mockResponse),
-            ).rejects.toThrow("Transaction receipt timeout");
+                protocolProvider.proposeResponse(mockRequestProphetData, mockResponseProphetData),
+            ).rejects.toThrow(WaitForTransactionReceiptTimeoutError);
         });
     });
 
@@ -338,12 +360,16 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            const mockRequest = {} as Request["prophetData"];
-            const mockResponse = {} as Response["prophetData"];
-            const mockDispute = {} as Dispute["prophetData"];
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
 
             await expect(
-                protocolProvider.disputeResponse(mockRequest, mockResponse, mockDispute),
+                protocolProvider.disputeResponse(
+                    mockRequestProphetData,
+                    mockResponseProphetData,
+                    mockDisputeProphetData,
+                ),
             ).resolves.not.toThrow();
         });
 
@@ -358,12 +384,16 @@ describe("ProtocolProvider", () => {
                 status: "reverted",
             });
 
-            const mockRequest = {} as Request["prophetData"];
-            const mockResponse = {} as Response["prophetData"];
-            const mockDispute = {} as Dispute["prophetData"];
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
 
             await expect(
-                protocolProvider.disputeResponse(mockRequest, mockResponse, mockDispute),
+                protocolProvider.disputeResponse(
+                    mockRequestProphetData,
+                    mockResponseProphetData,
+                    mockDisputeProphetData,
+                ),
             ).rejects.toThrow(TransactionExecutionError);
         });
     });
@@ -376,12 +406,16 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            const mockRequest = {} as Request["prophetData"];
-            const mockResponse = {} as Response["prophetData"];
-            const mockDispute = {} as Dispute["prophetData"];
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
 
             await expect(
-                protocolProvider.escalateDispute(mockRequest, mockResponse, mockDispute),
+                protocolProvider.escalateDispute(
+                    mockRequestProphetData,
+                    mockResponseProphetData,
+                    mockDisputeProphetData,
+                ),
             ).resolves.not.toThrow();
         });
 
@@ -396,12 +430,16 @@ describe("ProtocolProvider", () => {
                 status: "reverted",
             });
 
-            const mockRequest = {} as Request["prophetData"];
-            const mockResponse = {} as Response["prophetData"];
-            const mockDispute = {} as Dispute["prophetData"];
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
 
             await expect(
-                protocolProvider.escalateDispute(mockRequest, mockResponse, mockDispute),
+                protocolProvider.escalateDispute(
+                    mockRequestProphetData,
+                    mockResponseProphetData,
+                    mockDisputeProphetData,
+                ),
             ).rejects.toThrow(TransactionExecutionError);
         });
     });
@@ -424,11 +462,11 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            const mockRequest = {} as Request["prophetData"];
-            const mockResponse = {} as Response["prophetData"];
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
 
             await expect(
-                protocolProvider.finalize(mockRequest, mockResponse),
+                protocolProvider.finalize(mockRequestProphetData, mockResponseProphetData),
             ).resolves.not.toThrow();
         });
 
@@ -443,12 +481,12 @@ describe("ProtocolProvider", () => {
                 status: "reverted",
             });
 
-            const mockRequest = {} as Request["prophetData"];
-            const mockResponse = {} as Response["prophetData"];
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
 
-            await expect(protocolProvider.finalize(mockRequest, mockResponse)).rejects.toThrow(
-                TransactionExecutionError,
-            );
+            await expect(
+                protocolProvider.finalize(mockRequestProphetData, mockResponseProphetData),
+            ).rejects.toThrow(TransactionExecutionError);
         });
     });
 
@@ -482,7 +520,7 @@ describe("ProtocolProvider", () => {
                 abi: eboRequestCreatorAbi,
                 functionName: "createRequests",
                 args: [mockEpoch, mockChains],
-                account: undefined,
+                account: expect.any(Object),
             });
 
             expect(protocolProvider["writeClient"].writeContract).toHaveBeenCalledWith(
@@ -507,6 +545,31 @@ describe("ProtocolProvider", () => {
             await expect(protocolProvider.createRequest(1n, [])).rejects.toThrow(
                 "Chains array cannot be empty",
             );
+        });
+    });
+
+    describe("getAccountAddress", () => {
+        it("returns the correct account address", () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const expectedAddress = privateKeyToAccount(mockedPrivateKey).address;
+            expect(protocolProvider.getAccountAddress()).toBe(expectedAddress);
+        });
+
+        it("throws InvalidAccountOnClient when there's no account", () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            (protocolProvider["writeClient"] as any).account = undefined;
+
+            expect(() => protocolProvider.getAccountAddress()).toThrow(InvalidAccountOnClient);
         });
     });
 });

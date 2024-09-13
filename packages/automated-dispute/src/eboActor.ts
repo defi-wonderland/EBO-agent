@@ -583,9 +583,10 @@ export class EboActor {
             throw new ResponseAlreadyProposed(responseBody);
         }
 
+        const proposerAddress = this.protocolProvider.getAccountAddress();
+
         const response: Response["prophetData"] = {
-            // TODO: check if this is the correct proposer
-            proposer: request.prophetData.requester,
+            proposer: proposerAddress,
             requestId: request.id,
             response: responseBody,
         };
@@ -625,9 +626,10 @@ export class EboActor {
 
         const request = this.getActorRequest();
 
+        const disputer = this.protocolProvider.getAccountAddress();
+
         const dispute: Dispute["prophetData"] = {
-            // TODO: check if this is the correct disputer
-            disputer: this.actorRequest.id,
+            disputer: disputer,
             proposer: eventResponse.proposer,
             responseId: event.metadata.responseId,
             requestId: request.id,

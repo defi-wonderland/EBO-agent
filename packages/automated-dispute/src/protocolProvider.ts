@@ -21,7 +21,11 @@ import { arbitrum } from "viem/chains";
 import type { EboEvent, EboEventName } from "./types/events.js";
 import type { Dispute, Request, Response } from "./types/prophet.js";
 import { eboRequestCreatorAbi, epochManagerAbi, oracleAbi } from "./abis/index.js";
-import { RpcUrlsEmpty, TransactionExecutionError } from "./exceptions/index.js";
+import {
+    InvalidAccountOnClient,
+    RpcUrlsEmpty,
+    TransactionExecutionError,
+} from "./exceptions/index.js";
 import {
     IProtocolProvider,
     IReadProvider,
@@ -131,6 +135,18 @@ export class ProtocolProvider implements IProtocolProvider {
         hasStakedAssets: this.hasStakedAssets.bind(this),
         getAvailableChains: this.getAvailableChains.bind(this),
     };
+
+    /**
+     * Returns the address of the account used for transactions.
+     *
+     * @returns {Address} The account address.
+     */
+    public getAccountAddress(): Address {
+        if (!this.writeClient.account) {
+            throw new InvalidAccountOnClient();
+        }
+        return this.writeClient.account.address;
+    }
 
     /**
      * Gets the current epoch, the block number and its timestamp of the current epoch

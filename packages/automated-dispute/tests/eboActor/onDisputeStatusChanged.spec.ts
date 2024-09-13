@@ -46,6 +46,7 @@ describe("onDisputeStatusChanged", () => {
     });
 
     it("proposes a new response when dispute status goes into NoResolution", async () => {
+        const proposerAddress = "0x1234567890abcdef1234567890abcdef12345678";
         const dispute = mocks.buildDispute(actorRequest, response, { status: "Escalated" });
         const event: EboEvent<"DisputeStatusChanged"> = {
             name: "DisputeStatusChanged",
@@ -78,6 +79,8 @@ describe("onDisputeStatusChanged", () => {
             response.prophetData.response.block + 1n,
         );
 
+        vi.spyOn(protocolProvider, "getAccountAddress").mockReturnValue(proposerAddress);
+
         const mockProposeResponse = vi.spyOn(protocolProvider, "proposeResponse");
 
         actor.enqueue(event);
@@ -85,14 +88,14 @@ describe("onDisputeStatusChanged", () => {
         await actor.processEvents();
 
         expect(mockProposeResponse).toHaveBeenCalledWith(
-            expect.objectContaining({}),
+            actorRequest.prophetData,
             expect.objectContaining({
-                proposer: expect.any(String),
-                requestId: "0x01",
+                proposer: proposerAddress,
+                requestId: actorRequest.id,
                 response: {
                     block: 2n,
-                    chainId: "eip155:1",
-                    epoch: 1n,
+                    chainId: actorRequest.chainId,
+                    epoch: actorRequest.epoch,
                 },
             }),
         );
