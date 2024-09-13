@@ -69,6 +69,18 @@ importers:
                 specifier: 2.0.3
                 version: 2.0.3(@types/node@20.14.12)
 
+    apps/agent:
+        dependencies:
+            "@ebo-agent/automated-dispute":
+                specifier: workspace:*
+                version: link:../../packages/automated-dispute
+            "@ebo-agent/blocknumber":
+                specifier: workspace:*
+                version: link:../../packages/blocknumber
+            "@ebo-agent/shared":
+                specifier: workspace:*
+                version: link:../../packages/shared
+
     packages/automated-dispute:
         dependencies:
             "@ebo-agent/blocknumber":

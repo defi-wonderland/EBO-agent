@@ -1,0 +1,25 @@
+{
+    "name": "agent",
+    "version": "1.0.0",
+    "description": "",
+    "main": "dist/index.js",
+    "type": "module",
+    "private": "true",
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json",
+        "check-types": "tsc --noEmit -p ./tsconfig.json",
+        "clean": "rm -rf dist",
+        "format": "prettier --check \"{src,test}/**/*.{js,ts,json}\"",
+        "format:fix": "prettier --write \"{src,test}/**/*.{js,ts,json}\"",
+        "lint": "eslint \"{src,test}/**/*.{js,ts,json}\"",
+        "lint:fix": "pnpm lint --fix",
+        "start": "node dist/index.js",
+        "test": "vitest run --config vitest.config.ts --passWithNoTests",
+        "test:cov": "vitest run --config vitest.config.ts --coverage"
+    },
+    "dependencies": {
+        "@ebo-agent/automated-dispute": "workspace:*",
+        "@ebo-agent/blocknumber": "workspace:*",
+        "@ebo-agent/shared": "workspace:*"
+    }
+}
