@@ -3,11 +3,13 @@ import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types";
 import { ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 
-import { EboActor } from "../../src/eboActor.js";
-import { ProtocolProvider } from "../../src/protocolProvider.js";
-import { EboMemoryRegistry } from "../../src/services/index.js";
+import { ProtocolProvider } from "../../src/providers/index.js";
+import { EboActor, EboMemoryRegistry } from "../../src/services/index.js";
 import { Dispute, Request, Response } from "../../src/types/index.js";
-import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS, mockedPrivateKey } from "../eboActor/fixtures.js";
+import {
+    DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
+    mockedPrivateKey,
+} from "../services/eboActor/fixtures.js";
 
 /**
  * Builds a base `EboActor` scaffolded with all its dependencies.

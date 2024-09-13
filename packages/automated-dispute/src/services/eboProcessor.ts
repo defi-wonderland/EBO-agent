@@ -2,12 +2,12 @@ import { isNativeError } from "util/types";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Address, ILogger } from "@ebo-agent/shared";
 
-import { EboActorsManager } from "../eboActorsManager.js";
 import { ProcessorAlreadyStarted } from "../exceptions/index.js";
-import { ProtocolProvider } from "../protocolProvider.js";
+import { ProtocolProvider } from "../providers/protocolProvider.js";
 import { alreadyDeletedActorWarning, droppingUnhandledEventsWarning } from "../templates/index.js";
 import { EboEvent, EboEventName } from "../types/events.js";
 import { RequestId } from "../types/prophet.js";
+import { EboActorsManager } from "./eboActorsManager.js";
 
 const DEFAULT_MS_BETWEEN_CHECKS = 10 * 60 * 1000; // 10 minutes
 

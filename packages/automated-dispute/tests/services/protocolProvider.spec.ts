@@ -2,12 +2,12 @@ import { createPublicClient, createWalletClient, fallback, getContract, http } f
 import { arbitrum } from "viem/chains";
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from "vitest";
 
-import { eboRequestCreatorAbi } from "../src/abis/eboRequestCreator.js";
-import { epochManagerAbi } from "../src/abis/epochManager.js";
-import { oracleAbi } from "../src/abis/oracle.js";
-import { RpcUrlsEmpty } from "../src/exceptions/rpcUrlsEmpty.exception.js";
-import { ProtocolProvider } from "../src/index.js";
-import { ProtocolContractsAddresses } from "../src/types/index.js";
+import { eboRequestCreatorAbi } from "../../src/abis/eboRequestCreator.js";
+import { epochManagerAbi } from "../../src/abis/epochManager.js";
+import { oracleAbi } from "../../src/abis/oracle.js";
+import { RpcUrlsEmpty } from "../../src/exceptions/index.js";
+import { ProtocolProvider } from "../../src/providers/index.js";
+import { ProtocolContractsAddresses } from "../../src/types/index.js";
 import { mockedPrivateKey } from "./eboActor/fixtures.js";
 
 vi.mock("viem", async () => {

@@ -3,10 +3,10 @@ import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProcessorAlreadyStarted } from "../../src/exceptions/index.js";
-import { ProtocolProvider } from "../../src/protocolProvider.js";
+import { ProtocolProvider } from "../../src/providers/index.js";
 import { EboEvent, EboEventName, RequestId } from "../../src/types/index.js";
-import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../eboActor/fixtures.js";
 import mocks from "../mocks/index.js";
+import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../services/eboActor/fixtures.js";
 
 const logger = mocks.mockLogger();
 const msBetweenChecks = 1;
