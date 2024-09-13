@@ -4,7 +4,7 @@ import { CommandAlreadyRun, CommandNotRun } from "../../../../src/exceptions/ind
 import { EboRegistry } from "../../../../src/interfaces/index.js";
 import { AddRequest } from "../../../../src/services/index.js";
 import { EboEvent } from "../../../../src/types/index.js";
-import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../../../eboActor/fixtures.js";
+import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../../../services/eboActor/fixtures.js";
 
 describe("AddRequest", () => {
     let registry: EboRegistry;

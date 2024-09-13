@@ -1,9 +1,9 @@
 import { ILogger } from "@ebo-agent/shared";
 import { describe, expect, it, vi } from "vitest";
 
-import { EboEvent } from "../../src/types/events.js";
-import { Response } from "../../src/types/prophet.js";
-import mocks from "../mocks/index.js";
+import { EboEvent } from "../../../src/types/events.js";
+import { Response } from "../../../src/types/prophet.js";
+import mocks from "../../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
 
 const logger: ILogger = mocks.mockLogger();

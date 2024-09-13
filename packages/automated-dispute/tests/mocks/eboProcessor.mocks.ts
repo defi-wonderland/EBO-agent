@@ -2,10 +2,13 @@ import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types";
 import { ILogger } from "@ebo-agent/shared";
 
-import { EboActorsManager } from "../../src/eboActorsManager";
-import { ProtocolProvider } from "../../src/protocolProvider";
+import { ProtocolProvider } from "../../src/providers/index.js";
 import { EboProcessor } from "../../src/services";
-import { DEFAULT_MOCKED_PROTOCOL_CONTRACTS, mockedPrivateKey } from "../eboActor/fixtures";
+import { EboActorsManager } from "../../src/services/index.js";
+import {
+    DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
+    mockedPrivateKey,
+} from "../services/eboActor/fixtures.js";
 
 export function buildEboProcessor(logger: ILogger) {
     const protocolProviderRpcUrls = ["http://localhost:8538"];
