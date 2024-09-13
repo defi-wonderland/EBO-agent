@@ -4,6 +4,12 @@
     "description": "",
     "main": "./dist/index.js",
     "type": "module",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist/*",
+        "package.json",
+        "!**/*.tsbuildinfo"
+    ],
     "private": "true",
     "scripts": {
         "build": "tsc -p tsconfig.build.json",
