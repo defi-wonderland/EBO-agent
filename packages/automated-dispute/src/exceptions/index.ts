@@ -13,4 +13,4 @@ export * from "./invalidEpoch.exception.js";
 export * from "./invalidRequestBody.exception.js";
 export * from "./invalidRequester.exception.js";
 export * from "./transactionExecutionError.exception.js";
-export * from "./InvalidAccountOnClient.exception.js";
+export * from "./invalidAccountOnClient.exception.js";
