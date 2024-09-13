@@ -69,6 +69,8 @@ importers:
                 specifier: 2.0.3
                 version: 2.0.3(@types/node@20.14.12)
 
+    apps/agent: {}
+
     packages/automated-dispute:
         dependencies:
             "@ebo-agent/blocknumber":
