@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PastEventEnqueueError, RequestMismatch } from "../../src/exceptions/index.js";
 import { EboEvent, Request, RequestId } from "../../src/types/index.js";
-import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../eboActor/fixtures.js";
 import mocks from "../mocks/index.js";
+import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../services/eboActor/fixtures.js";
 
 const logger = mocks.mockLogger();
 

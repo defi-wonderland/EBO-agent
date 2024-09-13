@@ -4,15 +4,15 @@ import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
 import { describe, expect, it } from "vitest";
 
-import { EboActorsManager } from "../src/eboActorsManager.js";
-import { RequestAlreadyHandled } from "../src/exceptions/index.js";
-import { ProtocolProvider } from "../src/protocolProvider.js";
+import { RequestAlreadyHandled } from "../../src/exceptions/index.js";
+import { ProtocolProvider } from "../../src/providers/index.js";
+import { EboActorsManager } from "../../src/services/index.js";
+import mocks from "../mocks/index.js";
 import {
     DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
     DEFAULT_MOCKED_REQUEST_CREATED_DATA,
     mockedPrivateKey,
 } from "./eboActor/fixtures.js";
-import mocks from "./mocks/index.js";
 
 const logger: ILogger = mocks.mockLogger();
 

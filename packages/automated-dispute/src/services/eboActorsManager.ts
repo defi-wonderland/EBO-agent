@@ -2,11 +2,11 @@ import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Address, ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 
+import { RequestAlreadyHandled } from "../exceptions/index.js";
+import { ProtocolProvider } from "../providers/protocolProvider.js";
+import { RequestId } from "../types/prophet.js";
 import { EboActor } from "./eboActor.js";
-import { RequestAlreadyHandled } from "./exceptions/index.js";
-import { ProtocolProvider } from "./protocolProvider.js";
-import { EboMemoryRegistry } from "./services/eboRegistry/eboMemoryRegistry.js";
-import { RequestId } from "./types/prophet.js";
+import { EboMemoryRegistry } from "./eboRegistry/eboMemoryRegistry.js";
 
 export class EboActorsManager {
     private readonly requestActorMap: Map<RequestId, EboActor>;

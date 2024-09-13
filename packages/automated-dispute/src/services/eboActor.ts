@@ -5,8 +5,8 @@ import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
 import { ContractFunctionRevertedError } from "viem";
 
-import { DisputeWithoutResponse } from "./exceptions/eboActor/disputeWithoutResponse.exception.js";
 import {
+    DisputeWithoutResponse,
     EBORequestCreator_ChainNotAdded,
     EBORequestCreator_InvalidEpoch,
     EBORequestModule_InvalidRequester,
@@ -17,16 +17,16 @@ import {
     RequestMismatch,
     ResponseAlreadyProposed,
     UnknownEvent,
-} from "./exceptions/index.js";
-import { EboRegistry, EboRegistryCommand } from "./interfaces/index.js";
-import { ProtocolProvider } from "./protocolProvider.js";
+} from "../exceptions/index.js";
+import { EboRegistry, EboRegistryCommand } from "../interfaces/index.js";
+import { ProtocolProvider } from "../providers/index.js";
 import {
     AddDispute,
     AddRequest,
     AddResponse,
     FinalizeRequest,
     UpdateDisputeStatus,
-} from "./services/index.js";
+} from "../services/index.js";
 import {
     Dispute,
     DisputeStatus,
@@ -36,7 +36,7 @@ import {
     RequestId,
     Response,
     ResponseBody,
-} from "./types/index.js";
+} from "../types/index.js";
 
 /**
  * Compare function to sort events chronologically in ascending order by block number

@@ -3,10 +3,10 @@ import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProcessorAlreadyStarted } from "../../src/exceptions/index.js";
-import { ProtocolProvider } from "../../src/protocolProvider.js";
+import { ProtocolProvider } from "../../src/providers/index.js";
 import { EboEvent, EboEventName, RequestId } from "../../src/types/index.js";
-import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../eboActor/fixtures.js";
 import mocks from "../mocks/index.js";
+import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../services/eboActor/fixtures.js";
 
 const logger = mocks.mockLogger();
 const msBetweenChecks = 1;
@@ -132,7 +132,57 @@ describe("EboProcessor", () => {
             );
         });
 
-        it("fetches events since last block checked after first events fetch", async () => {
+        it("keeps the last block checked unaltered when something fails during sync", async () => {
+            const initialCurrentBlock = 1n;
+
+            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
+            const { actor } = mocks.buildEboActor(request, logger);
+
+            const currentEpoch = {
+                currentEpoch: 1n,
+                currentEpochBlockNumber: 1n,
+                currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+            };
+
+            const mockProtocolProviderGetEvents = vi
+                .spyOn(protocolProvider, "getEvents")
+                .mockImplementationOnce(() => {
+                    // Simulate failure during first synch
+                    throw new Error();
+                })
+                .mockResolvedValueOnce([]);
+
+            vi.spyOn(protocolProvider, "getLastFinalizedBlock")
+                .mockResolvedValueOnce(initialCurrentBlock + 10n)
+                .mockResolvedValueOnce(initialCurrentBlock + 20n);
+
+            vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
+            vi.spyOn(actorsManager, "createActor").mockReturnValue(actor);
+            vi.spyOn(actor, "processEvents").mockImplementation(() => Promise.resolve());
+            vi.spyOn(actor, "onLastBlockUpdated").mockImplementation(() => Promise.resolve());
+            vi.spyOn(actor, "canBeTerminated").mockResolvedValue(false);
+
+            await processor.start(msBetweenChecks);
+
+            expect(mockProtocolProviderGetEvents).toHaveBeenNthCalledWith(
+                1,
+                currentEpoch.currentEpochBlockNumber,
+                initialCurrentBlock + 10n,
+            );
+
+            expect(mockProtocolProviderGetEvents).toHaveBeenCalledTimes(1);
+            expect(logger.error).toHaveBeenCalledWith(expect.stringMatching("Sync failed"));
+
+            await vi.advanceTimersByTimeAsync(msBetweenChecks);
+
+            expect(mockProtocolProviderGetEvents).toHaveBeenNthCalledWith(
+                2,
+                currentEpoch.currentEpochBlockNumber,
+                initialCurrentBlock + 20n,
+            );
+        });
+
+        it("fetches non-consumed events if event fetching fails", async () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
             const { actor } = mocks.buildEboActor(request, logger);
 

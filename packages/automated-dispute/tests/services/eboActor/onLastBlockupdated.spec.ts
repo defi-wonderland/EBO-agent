@@ -1,8 +1,8 @@
 import { ContractFunctionRevertedError } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
-import { DisputeWithoutResponse } from "../../src/exceptions/eboActor/disputeWithoutResponse.exception";
-import mocks from "../mocks";
+import { DisputeWithoutResponse } from "../../../src/exceptions/index.js";
+import mocks from "../../mocks";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures";
 
 const logger = mocks.mockLogger();

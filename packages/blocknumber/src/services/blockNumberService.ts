@@ -2,6 +2,7 @@ import { EBO_SUPPORTED_CHAIN_IDS, ILogger, Timestamp } from "@ebo-agent/shared";
 import { createPublicClient, fallback, http } from "viem";
 
 import { ChainWithoutProvider, EmptyRpcUrls, UnsupportedChain } from "../exceptions/index.js";
+import { BlockmetaClientConfig } from "../providers/blockmetaJsonBlockNumberProvider.js";
 import { BlockNumberProvider } from "../providers/blockNumberProvider.js";
 import { BlockNumberProviderFactory } from "../providers/blockNumberProviderFactory.js";
 import { Caip2ChainId } from "../types.js";
@@ -20,6 +21,7 @@ export class BlockNumberService {
      */
     constructor(
         chainRpcUrls: Map<Caip2ChainId, RpcUrl[]>,
+        private readonly blockmetaConfig: BlockmetaClientConfig,
         private readonly logger: ILogger,
     ) {
         this.blockNumberProviders = this.buildBlockNumberProviders(chainRpcUrls);
@@ -81,7 +83,12 @@ export class BlockNumberService {
                 transport: fallback(urls.map((url) => http(url))),
             });
 
-            const provider = BlockNumberProviderFactory.buildProvider(chainId, client, this.logger);
+            const provider = BlockNumberProviderFactory.buildProvider(
+                chainId,
+                client,
+                this.blockmetaConfig,
+                this.logger,
+            );
 
             if (!provider) throw new ChainWithoutProvider(chainId);
 

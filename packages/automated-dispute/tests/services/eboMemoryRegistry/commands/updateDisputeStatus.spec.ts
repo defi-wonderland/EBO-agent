@@ -4,8 +4,8 @@ import { CommandAlreadyRun, CommandNotRun } from "../../../../src/exceptions/ind
 import { EboRegistry } from "../../../../src/interfaces/index.js";
 import { UpdateDisputeStatus } from "../../../../src/services/index.js";
 import { EboEvent } from "../../../../src/types/index.js";
-import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../../../eboActor/fixtures.js";
 import mocks from "../../../mocks/index.js";
+import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../../../services/eboActor/fixtures.js";
 
 describe("UpdateDisputeStatus", () => {
     let registry: EboRegistry;

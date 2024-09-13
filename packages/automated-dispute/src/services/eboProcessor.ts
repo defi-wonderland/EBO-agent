@@ -1,12 +1,13 @@
+import { isNativeError } from "util/types";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Address, ILogger } from "@ebo-agent/shared";
 
-import { EboActorsManager } from "../eboActorsManager.js";
 import { ProcessorAlreadyStarted } from "../exceptions/index.js";
-import { ProtocolProvider } from "../protocolProvider.js";
+import { ProtocolProvider } from "../providers/protocolProvider.js";
 import { alreadyDeletedActorWarning, droppingUnhandledEventsWarning } from "../templates/index.js";
 import { EboEvent, EboEventName } from "../types/events.js";
 import { RequestId } from "../types/prophet.js";
+import { EboActorsManager } from "./eboActorsManager.js";
 
 const DEFAULT_MS_BETWEEN_CHECKS = 10 * 60 * 1000; // 10 minutes
 
@@ -52,29 +53,47 @@ export class EboProcessor {
         //  and trigger a request creation if there's no actor handling an <epoch, chain> request.
         //  This process should somehow check if there's already a request created for the epoch
         //  and chain that has no agent assigned and create it if that's the case.
-
-        if (!this.lastCheckedBlock) {
-            this.lastCheckedBlock = await this.getEpochStartBlock();
-        }
-
-        const lastBlock = await this.protocolProvider.getLastFinalizedBlock();
-        const events = await this.protocolProvider.getEvents(this.lastCheckedBlock, lastBlock);
-        const eventsByRequestId = this.groupEventsByRequest(events);
-
-        const synchableRequests = this.calculateSynchableRequests([...eventsByRequestId.keys()]);
-        const synchedRequests = [...synchableRequests].map(async (requestId: RequestId) => {
-            try {
-                const events = eventsByRequestId.get(requestId) ?? [];
-
-                await this.syncRequest(requestId, events, lastBlock);
-            } catch (err) {
-                this.onActorError(requestId, err as Error);
+        try {
+            if (!this.lastCheckedBlock) {
+                this.lastCheckedBlock = await this.getEpochStartBlock();
             }
-        });
 
-        await Promise.all(synchedRequests);
+            const lastBlock = await this.getLastFinalizedBlock();
+            const events = await this.getEvents(this.lastCheckedBlock, lastBlock);
 
-        this.lastCheckedBlock = lastBlock;
+            const eventsByRequestId = this.groupEventsByRequest(events);
+            const synchableRequests = this.calculateSynchableRequests([
+                ...eventsByRequestId.keys(),
+            ]);
+
+            this.logger.info(
+                `Reading events for the following requests:\n${synchableRequests.join(", ")}`,
+            );
+
+            const synchedRequests = [...synchableRequests].map(async (requestId: RequestId) => {
+                try {
+                    const events = eventsByRequestId.get(requestId) ?? [];
+
+                    await this.syncRequest(requestId, events, lastBlock);
+                } catch (err) {
+                    this.onActorError(requestId, err as Error);
+                }
+            });
+
+            await Promise.all(synchedRequests);
+
+            this.logger.info(`Consumed events up to block ${lastBlock}.`);
+
+            this.lastCheckedBlock = lastBlock;
+        } catch (err) {
+            if (isNativeError(err)) {
+                this.logger.error(`Sync failed: ` + `${err.message}\n\n` + `${err.stack}`);
+            } else {
+                this.logger.error(`Sync failed: ${err}`);
+            }
+
+            // TODO: notify
+        }
     }
 
     /**
@@ -82,10 +101,46 @@ export class EboProcessor {
      *
      * @returns the first block of the current epoch
      */
-    private async getEpochStartBlock() {
+    private async getEpochStartBlock(): Promise<bigint> {
+        this.logger.info("Fetching current epoch start block...");
+
         const { currentEpochBlockNumber } = await this.protocolProvider.getCurrentEpoch();
 
+        this.logger.info(`Current epoch start block ${currentEpochBlockNumber} fetched.`);
+
         return currentEpochBlockNumber;
+    }
+
+    /**
+     * Fetches the last finalized block on the protocol chain.
+     *
+     * @returns the last finalized block
+     */
+    private async getLastFinalizedBlock(): Promise<bigint> {
+        this.logger.info("Fetching last finalized block...");
+
+        const lastBlock = await this.protocolProvider.getLastFinalizedBlock();
+
+        this.logger.info(`Last finalized block ${lastBlock} fetched.`);
+
+        return lastBlock;
+    }
+
+    /**
+     * Fetches the events to process during the sync.
+     *
+     * @param fromBlock block number lower bound for event search
+     * @param toBlock block number upper bound for event search
+     * @returns an array of events
+     */
+    private async getEvents(fromBlock: bigint, toBlock: bigint): Promise<EboEvent<EboEventName>[]> {
+        this.logger.info(`Fetching events between blocks ${fromBlock} and ${toBlock}...`);
+
+        const events = await this.protocolProvider.getEvents(fromBlock, toBlock);
+
+        this.logger.info(`${events.length} events fetched.`);
+
+        return events;
     }
 
     /**

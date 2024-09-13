@@ -3,8 +3,8 @@ import { ILogger } from "@ebo-agent/shared";
 import { Address } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
-import { EboEvent, Response } from "../../src/types/index.js";
-import mocks from "../mocks/index.js";
+import { EboEvent, Response } from "../../../src/types/index.js";
+import mocks from "../../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
 
 const logger: ILogger = mocks.mockLogger();
