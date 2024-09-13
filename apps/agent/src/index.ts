@@ -17,6 +17,15 @@ const config = {
     },
     blockNumberService: {
         chainRpcUrls: new Map([["eip155:1" as const, ["localhost"]]]),
+        blockmetaConfig: {
+            baseUrl: new URL("localhost:443"),
+            servicePaths: {
+                blockByTime: "/sf.blockmeta.v2.BlockByTime",
+                block: "/sf.blockmeta.v2.Block",
+            },
+            bearerToken: "secret-token",
+            bearerTokenExpirationWindow: 365 * 24 * 60 * 60 * 1000, // 1 year
+        },
     },
     processor: {
         msBetweenChecks: 1,
@@ -34,6 +43,7 @@ const main = async (): Promise<void> => {
 
     const blockNumberService = new BlockNumberService(
         config.blockNumberService.chainRpcUrls,
+        config.blockNumberService.blockmetaConfig,
         logger,
     );
 
