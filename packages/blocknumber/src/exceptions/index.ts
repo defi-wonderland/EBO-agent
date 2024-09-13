@@ -1,3 +1,4 @@
+export * from "./blockmetaConnectionFailed.js";
 export * from "./chainWithoutProvider.js";
 export * from "./emptyRpcUrls.js";
 export * from "./invalidChain.js";
@@ -8,3 +9,4 @@ export * from "./unexpectedSearchRange.js";
 export * from "./unsupportedBlockNumber.js";
 export * from "./unsupportedBlockTimestamps.js";
 export * from "./unsupportedChain.js";
+export * from "./undefinedBlockNumber.js";

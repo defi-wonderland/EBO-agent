@@ -17,7 +17,14 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "viem": "2.17.10",
-        "@ebo-agent/shared": "workspace:*"
+        "@ebo-agent/shared": "workspace:*",
+        "axios": "1.7.7",
+        "jwt-decode": "4.0.0",
+        "viem": "2.17.10"
+    },
+    "devDependencies": {
+        "@types/jsonwebtoken": "9.0.6",
+        "axios-mock-adapter": "2.0.0",
+        "jsonwebtoken": "9.0.2"
     }
 }
