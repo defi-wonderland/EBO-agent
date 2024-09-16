@@ -563,4 +563,128 @@ describe("ProtocolProvider", () => {
             expect(() => protocolProvider.getAccountAddress()).toThrow(InvalidAccountOnClient);
         });
     });
+
+    describe("pledgeForDispute", () => {
+        it("successfully pledges for a dispute", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.pledgeForDispute(mockRequestProphetData, mockDisputeProphetData),
+            ).resolves.not.toThrow();
+        });
+
+        it("throws TransactionExecutionError when transaction fails", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+                status: "reverted",
+            });
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.pledgeForDispute(mockRequestProphetData, mockDisputeProphetData),
+            ).rejects.toThrow(TransactionExecutionError);
+        });
+    });
+
+    describe("pledgeAgainstDispute", () => {
+        it("successfully pledges against a dispute", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.pledgeAgainstDispute(
+                    mockRequestProphetData,
+                    mockDisputeProphetData,
+                ),
+            ).resolves.not.toThrow();
+        });
+
+        it("throws TransactionExecutionError when transaction fails", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+                status: "reverted",
+            });
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.pledgeAgainstDispute(
+                    mockRequestProphetData,
+                    mockDisputeProphetData,
+                ),
+            ).rejects.toThrow(TransactionExecutionError);
+        });
+    });
+
+    describe("settleDispute", () => {
+        it("successfully settles a dispute", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.settleDispute(
+                    mockRequestProphetData,
+                    mockResponseProphetData,
+                    mockDisputeProphetData,
+                ),
+            ).resolves.not.toThrow();
+        });
+
+        it("throws TransactionExecutionError when transaction fails", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+                status: "reverted",
+            });
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.settleDispute(
+                    mockRequestProphetData,
+                    mockResponseProphetData,
+                    mockDisputeProphetData,
+                ),
+            ).rejects.toThrow(TransactionExecutionError);
+        });
+    });
 });
