@@ -5,8 +5,7 @@ import { Address, ILogger } from "@ebo-agent/shared";
 import { ProcessorAlreadyStarted } from "../exceptions/index.js";
 import { ProtocolProvider } from "../providers/protocolProvider.js";
 import { alreadyDeletedActorWarning, droppingUnhandledEventsWarning } from "../templates/index.js";
-import { EboEvent, EboEventName } from "../types/events.js";
-import { RequestId } from "../types/prophet.js";
+import { EboEvent, EboEventName, Epoch, RequestId } from "../types/index.js";
 import { EboActorsManager } from "./eboActorsManager.js";
 
 const DEFAULT_MS_BETWEEN_CHECKS = 10 * 60 * 1000; // 10 minutes
@@ -54,8 +53,10 @@ export class EboProcessor {
         //  This process should somehow check if there's already a request created for the epoch
         //  and chain that has no agent assigned and create it if that's the case.
         try {
+            const currentEpoch = await this.getCurrentEpoch();
+
             if (!this.lastCheckedBlock) {
-                this.lastCheckedBlock = await this.getEpochStartBlock();
+                this.lastCheckedBlock = currentEpoch.epochFirstBlockNumber;
             }
 
             const lastBlock = await this.getLastFinalizedBlock();
@@ -97,18 +98,18 @@ export class EboProcessor {
     }
 
     /**
-     * Fetches the first block of the current epoch.
+     * Fetches the current epoch for the protocol chain.
      *
-     * @returns the first block of the current epoch
+     * @returns the current epoch properties of the protocol chain.
      */
-    private async getEpochStartBlock(): Promise<bigint> {
+    private async getCurrentEpoch(): Promise<Epoch> {
         this.logger.info("Fetching current epoch start block...");
 
-        const { currentEpochBlockNumber } = await this.protocolProvider.getCurrentEpoch();
+        const currentEpoch = await this.protocolProvider.getCurrentEpoch();
 
-        this.logger.info(`Current epoch start block ${currentEpochBlockNumber} fetched.`);
+        this.logger.info(`Current epoch fetched.`);
 
-        return currentEpochBlockNumber;
+        return currentEpoch;
     }
 
     /**

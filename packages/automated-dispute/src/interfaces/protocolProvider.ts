@@ -1,9 +1,7 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
-import { Timestamp } from "@ebo-agent/shared";
 import { Address } from "viem";
 
-import type { EboEvent, EboEventName } from "../types/events.js";
-import type { Dispute, Request, Response } from "../types/prophet.js";
+import type { Dispute, EboEvent, EboEventName, Epoch, Request, Response } from "../types/index.js";
 import { ProtocolContractsNames } from "../constants.js";
 
 export type ProtocolContract = (typeof ProtocolContractsNames)[number];
@@ -18,11 +16,7 @@ export interface IReadProvider {
      *
      * @returns A promise that resolves with the current epoch, block number, and timestamp.
      */
-    getCurrentEpoch(): Promise<{
-        currentEpoch: bigint;
-        currentEpochBlockNumber: bigint;
-        currentEpochTimestamp: Timestamp;
-    }>;
+    getCurrentEpoch(): Promise<Epoch>;
 
     /**
      * Gets the last finalized block number.

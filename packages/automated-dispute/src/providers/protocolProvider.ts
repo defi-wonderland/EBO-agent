@@ -1,5 +1,4 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
-import { Timestamp } from "@ebo-agent/shared";
 import {
     Address,
     BaseError,
@@ -19,8 +18,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum } from "viem/chains";
 
-import type { EboEvent, EboEventName } from "../types/events.js";
-import type { Dispute, Request, Response } from "../types/prophet.js";
+import type { Dispute, EboEvent, EboEventName, Epoch, Request, Response } from "../types/index.js";
 import { eboRequestCreatorAbi, epochManagerAbi, oracleAbi } from "../abis/index.js";
 import { RpcUrlsEmpty } from "../exceptions/rpcUrlsEmpty.exception.js";
 import {
@@ -138,24 +136,20 @@ export class ProtocolProvider implements IProtocolProvider {
      *
      * @returns The current epoch, its block number and its timestamp
      */
-    async getCurrentEpoch(): Promise<{
-        currentEpoch: bigint;
-        currentEpochBlockNumber: bigint;
-        currentEpochTimestamp: Timestamp;
-    }> {
-        const [currentEpoch, currentEpochBlockNumber] = await Promise.all([
+    async getCurrentEpoch(): Promise<Epoch> {
+        const [epoch, epochFirstBlockNumber] = await Promise.all([
             this.epochManagerContract.read.currentEpoch(),
             this.epochManagerContract.read.currentEpochBlock(),
         ]);
 
-        const currentEpochBlock = await this.readClient.getBlock({
-            blockNumber: currentEpochBlockNumber,
+        const epochFirstBlock = await this.readClient.getBlock({
+            blockNumber: epochFirstBlockNumber,
         });
 
         return {
-            currentEpoch,
-            currentEpochBlockNumber,
-            currentEpochTimestamp: currentEpochBlock.timestamp,
+            epoch,
+            epochFirstBlockNumber,
+            epochStartTimestamp: epochFirstBlock.timestamp,
         };
     }
 

@@ -379,6 +379,10 @@ describe("EboProcessor", () => {
             expect(mockActor2Enqueue).toHaveBeenCalledWith(eventStream[1]);
         });
 
+        it.todo("creates a request when no actor is handling a chain's current epoch");
+
+        it.todo("does not create a new request if a corresponding actor already exist");
+
         it.skip("notifies if an actor throws while handling events");
 
         it("removes the actor from registry when terminating", async () => {
