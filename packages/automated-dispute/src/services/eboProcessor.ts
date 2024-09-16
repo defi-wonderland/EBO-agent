@@ -50,10 +50,6 @@ export class EboProcessor {
 
     /** Sync new blocks and their events with their corresponding actors. */
     private async sync() {
-        // TODO: detect new epoch by comparing subgraph's data with EpochManager's current epoch
-        //  and trigger a request creation if there's no actor handling an <epoch, chain> request.
-        //  This process should somehow check if there's already a request created for the epoch
-        //  and chain that has no agent assigned and create it if that's the case.
         try {
             const currentEpoch = await this.getCurrentEpoch();
 
