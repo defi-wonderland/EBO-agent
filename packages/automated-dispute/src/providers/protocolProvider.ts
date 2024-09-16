@@ -1,4 +1,4 @@
-import { Timestamp } from "@ebo-agent/shared";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import {
     Address,
     BaseError,
@@ -18,8 +18,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum } from "viem/chains";
 
-import type { EboEvent, EboEventName } from "../types/events.js";
-import type { Dispute, Request, Response } from "../types/prophet.js";
+import type { Dispute, EboEvent, EboEventName, Epoch, Request, Response } from "../types/index.js";
 import { eboRequestCreatorAbi, epochManagerAbi, oracleAbi } from "../abis/index.js";
 import {
     InvalidAccountOnClient,
@@ -153,24 +152,20 @@ export class ProtocolProvider implements IProtocolProvider {
      *
      * @returns The current epoch, its block number and its timestamp
      */
-    async getCurrentEpoch(): Promise<{
-        currentEpoch: bigint;
-        currentEpochBlockNumber: bigint;
-        currentEpochTimestamp: Timestamp;
-    }> {
-        const [currentEpoch, currentEpochBlockNumber] = await Promise.all([
+    async getCurrentEpoch(): Promise<Epoch> {
+        const [epoch, epochFirstBlockNumber] = await Promise.all([
             this.epochManagerContract.read.currentEpoch(),
             this.epochManagerContract.read.currentEpochBlock(),
         ]);
 
-        const currentEpochBlock = await this.readClient.getBlock({
-            blockNumber: currentEpochBlockNumber,
+        const epochFirstBlock = await this.readClient.getBlock({
+            blockNumber: epochFirstBlockNumber,
         });
 
         return {
-            currentEpoch,
-            currentEpochBlockNumber,
-            currentEpochTimestamp: currentEpochBlock.timestamp,
+            number: epoch,
+            firstBlockNumber: epochFirstBlockNumber,
+            startTimestamp: epochFirstBlock.timestamp,
         };
     }
 
@@ -257,7 +252,7 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     // TODO: use Caip2 Chain ID instead of string in return type
-    async getAvailableChains(): Promise<string[]> {
+    async getAvailableChains(): Promise<Caip2ChainId[]> {
         // TODO: implement actual method
         return ["eip155:1", "eip155:42161"];
     }

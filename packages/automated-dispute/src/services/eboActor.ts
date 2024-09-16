@@ -5,6 +5,16 @@ import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
 import { ContractFunctionRevertedError } from "viem";
 
+import type {
+    Dispute,
+    DisputeStatus,
+    EboEvent,
+    EboEventName,
+    Epoch,
+    Request,
+    Response,
+    ResponseBody,
+} from "../types/index.js";
 import {
     DisputeWithoutResponse,
     EBORequestCreator_ChainNotAdded,
@@ -27,16 +37,7 @@ import {
     FinalizeRequest,
     UpdateDisputeStatus,
 } from "../services/index.js";
-import {
-    Dispute,
-    DisputeStatus,
-    EboEvent,
-    EboEventName,
-    Request,
-    RequestId,
-    Response,
-    ResponseBody,
-} from "../types/index.js";
+import { ActorRequest } from "../types/actorRequest.js";
 
 /**
  * Compare function to sort events chronologically in ascending order by block number
@@ -78,10 +79,7 @@ export class EboActor {
      * @param logger an `ILogger` instance
      */
     constructor(
-        private readonly actorRequest: {
-            id: RequestId;
-            epoch: bigint;
-        },
+        public readonly actorRequest: ActorRequest,
         private readonly protocolProvider: ProtocolProvider,
         private readonly blockNumberService: BlockNumberService,
         private readonly registry: EboRegistry,
@@ -432,15 +430,19 @@ export class EboActor {
      *
      * Be aware that a request can be finalized but some of its disputes can still be pending resolution.
      *
+     * At last, actors must be kept alive until their epoch concludes, to ensure no actor/request duplication.
+     *
+     * @param currentEpoch the epoch to check against actor termination
      * @param blockNumber block number to check entities at
      * @returns `true` if all entities are settled, otherwise `false`
      */
-    public canBeTerminated(blockNumber: bigint): boolean {
+    public canBeTerminated(currentEpoch: Epoch["number"], blockNumber: bigint): boolean {
         const request = this.getActorRequest();
+        const isPastEpoch = currentEpoch > request.epoch;
         const isRequestFinalized = request.status === "Finalized";
         const nonSettledProposals = this.activeProposals(blockNumber);
 
-        return isRequestFinalized && nonSettledProposals.length === 0;
+        return isPastEpoch && isRequestFinalized && nonSettledProposals.length === 0;
     }
 
     /**
@@ -556,10 +558,11 @@ export class EboActor {
     private async buildResponse(chainId: Caip2ChainId): Promise<ResponseBody> {
         // FIXME(non-current epochs): adapt this code to fetch timestamps corresponding
         //  to the first block of any epoch, not just the current epoch
-        const { currentEpochTimestamp } = await this.protocolProvider.getCurrentEpoch();
+        const { startTimestamp: epochStartTimestamp } =
+            await this.protocolProvider.getCurrentEpoch();
 
         const epochBlockNumber = await this.blockNumberService.getEpochBlockNumber(
-            currentEpochTimestamp,
+            epochStartTimestamp,
             chainId,
         );
 

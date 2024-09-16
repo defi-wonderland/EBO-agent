@@ -1,12 +1,12 @@
 import { isNativeError } from "util/types";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { Address, ILogger } from "@ebo-agent/shared";
 
 import { ProcessorAlreadyStarted } from "../exceptions/index.js";
 import { ProtocolProvider } from "../providers/protocolProvider.js";
 import { alreadyDeletedActorWarning, droppingUnhandledEventsWarning } from "../templates/index.js";
-import { EboEvent, EboEventName } from "../types/events.js";
-import { RequestId } from "../types/prophet.js";
+import { ActorRequest, EboEvent, EboEventName, Epoch, RequestId } from "../types/index.js";
 import { EboActorsManager } from "./eboActorsManager.js";
 
 const DEFAULT_MS_BETWEEN_CHECKS = 10 * 60 * 1000; // 10 minutes
@@ -49,13 +49,11 @@ export class EboProcessor {
 
     /** Sync new blocks and their events with their corresponding actors. */
     private async sync() {
-        // TODO: detect new epoch by comparing subgraph's data with EpochManager's current epoch
-        //  and trigger a request creation if there's no actor handling an <epoch, chain> request.
-        //  This process should somehow check if there's already a request created for the epoch
-        //  and chain that has no agent assigned and create it if that's the case.
         try {
+            const currentEpoch = await this.getCurrentEpoch();
+
             if (!this.lastCheckedBlock) {
-                this.lastCheckedBlock = await this.getEpochStartBlock();
+                this.lastCheckedBlock = currentEpoch.firstBlockNumber;
             }
 
             const lastBlock = await this.getLastFinalizedBlock();
@@ -74,7 +72,7 @@ export class EboProcessor {
                 try {
                     const events = eventsByRequestId.get(requestId) ?? [];
 
-                    await this.syncRequest(requestId, events, lastBlock);
+                    await this.syncRequest(requestId, events, currentEpoch.number, lastBlock);
                 } catch (err) {
                     this.onActorError(requestId, err as Error);
                 }
@@ -83,6 +81,8 @@ export class EboProcessor {
             await Promise.all(synchedRequests);
 
             this.logger.info(`Consumed events up to block ${lastBlock}.`);
+
+            this.createMissingRequests(currentEpoch.number);
 
             this.lastCheckedBlock = lastBlock;
         } catch (err) {
@@ -97,18 +97,18 @@ export class EboProcessor {
     }
 
     /**
-     * Fetches the first block of the current epoch.
+     * Fetches the current epoch for the protocol chain.
      *
-     * @returns the first block of the current epoch
+     * @returns the current epoch properties of the protocol chain.
      */
-    private async getEpochStartBlock(): Promise<bigint> {
-        this.logger.info("Fetching current epoch start block...");
+    private async getCurrentEpoch(): Promise<Epoch> {
+        this.logger.info("Fetching current epoch...");
 
-        const { currentEpochBlockNumber } = await this.protocolProvider.getCurrentEpoch();
+        const currentEpoch = await this.protocolProvider.getCurrentEpoch();
 
-        this.logger.info(`Current epoch start block ${currentEpochBlockNumber} fetched.`);
+        this.logger.info(`Current epoch fetched.`);
 
-        return currentEpochBlockNumber;
+        return currentEpoch;
     }
 
     /**
@@ -182,9 +182,15 @@ export class EboProcessor {
      *
      * @param requestId the ID of the `Request`
      * @param events a stream of consumed events
+     * @param currentEpoch the current epoch based on the last block
      * @param lastBlock the last block checked
      */
-    private async syncRequest(requestId: RequestId, events: EboEventStream, lastBlock: bigint) {
+    private async syncRequest(
+        requestId: RequestId,
+        events: EboEventStream,
+        currentEpoch: Epoch["number"],
+        lastBlock: bigint,
+    ) {
         const firstEvent = events[0];
         const actor = this.getOrCreateActor(requestId, firstEvent);
 
@@ -199,7 +205,7 @@ export class EboProcessor {
         await actor.processEvents();
         await actor.onLastBlockUpdated(lastBlock);
 
-        if (actor.canBeTerminated(lastBlock)) {
+        if (actor.canBeTerminated(currentEpoch, lastBlock)) {
             this.terminateActor(requestId);
         }
     }
@@ -235,6 +241,7 @@ export class EboProcessor {
         const actorRequest = {
             id: Address.normalize(event.requestId),
             epoch: event.metadata.epoch,
+            chainId: event.metadata.chainId,
         };
 
         const actor = this.actorsManager.createActor(
@@ -257,6 +264,72 @@ export class EboProcessor {
         // TODO: notify
 
         this.terminateActor(requestId);
+    }
+
+    /**
+     * Creates missing requests for the specified epoch, based on the
+     * available chains and the currently being handled requests.
+     *
+     * @param epoch the epoch number
+     */
+    private async createMissingRequests(epoch: Epoch["number"]): Promise<void> {
+        try {
+            const handledEpochChains = this.actorsManager
+                .getActorsRequests()
+                .reduce((actorRequestMap, actorRequest: ActorRequest) => {
+                    const epochRequests = actorRequestMap.get(actorRequest.epoch) ?? new Set();
+
+                    epochRequests.add(actorRequest.chainId);
+
+                    return actorRequestMap.set(actorRequest.epoch, epochRequests);
+                }, new Map<Epoch["number"], Set<Caip2ChainId>>());
+
+            this.logger.info("Fetching available chains...");
+
+            const availableChains: Caip2ChainId[] =
+                await this.protocolProvider.getAvailableChains();
+
+            this.logger.info("Available chains fetched.");
+
+            const unhandledEpochChain = availableChains.filter((chain) => {
+                const epochRequests = handledEpochChains.get(epoch);
+                const isHandled = epochRequests && epochRequests.has(chain);
+
+                return !isHandled;
+            });
+
+            this.logger.info("Creating missing requests...");
+
+            const epochChainRequests = unhandledEpochChain.map(async (chain) => {
+                try {
+                    this.logger.info(`Creating request for chain ${chain} and epoch ${epoch}...`);
+
+                    await this.protocolProvider.createRequest(epoch, [chain]);
+
+                    this.logger.info(`Request created for chain ${chain} and epoch ${epoch}`);
+                } catch (err) {
+                    // Request creation must be notified but it's not critical, as it will be
+                    // retried during next sync.
+
+                    // TODO: warn when getting a EBORequestCreator_RequestAlreadyCreated
+                    // TODO: notify under any other error
+
+                    this.logger.error(
+                        `Could not create a request for epoch ${epoch} and chain ${chain}.`,
+                    );
+                }
+            });
+
+            await Promise.all(epochChainRequests);
+
+            this.logger.info("Missing requests created.");
+        } catch (err) {
+            // TODO: notify
+
+            this.logger.error(
+                `Requests creation missing: ${isNativeError(err) ? err.message : err}`,
+            );
+        }
     }
 
     /**

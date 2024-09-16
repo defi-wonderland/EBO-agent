@@ -94,12 +94,12 @@ describe("EboProcessor", () => {
             const { actor } = mocks.buildEboActor(request, logger);
 
             const currentEpoch = {
-                currentEpoch: 1n,
-                currentEpochBlockNumber: 1n,
-                currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                number: 1n,
+                firstBlockNumber: 1n,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
             };
 
-            const currentBlock = currentEpoch.currentEpochBlockNumber + 10n;
+            const currentBlock = currentEpoch.firstBlockNumber + 10n;
 
             const requestCreatedEvent: EboEvent<"RequestCreated"> = {
                 name: "RequestCreated",
@@ -126,10 +126,7 @@ describe("EboProcessor", () => {
 
             await processor.start(msBetweenChecks);
 
-            expect(mockGetEvents).toHaveBeenCalledWith(
-                currentEpoch.currentEpochBlockNumber,
-                currentBlock,
-            );
+            expect(mockGetEvents).toHaveBeenCalledWith(currentEpoch.firstBlockNumber, currentBlock);
         });
 
         it("keeps the last block checked unaltered when something fails during sync", async () => {
@@ -139,9 +136,9 @@ describe("EboProcessor", () => {
             const { actor } = mocks.buildEboActor(request, logger);
 
             const currentEpoch = {
-                currentEpoch: 1n,
-                currentEpochBlockNumber: 1n,
-                currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                number: 1n,
+                firstBlockNumber: 1n,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
             };
 
             const mockProtocolProviderGetEvents = vi
@@ -166,7 +163,7 @@ describe("EboProcessor", () => {
 
             expect(mockProtocolProviderGetEvents).toHaveBeenNthCalledWith(
                 1,
-                currentEpoch.currentEpochBlockNumber,
+                currentEpoch.firstBlockNumber,
                 initialCurrentBlock + 10n,
             );
 
@@ -177,7 +174,7 @@ describe("EboProcessor", () => {
 
             expect(mockProtocolProviderGetEvents).toHaveBeenNthCalledWith(
                 2,
-                currentEpoch.currentEpochBlockNumber,
+                currentEpoch.firstBlockNumber,
                 initialCurrentBlock + 20n,
             );
         });
@@ -190,12 +187,12 @@ describe("EboProcessor", () => {
             processor["lastCheckedBlock"] = mockLastCheckedBlock;
 
             const currentEpoch = {
-                currentEpoch: 1n,
-                currentEpochBlockNumber: 1n,
-                currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                number: 1n,
+                firstBlockNumber: 1n,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
             };
 
-            const currentBlock = currentEpoch.currentEpochBlockNumber + 10n;
+            const currentBlock = currentEpoch.firstBlockNumber + 10n;
 
             const requestCreatedEvent: EboEvent<"RequestCreated"> = {
                 name: "RequestCreated",
@@ -231,12 +228,12 @@ describe("EboProcessor", () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
 
             const currentEpoch = {
-                currentEpoch: 1n,
-                currentEpochBlockNumber: 1n,
-                currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                number: 1n,
+                firstBlockNumber: 1n,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
             };
 
-            const currentBlock = currentEpoch.currentEpochBlockNumber + 10n;
+            const currentBlock = currentEpoch.firstBlockNumber + 10n;
 
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(currentBlock);
@@ -294,12 +291,12 @@ describe("EboProcessor", () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
 
             const currentEpoch = {
-                currentEpoch: 1n,
-                currentEpochBlockNumber: 1n,
-                currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                number: 1n,
+                firstBlockNumber: 1n,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
             };
 
-            const currentBlock = currentEpoch.currentEpochBlockNumber + 10n;
+            const currentBlock = currentEpoch.firstBlockNumber + 10n;
 
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(currentBlock);
@@ -380,6 +377,96 @@ describe("EboProcessor", () => {
         });
 
         it.skip("notifies if an actor throws while handling events");
+
+        it("creates a request when no actor is handling a chain's current epoch", async () => {
+            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
+
+            const currentEpoch = {
+                number: 1n,
+                firstBlockNumber: 1n,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+            };
+
+            vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
+            vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(1n);
+            vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([]);
+            vi.spyOn(protocolProvider, "getAvailableChains").mockResolvedValue([
+                "eip155:1",
+                "eip155:42161",
+            ]);
+
+            vi.spyOn(actorsManager, "getActorsRequests").mockReturnValue([
+                { id: "0x01", chainId: "eip155:1", epoch: currentEpoch.number },
+            ]);
+
+            const mockProtocolProviderCreateRequest = vi
+                .spyOn(protocolProvider, "createRequest")
+                .mockImplementation(() => Promise.resolve());
+
+            await processor.start();
+
+            expect(mockProtocolProviderCreateRequest).toHaveBeenCalledWith(currentEpoch.number, [
+                "eip155:42161",
+            ]);
+        });
+
+        it("does not create a new request if a corresponding actor already exist", async () => {
+            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
+
+            const currentEpoch = {
+                number: 1n,
+                firstBlockNumber: 1n,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+            };
+
+            vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
+            vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(1n);
+            vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([]);
+            vi.spyOn(protocolProvider, "getAvailableChains").mockResolvedValue([
+                "eip155:1",
+                "eip155:42161",
+            ]);
+
+            vi.spyOn(actorsManager, "getActorsRequests").mockReturnValue([
+                { id: "0x01", chainId: "eip155:1", epoch: currentEpoch.number },
+                { id: "0x02", chainId: "eip155:42161", epoch: currentEpoch.number },
+            ]);
+
+            const mockProtocolProviderCreateRequest = vi
+                .spyOn(protocolProvider, "createRequest")
+                .mockImplementation(() => Promise.resolve());
+
+            await processor.start();
+
+            expect(mockProtocolProviderCreateRequest).not.toHaveBeenCalled();
+        });
+
+        it("handles errors during request creation", async () => {
+            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
+
+            const currentEpoch = {
+                epoch: 1n,
+                firstBlockNumber: 1n,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+            };
+
+            vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
+            vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(1n);
+            vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([]);
+            vi.spyOn(protocolProvider, "getAvailableChains").mockResolvedValue([
+                "eip155:1",
+                "eip155:42161",
+            ]);
+            vi.spyOn(protocolProvider, "createRequest").mockImplementation(() => Promise.reject());
+
+            vi.spyOn(actorsManager, "getActorsRequests").mockReturnValue([
+                { id: "0x01", chainId: "eip155:1", epoch: currentEpoch.epoch },
+            ]);
+
+            expect(processor.start()).resolves.not.toThrow();
+        });
+
+        it.skip("notifies if a request failed to be created");
 
         it("removes the actor from registry when terminating", async () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);

@@ -253,7 +253,9 @@ describe("EboActor", () => {
             vi.spyOn(registry, "getRequest").mockReturnValue(request);
             vi.spyOn(registry, "getResponses").mockReturnValue([]);
 
-            expect(actor.canBeTerminated(currentBlockNumber)).toBe(false);
+            expect(actor.canBeTerminated(actor.actorRequest.epoch + 1n, currentBlockNumber)).toBe(
+                false,
+            );
         });
 
         it("returns false if there's one disputable response", () => {
@@ -266,7 +268,9 @@ describe("EboActor", () => {
             vi.spyOn(registry, "getResponses").mockReturnValue([response]);
             vi.spyOn(registry, "getResponseDispute").mockReturnValue(undefined);
 
-            expect(actor.canBeTerminated(currentBlockNumber)).toBe(false);
+            expect(actor.canBeTerminated(actor.actorRequest.epoch + 1n, currentBlockNumber)).toBe(
+                false,
+            );
         });
 
         it("returns false if the request is finalized but there's one active dispute", () => {
@@ -286,9 +290,67 @@ describe("EboActor", () => {
             vi.spyOn(registry, "getResponses").mockReturnValue([response]);
             vi.spyOn(registry, "getResponseDispute").mockReturnValue(dispute);
 
-            const canBeTerminated = actor.canBeTerminated(currentBlockNumber);
+            const canBeTerminated = actor.canBeTerminated(
+                actor.actorRequest.epoch + 1n,
+                currentBlockNumber,
+            );
 
             expect(canBeTerminated).toBe(false);
+        });
+
+        it("returns false if we are still in the same epoch", () => {
+            const request: Request = {
+                ...DEFAULT_MOCKED_REQUEST_CREATED_DATA,
+                status: "Finalized",
+            };
+
+            const disputedResponse = mocks.buildResponse(request, { id: "0x01" });
+            const undisputedResponse = mocks.buildResponse(request, {
+                id: "0x02",
+                createdAt: request.prophetData.responseModuleData.deadline - 1n,
+            });
+
+            const escalatedDispute = mocks.buildDispute(request, disputedResponse, {
+                status: "Escalated",
+            });
+
+            const { actor, registry } = mocks.buildEboActor(request, logger);
+            const currentBlockNumber =
+                undisputedResponse.createdAt +
+                request.prophetData.disputeModuleData.disputeWindow +
+                1n;
+
+            vi.spyOn(registry, "getRequest").mockReturnValue(request);
+
+            vi.spyOn(registry, "getResponses").mockReturnValue([
+                disputedResponse,
+                undisputedResponse,
+            ]);
+
+            vi.spyOn(registry, "getResponseDispute").mockImplementation((response) => {
+                switch (response.id) {
+                    case disputedResponse.id:
+                        return escalatedDispute;
+
+                    case undisputedResponse.id:
+                        return undefined;
+                }
+            });
+
+            const canBeTerminatedDuringCurrentEpoch = actor.canBeTerminated(
+                actor.actorRequest.epoch,
+                currentBlockNumber,
+            );
+
+            const canBeTerminatedDuringNextEpoch = actor.canBeTerminated(
+                actor.actorRequest.epoch + 1n,
+                currentBlockNumber,
+            );
+
+            expect(canBeTerminatedDuringCurrentEpoch).toBe(false);
+            // This is to validate that the change in the current epoch is the one that
+            // changes the output
+            expect(canBeTerminatedDuringNextEpoch).toBe(true);
         });
 
         it("returns true once everything is settled", () => {
@@ -330,7 +392,10 @@ describe("EboActor", () => {
                 }
             });
 
-            const canBeTerminated = actor.canBeTerminated(currentBlockNumber);
+            const canBeTerminated = actor.canBeTerminated(
+                actor.actorRequest.epoch + 1n,
+                currentBlockNumber,
+            );
 
             expect(canBeTerminated).toBe(true);
         });
