@@ -107,7 +107,7 @@ export class EboProcessor {
      * @returns the current epoch properties of the protocol chain.
      */
     private async getCurrentEpoch(): Promise<Epoch> {
-        this.logger.info("Fetching current epoch start block...");
+        this.logger.info("Fetching current epoch...");
 
         const currentEpoch = await this.protocolProvider.getCurrentEpoch();
 
@@ -307,7 +307,7 @@ export class EboProcessor {
 
             const epochChainRequests = unhandledEpochChain.map(async (chain) => {
                 try {
-                    this.logger.info(`Creating request for chain ${chain} and epoch ${epoch}`);
+                    this.logger.info(`Creating request for chain ${chain} and epoch ${epoch}...`);
 
                     await this.protocolProvider.createRequest(epoch, [chain]);
 
