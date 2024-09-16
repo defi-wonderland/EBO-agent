@@ -147,9 +147,9 @@ export class ProtocolProvider implements IProtocolProvider {
         });
 
         return {
-            epoch,
-            epochFirstBlockNumber,
-            epochStartTimestamp: epochFirstBlock.timestamp,
+            number: epoch,
+            firstBlockNumber: epochFirstBlockNumber,
+            startTimestamp: epochFirstBlock.timestamp,
         };
     }
 

@@ -4,8 +4,8 @@ import { Mutex } from "async-mutex";
 
 import { RequestAlreadyHandled } from "../exceptions/index.js";
 import { ProtocolProvider } from "../providers/protocolProvider.js";
-import { RequestId } from "../types/index.js";
-import { ActorRequest, EboActor } from "./eboActor.js";
+import { ActorRequest, RequestId } from "../types/index.js";
+import { EboActor } from "./eboActor.js";
 import { EboMemoryRegistry } from "./eboRegistry/eboMemoryRegistry.js";
 
 export class EboActorsManager {

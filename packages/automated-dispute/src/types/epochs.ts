@@ -8,7 +8,7 @@ import { Timestamp } from "@ebo-agent/shared";
  * @property {Timestamp} epochStartTimestamp - timestamp of the first block of the epoch
  */
 export type Epoch = {
-    epoch: bigint;
-    epochFirstBlockNumber: bigint;
-    epochStartTimestamp: Timestamp;
+    number: bigint;
+    firstBlockNumber: bigint;
+    startTimestamp: Timestamp;
 };

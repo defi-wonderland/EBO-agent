@@ -6,8 +6,7 @@ import { Address, ILogger } from "@ebo-agent/shared";
 import { ProcessorAlreadyStarted } from "../exceptions/index.js";
 import { ProtocolProvider } from "../providers/protocolProvider.js";
 import { alreadyDeletedActorWarning, droppingUnhandledEventsWarning } from "../templates/index.js";
-import { EboEvent, EboEventName, Epoch, RequestId } from "../types/index.js";
-import { ActorRequest } from "./eboActor.js";
+import { ActorRequest, EboEvent, EboEventName, Epoch, RequestId } from "../types/index.js";
 import { EboActorsManager } from "./eboActorsManager.js";
 
 const DEFAULT_MS_BETWEEN_CHECKS = 10 * 60 * 1000; // 10 minutes
@@ -54,7 +53,7 @@ export class EboProcessor {
             const currentEpoch = await this.getCurrentEpoch();
 
             if (!this.lastCheckedBlock) {
-                this.lastCheckedBlock = currentEpoch.epochFirstBlockNumber;
+                this.lastCheckedBlock = currentEpoch.firstBlockNumber;
             }
 
             const lastBlock = await this.getLastFinalizedBlock();
@@ -73,7 +72,7 @@ export class EboProcessor {
                 try {
                     const events = eventsByRequestId.get(requestId) ?? [];
 
-                    await this.syncRequest(requestId, events, currentEpoch.epoch, lastBlock);
+                    await this.syncRequest(requestId, events, currentEpoch.number, lastBlock);
                 } catch (err) {
                     this.onActorError(requestId, err as Error);
                 }
@@ -83,7 +82,7 @@ export class EboProcessor {
 
             this.logger.info(`Consumed events up to block ${lastBlock}.`);
 
-            this.createMissingRequests(currentEpoch.epoch);
+            this.createMissingRequests(currentEpoch.number);
 
             this.lastCheckedBlock = lastBlock;
         } catch (err) {
@@ -189,7 +188,7 @@ export class EboProcessor {
     private async syncRequest(
         requestId: RequestId,
         events: EboEventStream,
-        currentEpoch: Epoch["epoch"],
+        currentEpoch: Epoch["number"],
         lastBlock: bigint,
     ) {
         const firstEvent = events[0];
@@ -273,7 +272,7 @@ export class EboProcessor {
      *
      * @param epoch the epoch number
      */
-    private async createMissingRequests(epoch: Epoch["epoch"]): Promise<void> {
+    private async createMissingRequests(epoch: Epoch["number"]): Promise<void> {
         try {
             const handledEpochChains = this.actorsManager
                 .getActorsRequests()
@@ -283,7 +282,7 @@ export class EboProcessor {
                     epochRequests.add(actorRequest.chainId);
 
                     return actorRequestMap.set(actorRequest.epoch, epochRequests);
-                }, new Map<Epoch["epoch"], Set<Caip2ChainId>>());
+                }, new Map<Epoch["number"], Set<Caip2ChainId>>());
 
             this.logger.info("Fetching available chains...");
 

@@ -12,7 +12,6 @@ import type {
     EboEventName,
     Epoch,
     Request,
-    RequestId,
     Response,
     ResponseBody,
 } from "../types/index.js";
@@ -38,6 +37,7 @@ import {
     FinalizeRequest,
     UpdateDisputeStatus,
 } from "../services/index.js";
+import { ActorRequest } from "../types/actorRequest.js";
 
 /**
  * Compare function to sort events chronologically in ascending order by block number
@@ -53,8 +53,6 @@ const EBO_EVENT_COMPARATOR = (e1: EboEvent<EboEventName>, e2: EboEvent<EboEventN
 
     return e1.logIndex - e2.logIndex;
 };
-
-export type ActorRequest = { id: RequestId; epoch: bigint; chainId: Caip2ChainId };
 
 /**
  * Actor that handles a singular Prophet's request asking for the block number that corresponds
@@ -438,7 +436,7 @@ export class EboActor {
      * @param blockNumber block number to check entities at
      * @returns `true` if all entities are settled, otherwise `false`
      */
-    public canBeTerminated(currentEpoch: Epoch["epoch"], blockNumber: bigint): boolean {
+    public canBeTerminated(currentEpoch: Epoch["number"], blockNumber: bigint): boolean {
         const request = this.getActorRequest();
         const isPastEpoch = currentEpoch > request.epoch;
         const isRequestFinalized = request.status === "Finalized";
@@ -560,7 +558,8 @@ export class EboActor {
     private async buildResponse(chainId: Caip2ChainId): Promise<ResponseBody> {
         // FIXME(non-current epochs): adapt this code to fetch timestamps corresponding
         //  to the first block of any epoch, not just the current epoch
-        const { epochStartTimestamp } = await this.protocolProvider.getCurrentEpoch();
+        const { startTimestamp: epochStartTimestamp } =
+            await this.protocolProvider.getCurrentEpoch();
 
         const epochBlockNumber = await this.blockNumberService.getEpochBlockNumber(
             epochStartTimestamp,
