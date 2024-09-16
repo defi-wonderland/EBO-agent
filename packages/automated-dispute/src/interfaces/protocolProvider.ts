@@ -1,4 +1,3 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { Timestamp } from "@ebo-agent/shared";
 import { Address } from "viem";
 
@@ -34,19 +33,19 @@ export interface IReadProvider {
     /**
      * Retrieves events from the protocol within a specified block range.
      *
-     * @param _fromBlock The starting block number.
-     * @param _toBlock The ending block number.
+     * @param fromBlock The starting block number.
+     * @param toBlock The ending block number.
      * @returns A promise that resolves with an array of protocol events.
      */
-    getEvents(_fromBlock: bigint, _toBlock: bigint): Promise<EboEvent<EboEventName>[]>;
+    getEvents(fromBlock: bigint, toBlock: bigint): Promise<EboEvent<EboEventName>[]>;
 
     /**
      * Checks whether the specified address has staked assets.
      *
-     * @param _address The address to check.
+     * @param address The address to check.
      * @returns A promise that resolves with a boolean indicating whether the address has staked assets.
      */
-    hasStakedAssets(_address: Address): Promise<boolean>;
+    hasStakedAssets(address: Address): Promise<boolean>;
 
     /**
      * Gets the list of available chains that the protocol supports.
@@ -73,89 +72,88 @@ export interface IWriteProvider {
     /**
      * Proposes a response to a request.
      *
-     * @param _requestId The ID of the request.
-     * @param _epoch The epoch of the request.
-     * @param _chainId The chain ID where the request was made.
-     * @param _blockNumber The block number associated with the response.
+     * @param request The request data.
+     * @param response The response data.
      * @returns A promise that resolves when the response is proposed.
      */
     proposeResponse(
-        _requestId: string,
-        _epoch: bigint,
-        _chainId: Caip2ChainId,
-        _blockNumber: bigint,
+        request: Request["prophetData"],
+        response: Response["prophetData"],
     ): Promise<void>;
 
     /**
      * Disputes a proposed response.
      *
-     * @param _requestId The ID of the request.
-     * @param _responseId The ID of the response to dispute.
-     * @param _proposer The address of the proposer.
+     * @param request The request  data.
+     * @param response The response data.
+     * @param dispute The dispute data.
      * @returns A promise that resolves when the response is disputed.
      */
-    disputeResponse(_requestId: string, _responseId: string, _proposer: Address): Promise<void>;
-
+    disputeResponse(
+        request: Request["prophetData"],
+        response: Response["prophetData"],
+        dispute: Dispute["prophetData"],
+    ): Promise<void>;
     /**
      * Pledges support for a dispute.
      *
-     * @param _request The request data for the dispute.
-     * @param _dispute The dispute data.
+     * @param request The request data for the dispute.
+     * @param dispute The dispute data.
      * @returns A promise that resolves when the pledge is made.
      */
     pledgeForDispute(
-        _request: Request["prophetData"],
-        _dispute: Dispute["prophetData"],
+        request: Request["prophetData"],
+        dispute: Dispute["prophetData"],
     ): Promise<void>;
 
     /**
      * Pledges against a dispute.
      *
-     * @param _request The request data for the dispute.
-     * @param _dispute The dispute data.
+     * @param request The request data for the dispute.
+     * @param dispute The dispute data.
      * @returns A promise that resolves when the pledge is made.
      */
     pledgeAgainstDispute(
-        _request: Request["prophetData"],
-        _dispute: Dispute["prophetData"],
+        request: Request["prophetData"],
+        dispute: Dispute["prophetData"],
     ): Promise<void>;
 
     /**
      * Settles a dispute by finalizing the response.
      *
-     * @param _request The request data.
-     * @param _response The response data.
-     * @param _dispute The dispute data.
+     * @param request The request data.
+     * @param response The response data.
+     * @param dispute The dispute data.
      * @returns A promise that resolves when the dispute is settled.
      */
     settleDispute(
-        _request: Request["prophetData"],
-        _response: Response["prophetData"],
-        _dispute: Dispute["prophetData"],
+        request: Request["prophetData"],
+        response: Response["prophetData"],
+        dispute: Dispute["prophetData"],
     ): Promise<void>;
 
     /**
      * Escalates a dispute to a higher authority or layer.
      *
-     * @param _request The request data.
-     * @param _response The response data.
-     * @param _dispute The dispute data.
+     * @param request The request data.
+     * @param response The response data.
+     * @param dispute The dispute data.
      * @returns A promise that resolves when the dispute is escalated.
      */
     escalateDispute(
-        _request: Request["prophetData"],
-        _response: Response["prophetData"],
-        _dispute: Dispute["prophetData"],
+        request: Request["prophetData"],
+        response: Response["prophetData"],
+        dispute: Dispute["prophetData"],
     ): Promise<void>;
 
     /**
      * Finalizes a request after the response and dispute resolution are complete.
      *
-     * @param _request The request data.
-     * @param _response The response data.
+     * @param request The request data.
+     * @param response The response data.
      * @returns A promise that resolves when the request is finalized.
      */
-    finalize(_request: Request["prophetData"], _response: Response["prophetData"]): Promise<void>;
+    finalize(request: Request["prophetData"], response: Response["prophetData"]): Promise<void>;
 }
 
 /**

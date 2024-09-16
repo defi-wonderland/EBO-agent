@@ -576,24 +576,28 @@ export class EboActor {
      * @param chainId the CAIP-2 compliant chain ID
      */
     private async proposeResponse(chainId: Caip2ChainId): Promise<void> {
-        const response = await this.buildResponse(chainId);
+        const responseBody = await this.buildResponse(chainId);
+        const request = this.getActorRequest();
 
-        if (this.alreadyProposed(response.epoch, response.chainId, response.block)) {
-            throw new ResponseAlreadyProposed(response);
+        if (this.alreadyProposed(responseBody.epoch, responseBody.chainId, responseBody.block)) {
+            throw new ResponseAlreadyProposed(responseBody);
         }
 
+        const proposerAddress = this.protocolProvider.getAccountAddress();
+
+        const response: Response["prophetData"] = {
+            proposer: proposerAddress,
+            requestId: request.id,
+            response: responseBody,
+        };
+
         try {
-            await this.protocolProvider.proposeResponse(
-                this.actorRequest.id,
-                response.epoch,
-                response.chainId,
-                response.block,
-            );
+            await this.protocolProvider.proposeResponse(request.prophetData, response);
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
                 this.logger.warn(
-                    `Block ${response.block} for epoch ${response.epoch} and ` +
-                        `chain ${response.chainId} was not proposed. Skipping proposal...`,
+                    `Block ${responseBody.block} for epoch ${responseBody.epoch} and ` +
+                        `chain ${responseBody.chainId} was not proposed. Skipping proposal...`,
                 );
             } else {
                 this.logger.error(
@@ -617,15 +621,20 @@ export class EboActor {
 
         if (this.equalResponses(actorResponse, eventResponse.response)) {
             this.logger.info(`Response ${event.metadata.responseId} was validated. Skipping...`);
-
             return;
         }
 
-        await this.protocolProvider.disputeResponse(
-            event.metadata.requestId,
-            event.metadata.responseId,
-            event.metadata.response.proposer,
-        );
+        const request = this.getActorRequest();
+
+        const disputer = this.protocolProvider.getAccountAddress();
+
+        const dispute: Dispute["prophetData"] = {
+            disputer: disputer,
+            proposer: eventResponse.proposer,
+            responseId: event.metadata.responseId,
+            requestId: request.id,
+        };
+        await this.protocolProvider.disputeResponse(request.prophetData, eventResponse, dispute);
     }
 
     /**

@@ -72,33 +72,32 @@ describe("EboActor", () => {
                 );
 
                 const indexedEpochBlockNumber = 48n;
+                const proposerAddress = "0x1234567890123456789012345678901234567890";
 
                 vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
                     indexedEpochBlockNumber,
                 );
 
                 vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(protocolEpoch);
+                vi.spyOn(protocolProvider, "getAccountAddress").mockReturnValue(proposerAddress);
 
                 const proposeResponseMock = vi.spyOn(protocolProvider, "proposeResponse");
-
-                proposeResponseMock.mockImplementation(
-                    (
-                        _requestId: string,
-                        _epoch: bigint,
-                        _chainId: Caip2ChainId,
-                        _blockNumbre: bigint,
-                    ) => Promise.resolve(),
-                );
 
                 actor.enqueue(requestCreatedEvent);
 
                 await actor.processEvents();
 
                 expect(proposeResponseMock).toHaveBeenCalledWith(
-                    requestCreatedEvent.metadata.requestId,
-                    protocolEpoch.currentEpoch,
-                    requestCreatedEvent.metadata.chainId,
-                    indexedEpochBlockNumber,
+                    expect.objectContaining(request.prophetData),
+                    expect.objectContaining({
+                        proposer: proposerAddress,
+                        requestId: requestCreatedEvent.metadata.requestId,
+                        response: {
+                            block: indexedEpochBlockNumber,
+                            chainId: requestCreatedEvent.metadata.chainId,
+                            epoch: protocolEpoch.currentEpoch,
+                        },
+                    }),
                 );
             });
 
@@ -114,33 +113,23 @@ describe("EboActor", () => {
 
                 const proposeResponseMock = vi.spyOn(protocolProvider, "proposeResponse");
 
-                proposeResponseMock.mockImplementation(
-                    (
-                        _requestId: string,
-                        _epoch: bigint,
-                        _chainId: Caip2ChainId,
-                        _blockNumbre: bigint,
-                    ) => Promise.resolve(),
-                );
-
-                const previousResponses = new Map<string, Response>();
-                previousResponses.set("0x01", {
-                    id: "0x01",
-                    createdAt: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
-                    prophetData: {
-                        proposer: "0x02",
-                        requestId: requestId,
-                        response: {
-                            block: indexedEpochBlockNumber,
-                            chainId: requestCreatedEvent.metadata.chainId,
-                            epoch: protocolEpoch.currentEpoch,
+                const previousResponses: Response[] = [
+                    {
+                        id: "0x01",
+                        createdAt: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                        prophetData: {
+                            proposer: "0x02",
+                            requestId: requestId,
+                            response: {
+                                block: indexedEpochBlockNumber,
+                                chainId: requestCreatedEvent.metadata.chainId,
+                                epoch: protocolEpoch.currentEpoch,
+                            },
                         },
                     },
-                });
+                ];
 
-                vi.spyOn(registry, "getResponses").mockReturnValue(
-                    Object.values(previousResponses),
-                );
+                vi.spyOn(registry, "getResponses").mockReturnValue(previousResponses);
 
                 actor.enqueue(requestCreatedEvent);
 
