@@ -169,7 +169,9 @@ describe("EboActor", () => {
             vi.spyOn(registry, "getResponses").mockReturnValue(reverseResponses);
             vi.spyOn(registry, "getDispute").mockReturnValue(firstResponseDispute);
 
-            const mockFinalize = vi.spyOn(protocolProvider, "finalize");
+            const mockFinalize = vi.spyOn(protocolProvider, "finalize").mockImplementation(() => {
+                return Promise.resolve();
+            });
 
             const newBlock =
                 secondResponse.createdAt + request.prophetData.responseModuleData.disputeWindow;

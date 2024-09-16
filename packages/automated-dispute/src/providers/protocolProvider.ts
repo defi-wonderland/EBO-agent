@@ -20,7 +20,11 @@ import { arbitrum } from "viem/chains";
 
 import type { Dispute, EboEvent, EboEventName, Epoch, Request, Response } from "../types/index.js";
 import { eboRequestCreatorAbi, epochManagerAbi, oracleAbi } from "../abis/index.js";
-import { RpcUrlsEmpty } from "../exceptions/rpcUrlsEmpty.exception.js";
+import {
+    InvalidAccountOnClient,
+    RpcUrlsEmpty,
+    TransactionExecutionError,
+} from "../exceptions/index.js";
 import {
     IProtocolProvider,
     IReadProvider,
@@ -130,6 +134,18 @@ export class ProtocolProvider implements IProtocolProvider {
         hasStakedAssets: this.hasStakedAssets.bind(this),
         getAvailableChains: this.getAvailableChains.bind(this),
     };
+
+    /**
+     * Returns the address of the account used for transactions.
+     *
+     * @returns {Address} The account address.
+     */
+    public getAccountAddress(): Address {
+        if (!this.writeClient.account) {
+            throw new InvalidAccountOnClient();
+        }
+        return this.writeClient.account.address;
+    }
 
     /**
      * Gets the current epoch, the block number and its timestamp of the current epoch
@@ -246,11 +262,6 @@ export class ProtocolProvider implements IProtocolProvider {
      * Creates a request on the EBO Request Creator contract by simulating the transaction
      * and then executing it if the simulation is successful.
      *
-     * This function first simulates the `createRequests` call on the EBO Request Creator contract
-     * to validate that the transaction will succeed. If the simulation is successful, the transaction
-     * is executed by the `writeContract` method of the wallet client. The function also handles any
-     * potential errors that may occur during the simulation or transaction execution.
-     *
      * @param {bigint} epoch - The epoch for which the request is being created.
      * @param {string[]} chains - An array of chain identifiers where the request should be created.
      * @throws {Error} Throws an error if the chains array is empty or if the transaction fails.
@@ -282,7 +293,7 @@ export class ProtocolProvider implements IProtocolProvider {
             });
 
             if (receipt.status !== "success") {
-                throw new Error("Transaction failed");
+                throw new TransactionExecutionError("createRequest transaction failed");
             }
         } catch (error) {
             if (error instanceof BaseError) {
@@ -298,23 +309,98 @@ export class ProtocolProvider implements IProtocolProvider {
         }
     }
 
+    /**
+     * Proposes a response for a given request.
+     *
+     * @param {Request["prophetData"]} request - The request data.
+     * @param {Response["prophetData"]} response - The response data to propose.
+     * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
+     * @throws {ContractFunctionRevertedError} Throws if the contract function reverts.
+     * @returns {Promise<void>}
+     */
     async proposeResponse(
-        _requestId: string,
-        _epoch: bigint,
-        _chainId: Caip2ChainId,
-        _blockNumber: bigint,
+        request: Request["prophetData"],
+        response: Response["prophetData"],
     ): Promise<void> {
-        // TODO: implement actual method
-        return;
+        try {
+            const { request: simulatedRequest } = await this.readClient.simulateContract({
+                address: this.oracleContract.address,
+                abi: oracleAbi,
+                functionName: "proposeResponse",
+                args: [request, response],
+                account: this.writeClient.account,
+            });
+
+            const hash = await this.writeClient.writeContract(simulatedRequest);
+
+            const receipt = await this.readClient.waitForTransactionReceipt({
+                hash,
+                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+            });
+
+            if (receipt.status !== "success") {
+                throw new TransactionExecutionError("proposeResponse transaction failed");
+            }
+        } catch (error) {
+            if (error instanceof BaseError) {
+                const revertError = error.walk(
+                    (err) => err instanceof ContractFunctionRevertedError,
+                );
+                if (revertError instanceof ContractFunctionRevertedError) {
+                    const errorName = revertError.data?.errorName ?? "";
+                    throw ErrorFactory.createError(errorName);
+                }
+            }
+            throw error;
+        }
     }
 
+    /**
+     * Disputes a proposed response.
+     *
+     * @param {Request["prophetData"]} request - The request data.
+     * @param {Response["prophetData"]} response - The response data to dispute.
+     * @param {Dispute["prophetData"]} dispute - The dispute data.
+     * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
+     * @throws {ContractFunctionRevertedError} Throws if the contract function reverts.
+     * @returns {Promise<void>}
+     */
     async disputeResponse(
-        _requestId: string,
-        _responseId: string,
-        _proposer: Address,
+        request: Request["prophetData"],
+        response: Response["prophetData"],
+        dispute: Dispute["prophetData"],
     ): Promise<void> {
-        // TODO: implement actual method
-        return;
+        try {
+            const { request: simulatedRequest } = await this.readClient.simulateContract({
+                address: this.oracleContract.address,
+                abi: oracleAbi,
+                functionName: "disputeResponse",
+                args: [request, response, dispute],
+                account: this.writeClient.account,
+            });
+
+            const hash = await this.writeClient.writeContract(simulatedRequest);
+
+            const receipt = await this.readClient.waitForTransactionReceipt({
+                hash,
+                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+            });
+
+            if (receipt.status !== "success") {
+                throw new TransactionExecutionError("disputeResponse transaction failed");
+            }
+        } catch (error) {
+            if (error instanceof BaseError) {
+                const revertError = error.walk(
+                    (err) => err instanceof ContractFunctionRevertedError,
+                );
+                if (revertError instanceof ContractFunctionRevertedError) {
+                    const errorName = revertError.data?.errorName ?? "";
+                    throw ErrorFactory.createError(errorName);
+                }
+            }
+            throw error;
+        }
     }
 
     async pledgeForDispute(
@@ -342,23 +428,108 @@ export class ProtocolProvider implements IProtocolProvider {
         return;
     }
 
+    /**
+     * Escalates a dispute to a higher authority.
+     *
+     * This function simulates the `escalateDispute` call on the Oracle contract
+     * to validate that the transaction will succeed. If the simulation is successful, the transaction
+     * is executed by the `writeContract` method of the wallet client. The function also handles any
+     * potential errors that may occur during the simulation or transaction execution.
+     *
+     * @param {Request["prophetData"]} request - The request data.
+     * @param {Response["prophetData"]} response - The response data.
+     * @param {Dispute["prophetData"]} dispute - The dispute data.
+     * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
+     * @throws {ContractFunctionRevertedError} Throws if the contract function reverts.
+     * @returns {Promise<void>}
+     */
     async escalateDispute(
-        _request: Request["prophetData"],
-        _response: Response["prophetData"],
-        _dispute: Dispute["prophetData"],
+        request: Request["prophetData"],
+        response: Response["prophetData"],
+        dispute: Dispute["prophetData"],
     ): Promise<void> {
-        // TODO: implement actual method
-        return;
+        try {
+            const { request: simulatedRequest } = await this.readClient.simulateContract({
+                address: this.oracleContract.address,
+                abi: oracleAbi,
+                functionName: "escalateDispute",
+                args: [request, response, dispute],
+                account: this.writeClient.account,
+            });
+
+            const hash = await this.writeClient.writeContract(simulatedRequest);
+
+            const receipt = await this.readClient.waitForTransactionReceipt({
+                hash,
+                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+            });
+
+            if (receipt.status !== "success") {
+                throw new TransactionExecutionError("escalateDispute transaction failed");
+            }
+        } catch (error) {
+            if (error instanceof BaseError) {
+                const revertError = error.walk(
+                    (err) => err instanceof ContractFunctionRevertedError,
+                );
+                if (revertError instanceof ContractFunctionRevertedError) {
+                    const errorName = revertError.data?.errorName ?? "";
+                    throw ErrorFactory.createError(errorName);
+                }
+            }
+            throw error;
+        }
     }
 
-    // Pending confirmation from onchain team
-    // releasePledge(args):void;
+    /**
+     * Finalizes a request with a given response.
+     *
+     * This function simulates the `finalize` call on the Oracle contract
+     * to validate that the transaction will succeed. If the simulation is successful, the transaction
+     * is executed by the `writeContract` method of the wallet client. The function also handles any
+     * potential errors that may occur during the simulation or transaction execution.
+     *
+     * @param {Request["prophetData"]} request - The request data.
+     * @param {Response["prophetData"]} response - The response data to finalize.
+     * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
+     * @throws {ContractFunctionRevertedError} Throws if the contract function reverts.
+     * @returns {Promise<void>}
+     */
 
     async finalize(
-        _request: Request["prophetData"],
-        _response: Response["prophetData"],
+        request: Request["prophetData"],
+        response: Response["prophetData"],
     ): Promise<void> {
-        //TODO: implement actual method
-        return;
+        try {
+            const { request: simulatedRequest } = await this.readClient.simulateContract({
+                address: this.oracleContract.address,
+                abi: oracleAbi,
+                functionName: "finalize",
+                args: [request, response],
+                account: this.writeClient.account,
+            });
+
+            const hash = await this.writeClient.writeContract(simulatedRequest);
+
+            const receipt = await this.readClient.waitForTransactionReceipt({
+                hash,
+                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+            });
+
+            if (receipt.status !== "success") {
+                throw new TransactionExecutionError("finalize transaction failed");
+            }
+        } catch (error) {
+            if (error instanceof BaseError) {
+                const revertError = error.walk(
+                    (err) => err instanceof ContractFunctionRevertedError,
+                );
+                if (revertError instanceof ContractFunctionRevertedError) {
+                    const errorName = revertError.data?.errorName ?? "";
+                    throw ErrorFactory.createError(errorName);
+                }
+            }
+            throw error;
+        }
     }
 }

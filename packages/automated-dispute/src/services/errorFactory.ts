@@ -26,6 +26,35 @@ export class ErrorFactory {
                 return new EBORequestModule_InvalidRequester();
             case "EBORequestCreator_ChainNotAdded":
                 return new EBORequestCreator_ChainNotAdded();
+                // TODO: refactor all errors to be in a map & use new error factory rather than a new class for each
+                // case "AccountExtension_InsufficientFunds":
+                // case "AccountingExtensions_NotAllowed":
+                // case "BondedResponseModule_AlreadyResponded":
+                // case "BondedResponseModule_TooLateToPropose":
+                // case "Oracle_AlreadyFinalized":
+                // case "ValidatorLib_InvalidResponseBody":
+                // case "ArbitratorModule_InvalidArbitrator":
+                // case "BondEscalationAccounting_AlreadySettled":
+                // case "BondEscalationAccounting_InsufficientFunds":
+                // case "AccountingExtension_UnauthorizedModule":
+                // case "Oracle_CannotEscalate":
+                // case "Oracle_InvalidDisputeId":
+                // case "Oracle_InvalidDispute":
+                // case "BondEscalationModule_NotEscalatable":
+                // case "BondEscalationModule_BondEscalationNotOver":
+                // case "BondEscalationModule_BondEscalationOver":
+                // case "AccountingExtension_InsufficientFunds":
+                // case "BondEscalationModule_DisputeWindowOver":
+                // case "Oracle_ResponseAlreadyDisputed":
+                // case "Oracle_InvalidDisputeBody":
+                // case "Oracle_InvalidResponse":
+                // case "ValidatorLib_InvalidDisputeBody":
+                // case "Validator_InvalidDispute":
+                // case "EBORequestModule_InvalidRequest":
+                // case "EBOFinalityModule_InvalidRequester":
+                // case "Oracle_InvalidFinalizedResponse":
+                // case "Oracle_FinalizableResponseExists":
+                return new Error(`Contract reverted: ${errorName}`);
             default:
                 return new Error(`Unknown error: ${errorName}`);
         }
