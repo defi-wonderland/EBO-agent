@@ -77,7 +77,7 @@ export class EboProcessor {
                 try {
                     const events = eventsByRequestId.get(requestId) ?? [];
 
-                    await this.syncRequest(requestId, events, lastBlock);
+                    await this.syncRequest(requestId, events, currentEpoch.epoch, lastBlock);
                 } catch (err) {
                     this.onActorError(requestId, err as Error);
                 }
@@ -187,9 +187,15 @@ export class EboProcessor {
      *
      * @param requestId the ID of the `Request`
      * @param events a stream of consumed events
+     * @param currentEpoch the current epoch based on the last block
      * @param lastBlock the last block checked
      */
-    private async syncRequest(requestId: RequestId, events: EboEventStream, lastBlock: bigint) {
+    private async syncRequest(
+        requestId: RequestId,
+        events: EboEventStream,
+        currentEpoch: Epoch["epoch"],
+        lastBlock: bigint,
+    ) {
         const firstEvent = events[0];
         const actor = this.getOrCreateActor(requestId, firstEvent);
 
@@ -204,7 +210,7 @@ export class EboProcessor {
         await actor.processEvents();
         await actor.onLastBlockUpdated(lastBlock);
 
-        if (actor.canBeTerminated(lastBlock)) {
+        if (actor.canBeTerminated(currentEpoch, lastBlock)) {
             this.terminateActor(requestId);
         }
     }

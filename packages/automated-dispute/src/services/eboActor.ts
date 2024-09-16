@@ -10,6 +10,7 @@ import type {
     DisputeStatus,
     EboEvent,
     EboEventName,
+    Epoch,
     Request,
     RequestId,
     Response,
@@ -431,15 +432,19 @@ export class EboActor {
      *
      * Be aware that a request can be finalized but some of its disputes can still be pending resolution.
      *
+     * At last, actors must be kept alive until their epoch concludes, to ensure no actor/request duplication.
+     *
+     * @param currentEpoch the epoch to check against actor termination
      * @param blockNumber block number to check entities at
      * @returns `true` if all entities are settled, otherwise `false`
      */
-    public canBeTerminated(blockNumber: bigint): boolean {
+    public canBeTerminated(currentEpoch: Epoch["epoch"], blockNumber: bigint): boolean {
         const request = this.getActorRequest();
+        const isPastEpoch = currentEpoch > request.epoch;
         const isRequestFinalized = request.status === "Finalized";
         const nonSettledProposals = this.activeProposals(blockNumber);
 
-        return isRequestFinalized && nonSettledProposals.length === 0;
+        return isPastEpoch && isRequestFinalized && nonSettledProposals.length === 0;
     }
 
     /**
