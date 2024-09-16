@@ -165,9 +165,9 @@ describe("ProtocolProvider", () => {
 
             const result = await protocolProvider.getCurrentEpoch();
 
-            expect(result.currentEpoch).toBe(mockEpoch);
-            expect(result.currentEpochBlockNumber).toBe(mockEpochBlock);
-            expect(result.currentEpochTimestamp).toBe(mockEpochTimestamp);
+            expect(result.epoch).toBe(mockEpoch);
+            expect(result.epochFirstBlockNumber).toBe(mockEpochBlock);
+            expect(result.epochStartTimestamp).toBe(mockEpochTimestamp);
         });
         it("throws when current epoch request fails", async () => {
             const protocolProvider = new ProtocolProvider(

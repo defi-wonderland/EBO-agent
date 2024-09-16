@@ -5,6 +5,16 @@ import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
 import { ContractFunctionRevertedError } from "viem";
 
+import type {
+    Dispute,
+    DisputeStatus,
+    EboEvent,
+    EboEventName,
+    Request,
+    RequestId,
+    Response,
+    ResponseBody,
+} from "../types/index.js";
 import {
     DisputeWithoutResponse,
     EBORequestCreator_ChainNotAdded,
@@ -27,16 +37,6 @@ import {
     FinalizeRequest,
     UpdateDisputeStatus,
 } from "../services/index.js";
-import {
-    Dispute,
-    DisputeStatus,
-    EboEvent,
-    EboEventName,
-    Request,
-    RequestId,
-    Response,
-    ResponseBody,
-} from "../types/index.js";
 
 /**
  * Compare function to sort events chronologically in ascending order by block number
@@ -52,6 +52,8 @@ const EBO_EVENT_COMPARATOR = (e1: EboEvent<EboEventName>, e2: EboEvent<EboEventN
 
     return e1.logIndex - e2.logIndex;
 };
+
+export type ActorRequest = { id: RequestId; epoch: bigint; chainId: Caip2ChainId };
 
 /**
  * Actor that handles a singular Prophet's request asking for the block number that corresponds
@@ -78,10 +80,7 @@ export class EboActor {
      * @param logger an `ILogger` instance
      */
     constructor(
-        private readonly actorRequest: {
-            id: RequestId;
-            epoch: bigint;
-        },
+        public readonly actorRequest: ActorRequest,
         private readonly protocolProvider: ProtocolProvider,
         private readonly blockNumberService: BlockNumberService,
         private readonly registry: EboRegistry,
@@ -556,10 +555,10 @@ export class EboActor {
     private async buildResponse(chainId: Caip2ChainId): Promise<ResponseBody> {
         // FIXME(non-current epochs): adapt this code to fetch timestamps corresponding
         //  to the first block of any epoch, not just the current epoch
-        const { currentEpochTimestamp } = await this.protocolProvider.getCurrentEpoch();
+        const { epochStartTimestamp } = await this.protocolProvider.getCurrentEpoch();
 
         const epochBlockNumber = await this.blockNumberService.getEpochBlockNumber(
-            currentEpochTimestamp,
+            epochStartTimestamp,
             chainId,
         );
 

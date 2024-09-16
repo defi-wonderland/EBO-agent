@@ -236,7 +236,7 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     // TODO: use Caip2 Chain ID instead of string in return type
-    async getAvailableChains(): Promise<string[]> {
+    async getAvailableChains(): Promise<Caip2ChainId[]> {
         // TODO: implement actual method
         return ["eip155:1", "eip155:42161"];
     }

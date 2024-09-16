@@ -4,8 +4,8 @@ import { Mutex } from "async-mutex";
 
 import { RequestAlreadyHandled } from "../exceptions/index.js";
 import { ProtocolProvider } from "../providers/protocolProvider.js";
-import { RequestId } from "../types/prophet.js";
-import { EboActor } from "./eboActor.js";
+import { RequestId } from "../types/index.js";
+import { ActorRequest, EboActor } from "./eboActor.js";
 import { EboMemoryRegistry } from "./eboRegistry/eboMemoryRegistry.js";
 
 export class EboActorsManager {
@@ -21,7 +21,11 @@ export class EboActorsManager {
      * @returns array of normalized request IDs
      */
     public getRequestIds(): RequestId[] {
-        return [...this.requestActorMap.entries()].map((entry) => Address.normalize(entry[0]));
+        return [...this.requestActorMap.keys()].map((requestId) => Address.normalize(requestId));
+    }
+
+    public getActorsRequests(): ActorRequest[] {
+        return [...this.requestActorMap.values()].map((actor) => actor.actorRequest);
     }
 
     /**
@@ -30,10 +34,7 @@ export class EboActorsManager {
      * @param actor an `EboActor` instance that handles a request.
      */
     public createActor(
-        actorRequest: {
-            id: RequestId;
-            epoch: bigint;
-        },
+        actorRequest: ActorRequest,
         protocolProvider: ProtocolProvider,
         blockNumberService: BlockNumberService,
         logger: ILogger,

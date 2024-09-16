@@ -1,11 +1,13 @@
 import { isNativeError } from "util/types";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { Address, ILogger } from "@ebo-agent/shared";
 
 import { ProcessorAlreadyStarted } from "../exceptions/index.js";
 import { ProtocolProvider } from "../providers/protocolProvider.js";
 import { alreadyDeletedActorWarning, droppingUnhandledEventsWarning } from "../templates/index.js";
 import { EboEvent, EboEventName, Epoch, RequestId } from "../types/index.js";
+import { ActorRequest } from "./eboActor.js";
 import { EboActorsManager } from "./eboActorsManager.js";
 
 const DEFAULT_MS_BETWEEN_CHECKS = 10 * 60 * 1000; // 10 minutes
@@ -84,6 +86,8 @@ export class EboProcessor {
             await Promise.all(synchedRequests);
 
             this.logger.info(`Consumed events up to block ${lastBlock}.`);
+
+            this.createMissingRequests(currentEpoch.epoch);
 
             this.lastCheckedBlock = lastBlock;
         } catch (err) {
@@ -236,6 +240,7 @@ export class EboProcessor {
         const actorRequest = {
             id: Address.normalize(event.requestId),
             epoch: event.metadata.epoch,
+            chainId: event.metadata.chainId,
         };
 
         const actor = this.actorsManager.createActor(
@@ -258,6 +263,72 @@ export class EboProcessor {
         // TODO: notify
 
         this.terminateActor(requestId);
+    }
+
+    /**
+     * Creates missing requests for the specified epoch, based on the
+     * available chains and the currently being handled requests.
+     *
+     * @param epoch the epoch number
+     */
+    private async createMissingRequests(epoch: Epoch["epoch"]): Promise<void> {
+        try {
+            const handledEpochChains = this.actorsManager
+                .getActorsRequests()
+                .reduce((actorRequestMap, actorRequest: ActorRequest) => {
+                    const epochRequests = actorRequestMap.get(actorRequest.epoch) ?? new Set();
+
+                    epochRequests.add(actorRequest.chainId);
+
+                    return actorRequestMap.set(actorRequest.epoch, epochRequests);
+                }, new Map<Epoch["epoch"], Set<Caip2ChainId>>());
+
+            this.logger.info("Fetching available chains...");
+
+            const availableChains: Caip2ChainId[] =
+                await this.protocolProvider.getAvailableChains();
+
+            this.logger.info("Available chains fetched.");
+
+            const unhandledEpochChain = availableChains.filter((chain) => {
+                const epochRequests = handledEpochChains.get(epoch);
+                const isHandled = epochRequests && epochRequests.has(chain);
+
+                return !isHandled;
+            });
+
+            this.logger.info("Creating missing requests...");
+
+            const epochChainRequests = unhandledEpochChain.map(async (chain) => {
+                try {
+                    this.logger.info(`Creating request for chain ${chain} and epoch ${epoch}`);
+
+                    await this.protocolProvider.createRequest(epoch, [chain]);
+
+                    this.logger.info(`Request created for chain ${chain} and epoch ${epoch}`);
+                } catch (err) {
+                    // Request creation must be notified but it's not critical, as it will be
+                    // retried during next sync.
+
+                    // TODO: warn when getting a EBORequestCreator_RequestAlreadyCreated
+                    // TODO: notify under any other error
+
+                    this.logger.error(
+                        `Could not create a request for epoch ${epoch} and chain ${chain}.`,
+                    );
+                }
+            });
+
+            await Promise.all(epochChainRequests);
+
+            this.logger.info("Missing requests created.");
+        } catch (err) {
+            // TODO: notify
+
+            this.logger.error(
+                `Requests creation missing: ${isNativeError(err) ? err.message : err}`,
+            );
+        }
     }
 
     /**
