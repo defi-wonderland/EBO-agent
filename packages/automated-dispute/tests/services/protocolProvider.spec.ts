@@ -11,9 +11,12 @@ import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum } from "viem/chains";
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from "vitest";
 
-import { eboRequestCreatorAbi } from "../../src/abis/eboRequestCreator.js";
-import { epochManagerAbi } from "../../src/abis/epochManager.js";
-import { oracleAbi } from "../../src/abis/oracle.js";
+import {
+    bondEscalationModuleAbi,
+    eboRequestCreatorAbi,
+    epochManagerAbi,
+    oracleAbi,
+} from "../../src/abis/index.js";
 import {
     InvalidAccountOnClient,
     RpcUrlsEmpty,
@@ -46,6 +49,7 @@ describe("ProtocolProvider", () => {
         oracle: "0x1234567890123456789012345678901234567890",
         epochManager: "0x1234567890123456789012345678901234567890",
         eboRequestCreator: "0x1234567890123456789012345678901234567890",
+        bondEscalationModule: "0x1234567890123456789012345678901234567890",
     };
 
     beforeEach(() => {
@@ -68,6 +72,18 @@ describe("ProtocolProvider", () => {
                     },
                     write: {
                         createRequests: vi.fn(),
+                    },
+                };
+            }
+            if (
+                abi === bondEscalationModuleAbi &&
+                address === mockContractAddress.bondEscalationModule
+            ) {
+                return {
+                    write: {
+                        pledgeForDispute: vi.fn(),
+                        pledgeAgainstDispute: vi.fn(),
+                        settleDispute: vi.fn(),
                     },
                 };
             }
@@ -487,6 +503,7 @@ describe("ProtocolProvider", () => {
             oracle: "0x1234567890123456789012345678901234567890",
             epochManager: "0x1234567890123456789012345678901234567890",
             eboRequestCreator: "0x1234567890123456789012345678901234567890",
+            bondEscalationModule: "0x1234567890123456789012345678901234567890",
         };
 
         it("creates a request successfully", async () => {
@@ -529,6 +546,7 @@ describe("ProtocolProvider", () => {
                     oracle: "0x1234567890123456789012345678901234567890",
                     epochManager: "0x1234567890123456789012345678901234567890",
                     eboRequestCreator: "0x1234567890123456789012345678901234567890",
+                    bondEscalationModule: "0x1234567890123456789012345678901234567890",
                 },
                 mockedPrivateKey,
             );

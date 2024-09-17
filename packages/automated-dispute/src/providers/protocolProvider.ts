@@ -19,7 +19,12 @@ import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum } from "viem/chains";
 
 import type { Dispute, EboEvent, EboEventName, Epoch, Request, Response } from "../types/index.js";
-import { eboRequestCreatorAbi, epochManagerAbi, oracleAbi } from "../abis/index.js";
+import {
+    bondEscalationModuleAbi,
+    eboRequestCreatorAbi,
+    epochManagerAbi,
+    oracleAbi,
+} from "../abis/index.js";
 import {
     InvalidAccountOnClient,
     RpcUrlsEmpty,
@@ -53,6 +58,11 @@ export class ProtocolProvider implements IProtocolProvider {
     >;
     private eboRequestCreatorContract: GetContractReturnType<
         typeof eboRequestCreatorAbi,
+        typeof this.writeClient,
+        Address
+    >;
+    private bondEscalationContract: GetContractReturnType<
+        typeof bondEscalationModuleAbi,
         typeof this.writeClient,
         Address
     >;
@@ -109,6 +119,14 @@ export class ProtocolProvider implements IProtocolProvider {
         this.eboRequestCreatorContract = getContract({
             address: contracts.eboRequestCreator,
             abi: eboRequestCreatorAbi,
+            client: {
+                public: this.readClient,
+                wallet: this.writeClient,
+            },
+        });
+        this.bondEscalationContract = getContract({
+            address: contracts.bondEscalationModule,
+            abi: bondEscalationModuleAbi,
             client: {
                 public: this.readClient,
                 wallet: this.writeClient,
@@ -418,8 +436,8 @@ export class ProtocolProvider implements IProtocolProvider {
     ): Promise<void> {
         try {
             const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.oracleContract.address,
-                abi: oracleAbi,
+                address: this.bondEscalationContract.address,
+                abi: bondEscalationModuleAbi,
                 functionName: "pledgeForDispute",
                 args: [request, dispute],
                 account: this.writeClient.account,
@@ -464,8 +482,8 @@ export class ProtocolProvider implements IProtocolProvider {
     ): Promise<void> {
         try {
             const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.oracleContract.address,
-                abi: oracleAbi,
+                address: this.bondEscalationContract.address,
+                abi: bondEscalationModuleAbi,
                 functionName: "pledgeAgainstDispute",
                 args: [request, dispute],
                 account: this.writeClient.account,
@@ -512,8 +530,8 @@ export class ProtocolProvider implements IProtocolProvider {
     ): Promise<void> {
         try {
             const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.oracleContract.address,
-                abi: oracleAbi,
+                address: this.bondEscalationContract.address,
+                abi: bondEscalationModuleAbi,
                 functionName: "settleBondEscalation",
                 args: [request, response, dispute],
                 account: this.writeClient.account,
