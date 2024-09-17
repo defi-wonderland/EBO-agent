@@ -11,9 +11,12 @@ import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum } from "viem/chains";
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from "vitest";
 
-import { eboRequestCreatorAbi } from "../../src/abis/eboRequestCreator.js";
-import { epochManagerAbi } from "../../src/abis/epochManager.js";
-import { oracleAbi } from "../../src/abis/oracle.js";
+import {
+    bondEscalationModuleAbi,
+    eboRequestCreatorAbi,
+    epochManagerAbi,
+    oracleAbi,
+} from "../../src/abis/index.js";
 import {
     InvalidAccountOnClient,
     RpcUrlsEmpty,
@@ -46,6 +49,7 @@ describe("ProtocolProvider", () => {
         oracle: "0x1234567890123456789012345678901234567890",
         epochManager: "0x1234567890123456789012345678901234567890",
         eboRequestCreator: "0x1234567890123456789012345678901234567890",
+        bondEscalationModule: "0x1234567890123456789012345678901234567890",
     };
 
     beforeEach(() => {
@@ -68,6 +72,18 @@ describe("ProtocolProvider", () => {
                     },
                     write: {
                         createRequests: vi.fn(),
+                    },
+                };
+            }
+            if (
+                abi === bondEscalationModuleAbi &&
+                address === mockContractAddress.bondEscalationModule
+            ) {
+                return {
+                    write: {
+                        pledgeForDispute: vi.fn(),
+                        pledgeAgainstDispute: vi.fn(),
+                        settleDispute: vi.fn(),
                     },
                 };
             }
@@ -487,6 +503,7 @@ describe("ProtocolProvider", () => {
             oracle: "0x1234567890123456789012345678901234567890",
             epochManager: "0x1234567890123456789012345678901234567890",
             eboRequestCreator: "0x1234567890123456789012345678901234567890",
+            bondEscalationModule: "0x1234567890123456789012345678901234567890",
         };
 
         it("creates a request successfully", async () => {
@@ -529,6 +546,7 @@ describe("ProtocolProvider", () => {
                     oracle: "0x1234567890123456789012345678901234567890",
                     epochManager: "0x1234567890123456789012345678901234567890",
                     eboRequestCreator: "0x1234567890123456789012345678901234567890",
+                    bondEscalationModule: "0x1234567890123456789012345678901234567890",
                 },
                 mockedPrivateKey,
             );
@@ -561,6 +579,130 @@ describe("ProtocolProvider", () => {
             (protocolProvider["writeClient"] as any).account = undefined;
 
             expect(() => protocolProvider.getAccountAddress()).toThrow(InvalidAccountOnClient);
+        });
+    });
+
+    describe("pledgeForDispute", () => {
+        it("successfully pledges for a dispute", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.pledgeForDispute(mockRequestProphetData, mockDisputeProphetData),
+            ).resolves.not.toThrow();
+        });
+
+        it("throws TransactionExecutionError when transaction fails", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+                status: "reverted",
+            });
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.pledgeForDispute(mockRequestProphetData, mockDisputeProphetData),
+            ).rejects.toThrow(TransactionExecutionError);
+        });
+    });
+
+    describe("pledgeAgainstDispute", () => {
+        it("successfully pledges against a dispute", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.pledgeAgainstDispute(
+                    mockRequestProphetData,
+                    mockDisputeProphetData,
+                ),
+            ).resolves.not.toThrow();
+        });
+
+        it("throws TransactionExecutionError when transaction fails", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+                status: "reverted",
+            });
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.pledgeAgainstDispute(
+                    mockRequestProphetData,
+                    mockDisputeProphetData,
+                ),
+            ).rejects.toThrow(TransactionExecutionError);
+        });
+    });
+
+    describe("settleDispute", () => {
+        it("successfully settles a dispute", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.settleDispute(
+                    mockRequestProphetData,
+                    mockResponseProphetData,
+                    mockDisputeProphetData,
+                ),
+            ).resolves.not.toThrow();
+        });
+
+        it("throws TransactionExecutionError when transaction fails", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcUrls,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+                status: "reverted",
+            });
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.settleDispute(
+                    mockRequestProphetData,
+                    mockResponseProphetData,
+                    mockDisputeProphetData,
+                ),
+            ).rejects.toThrow(TransactionExecutionError);
         });
     });
 });

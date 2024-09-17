@@ -19,7 +19,12 @@ import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum } from "viem/chains";
 
 import type { Dispute, EboEvent, EboEventName, Epoch, Request, Response } from "../types/index.js";
-import { eboRequestCreatorAbi, epochManagerAbi, oracleAbi } from "../abis/index.js";
+import {
+    bondEscalationModuleAbi,
+    eboRequestCreatorAbi,
+    epochManagerAbi,
+    oracleAbi,
+} from "../abis/index.js";
 import {
     InvalidAccountOnClient,
     RpcUrlsEmpty,
@@ -53,6 +58,11 @@ export class ProtocolProvider implements IProtocolProvider {
     >;
     private eboRequestCreatorContract: GetContractReturnType<
         typeof eboRequestCreatorAbi,
+        typeof this.writeClient,
+        Address
+    >;
+    private bondEscalationContract: GetContractReturnType<
+        typeof bondEscalationModuleAbi,
         typeof this.writeClient,
         Address
     >;
@@ -109,6 +119,14 @@ export class ProtocolProvider implements IProtocolProvider {
         this.eboRequestCreatorContract = getContract({
             address: contracts.eboRequestCreator,
             abi: eboRequestCreatorAbi,
+            client: {
+                public: this.readClient,
+                wallet: this.writeClient,
+            },
+        });
+        this.bondEscalationContract = getContract({
+            address: contracts.bondEscalationModule,
+            abi: bondEscalationModuleAbi,
             client: {
                 public: this.readClient,
                 wallet: this.writeClient,
@@ -403,29 +421,144 @@ export class ProtocolProvider implements IProtocolProvider {
         }
     }
 
+    /**
+     * Pledges support for a dispute.
+     *
+     * @param {Request["prophetData"]} request - The request data for the dispute.
+     * @param {Dispute["prophetData"]} dispute - The dispute data.
+     * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
+     * @throws {ContractFunctionRevertedError} Throws if the contract function reverts.
+     * @returns {Promise<void>}
+     */
     async pledgeForDispute(
-        _request: Request["prophetData"],
-        _dispute: Dispute["prophetData"],
+        request: Request["prophetData"],
+        dispute: Dispute["prophetData"],
     ): Promise<void> {
-        // TODO: implement actual method
-        return;
+        try {
+            const { request: simulatedRequest } = await this.readClient.simulateContract({
+                address: this.bondEscalationContract.address,
+                abi: bondEscalationModuleAbi,
+                functionName: "pledgeForDispute",
+                args: [request, dispute],
+                account: this.writeClient.account,
+            });
+
+            const hash = await this.writeClient.writeContract(simulatedRequest);
+
+            const receipt = await this.readClient.waitForTransactionReceipt({
+                hash,
+                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+            });
+
+            if (receipt.status !== "success") {
+                throw new TransactionExecutionError("pledgeForDispute transaction failed");
+            }
+        } catch (error) {
+            if (error instanceof BaseError) {
+                const revertError = error.walk(
+                    (err) => err instanceof ContractFunctionRevertedError,
+                );
+                if (revertError instanceof ContractFunctionRevertedError) {
+                    const errorName = revertError.data?.errorName ?? "";
+                    throw ErrorFactory.createError(errorName);
+                }
+            }
+            throw error;
+        }
     }
 
+    /**
+     * Pledges against a dispute.
+     *
+     * @param {Request["prophetData"]} request - The request data for the dispute.
+     * @param {Dispute["prophetData"]} dispute - The dispute data.
+     * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
+     * @throws {ContractFunctionRevertedError} Throws if the contract function reverts.
+     * @returns {Promise<void>}
+     */
     async pledgeAgainstDispute(
-        _request: Request["prophetData"],
-        _dispute: Dispute["prophetData"],
+        request: Request["prophetData"],
+        dispute: Dispute["prophetData"],
     ): Promise<void> {
-        // TODO: implement actual method
-        return;
+        try {
+            const { request: simulatedRequest } = await this.readClient.simulateContract({
+                address: this.bondEscalationContract.address,
+                abi: bondEscalationModuleAbi,
+                functionName: "pledgeAgainstDispute",
+                args: [request, dispute],
+                account: this.writeClient.account,
+            });
+
+            const hash = await this.writeClient.writeContract(simulatedRequest);
+
+            const receipt = await this.readClient.waitForTransactionReceipt({
+                hash,
+                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+            });
+
+            if (receipt.status !== "success") {
+                throw new TransactionExecutionError("pledgeAgainstDispute transaction failed");
+            }
+        } catch (error) {
+            if (error instanceof BaseError) {
+                const revertError = error.walk(
+                    (err) => err instanceof ContractFunctionRevertedError,
+                );
+                if (revertError instanceof ContractFunctionRevertedError) {
+                    const errorName = revertError.data?.errorName ?? "";
+                    throw ErrorFactory.createError(errorName);
+                }
+            }
+            throw error;
+        }
     }
 
+    /**
+     * Settles a dispute by finalizing the response.
+     *
+     * @param {Request["prophetData"]} request - The request data.
+     * @param {Response["prophetData"]} response - The response data.
+     * @param {Dispute["prophetData"]} dispute - The dispute data.
+     * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
+     * @throws {ContractFunctionRevertedError} Throws if the contract function reverts.
+     * @returns {Promise<void>}
+     */
     async settleDispute(
-        _request: Request["prophetData"],
-        _response: Response["prophetData"],
-        _dispute: Dispute["prophetData"],
+        request: Request["prophetData"],
+        response: Response["prophetData"],
+        dispute: Dispute["prophetData"],
     ): Promise<void> {
-        // TODO: implement actual method
-        return;
+        try {
+            const { request: simulatedRequest } = await this.readClient.simulateContract({
+                address: this.bondEscalationContract.address,
+                abi: bondEscalationModuleAbi,
+                functionName: "settleBondEscalation",
+                args: [request, response, dispute],
+                account: this.writeClient.account,
+            });
+
+            const hash = await this.writeClient.writeContract(simulatedRequest);
+
+            const receipt = await this.readClient.waitForTransactionReceipt({
+                hash,
+                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+            });
+
+            if (receipt.status !== "success") {
+                throw new TransactionExecutionError("settleBondEscalation transaction failed");
+            }
+        } catch (error) {
+            if (error instanceof BaseError) {
+                const revertError = error.walk(
+                    (err) => err instanceof ContractFunctionRevertedError,
+                );
+                if (revertError instanceof ContractFunctionRevertedError) {
+                    const errorName = revertError.data?.errorName ?? "";
+                    throw ErrorFactory.createError(errorName);
+                }
+            }
+            throw error;
+        }
     }
 
     /**
