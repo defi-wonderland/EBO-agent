@@ -72,3 +72,9 @@ export interface Dispute {
         requestId: RequestId;
     };
 }
+
+export type AccountingModules = {
+    requestModule: Address;
+    responseModule: Address;
+    escalationModule: Address;
+};

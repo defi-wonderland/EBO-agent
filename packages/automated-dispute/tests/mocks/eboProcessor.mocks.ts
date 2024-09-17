@@ -5,12 +5,20 @@ import { ILogger } from "@ebo-agent/shared";
 import { ProtocolProvider } from "../../src/providers/index.js";
 import { EboProcessor } from "../../src/services";
 import { EboActorsManager } from "../../src/services/index.js";
+import { AccountingModules } from "../../src/types/prophet.js";
 import {
     DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
     mockedPrivateKey,
 } from "../services/eboActor/fixtures.js";
 
-export function buildEboProcessor(logger: ILogger) {
+export function buildEboProcessor(
+    logger: ILogger,
+    accountingModules: AccountingModules = {
+        requestModule: "0x01",
+        responseModule: "0x02",
+        escalationModule: "0x03",
+    },
+) {
     const protocolProviderRpcUrls = ["http://localhost:8538"];
     const protocolProvider = new ProtocolProvider(
         protocolProviderRpcUrls,
@@ -24,7 +32,14 @@ export function buildEboProcessor(logger: ILogger) {
     const blockNumberService = new BlockNumberService(blockNumberRpcUrls, logger);
 
     const actorsManager = new EboActorsManager();
-    const processor = new EboProcessor(protocolProvider, blockNumberService, actorsManager, logger);
+
+    const processor = new EboProcessor(
+        accountingModules,
+        protocolProvider,
+        blockNumberService,
+        actorsManager,
+        logger,
+    );
 
     return {
         processor,

@@ -125,6 +125,7 @@ export class ProtocolProvider implements IProtocolProvider {
         settleDispute: this.settleDispute.bind(this),
         escalateDispute: this.escalateDispute.bind(this),
         finalize: this.finalize.bind(this),
+        approveAccountingModules: this.approveAccountingModules.bind(this),
     };
 
     public read: IReadProvider = {
@@ -133,6 +134,8 @@ export class ProtocolProvider implements IProtocolProvider {
         getEvents: this.getEvents.bind(this),
         hasStakedAssets: this.hasStakedAssets.bind(this),
         getAvailableChains: this.getAvailableChains.bind(this),
+        getAccountingModuleAddress: this.getAccountingModuleAddress.bind(this),
+        getAccountingApprovedModules: this.getAccountingApprovedModules.bind(this),
     };
 
     /**
@@ -255,6 +258,20 @@ export class ProtocolProvider implements IProtocolProvider {
     async getAvailableChains(): Promise<Caip2ChainId[]> {
         // TODO: implement actual method
         return ["eip155:1", "eip155:42161"];
+    }
+
+    getAccountingModuleAddress(): Address {
+        // TODO: implement actual method
+        return "0x01";
+    }
+
+    async getAccountingApprovedModules(): Promise<Address[]> {
+        // TODO: implement actual method
+        return [];
+    }
+
+    async approveAccountingModules(_modules: Address[]): Promise<void> {
+        // TODO: implement actual method
     }
 
     // TODO: waiting for ChainId to be merged for _chains parameter
