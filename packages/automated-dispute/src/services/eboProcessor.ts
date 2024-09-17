@@ -229,7 +229,7 @@ export class EboProcessor {
             if (this.isChainSupported(chainId)) {
                 this.logger.info(`Creating a new EboActor to handle request ${requestId}...`);
 
-                return this.createNewActor(firstEvent as EboEvent<"RequestCreated">);
+                return this.createNewActor(firstEvent);
             } else {
                 this.logger.warn(`Chain ${chainId} not supported by the agent. Skipping...`);
 
