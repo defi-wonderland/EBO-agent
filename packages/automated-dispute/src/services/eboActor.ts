@@ -15,11 +15,13 @@ import type {
     Response,
     ResponseBody,
 } from "../types/index.js";
+import { ErrorHandler } from "../exceptions/ErrorHandler.js";
 import {
     DisputeWithoutResponse,
     EBORequestCreator_ChainNotAdded,
     EBORequestCreator_InvalidEpoch,
     EBORequestModule_InvalidRequester,
+    ErrorFactory,
     InvalidActorState,
     InvalidDisputeStatus,
     Oracle_InvalidRequestBody,
@@ -38,6 +40,7 @@ import {
     UpdateDisputeStatus,
 } from "../services/index.js";
 import { ActorRequest } from "../types/actorRequest.js";
+import { ErrorScenario } from "../types/index.js";
 
 /**
  * Compare function to sort events chronologically in ascending order by block number
@@ -129,9 +132,7 @@ export class EboActor {
      *
      * @throws {RequestMismatch} when an event from another request was enqueued in this actor
      */
-    public processEvents(): Promise<void> {
-        // TODO: check for actor expiration (ie if it makes no sense to still handle the request events)
-
+    public async processEvents(): Promise<void> {
         return this.eventProcessingMutex.runExclusive(async () => {
             let event: EboEvent<EboEventName> | undefined;
 
@@ -149,15 +150,41 @@ export class EboActor {
                         await this.onLastEvent(event);
                     }
                 } catch (err) {
-                    this.logger.error(`Error processing event ${event.name}: ${err}`);
+                    if (err instanceof ContractFunctionRevertedError) {
+                        // TODO: Add all errors appropriately -- this is boilerplate
+                        const customError = ErrorFactory.createError(err.name)
+                            .setContext({ event, registry: this.registry })
+                            .on("BondEscalationModule_ShouldBeEscalated", async (context) => {
+                                await this.protocolProvider.escalateDispute(
+                                    context.request.prophetData,
+                                    context.response.prophetData,
+                                    context.dispute.prophetData,
+                                );
+                            });
 
-                    // Enqueue the event again as it's supposed to be reprocessed
-                    this.eventsQueue.push(event);
+                        await ErrorHandler.handle(customError, {
+                            consumeEvent: () => {
+                                // TODO: consume logic
+                            },
+                            reenqueueEvent: () => {
+                                if (event) {
+                                    this.eventsQueue.push(event);
+                                }
+                            },
+                            terminateActor: () => {
+                                // TODO: correct termination logic
+                                this.registry.removeRequest(this.actorRequest.id);
+                            },
+                        });
 
-                    // Undo last state update
-                    updateStateCommand.undo();
-
-                    return;
+                        if (customError.strategy.scenario === ErrorScenario.Unrecoverable) {
+                            updateStateCommand.undo();
+                            throw customError;
+                        }
+                    } else {
+                        // For other errors, rethrow
+                        throw err;
+                    }
                 }
             }
         });
@@ -265,7 +292,25 @@ export class EboActor {
      * @param blockNumber block number to check open/closed windows
      */
     public async onLastBlockUpdated(blockNumber: bigint): Promise<void> {
-        await this.settleDisputes(blockNumber);
+        try {
+            await this.settleDisputes(blockNumber);
+        } catch (err) {
+            if (err instanceof ContractFunctionRevertedError) {
+                const customError = ErrorFactory.createError(err.name).setContext({
+                    blockNumber,
+                    registry: this.registry,
+                });
+
+                await ErrorHandler.handle(customError, {
+                    terminateActor: () => {
+                        // TODO: correct termination logic
+                        this.registry.removeRequest(this.actorRequest.id);
+                    },
+                });
+            } else {
+                throw err;
+            }
+        }
 
         const request = this.getActorRequest();
         const proposalDeadline = request.prophetData.responseModuleData.deadline;
@@ -273,7 +318,6 @@ export class EboActor {
 
         if (isProposalWindowOpen) {
             this.logger.debug(`Proposal window for request ${request.id} not closed yet.`);
-
             return;
         }
 
@@ -282,9 +326,30 @@ export class EboActor {
         if (acceptedResponse) {
             this.logger.info(`Finalizing request ${request.id}...`);
 
-            await this.protocolProvider.finalize(request.prophetData, acceptedResponse.prophetData);
-        }
+            try {
+                await this.protocolProvider.finalize(
+                    request.prophetData,
+                    acceptedResponse.prophetData,
+                );
+            } catch (err) {
+                if (err instanceof ContractFunctionRevertedError) {
+                    const customError = ErrorFactory.createError(err.name).setContext({
+                        request,
+                        acceptedResponse,
+                        registry: this.registry,
+                    });
 
+                    await ErrorHandler.handle(customError, {
+                        terminateActor: () => {
+                            // TODO: correct termination logic
+                            this.registry.removeRequest(this.actorRequest.id);
+                        },
+                    });
+                } else {
+                    throw err;
+                }
+            }
+        }
         // TODO: check for responseModuleData.deadline, if no answer has been accepted after the deadline
         //  notify and (TBD) finalize with no response
     }
