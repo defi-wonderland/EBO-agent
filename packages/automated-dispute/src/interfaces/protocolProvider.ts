@@ -34,14 +34,6 @@ export interface IReadProvider {
     getEvents(fromBlock: bigint, toBlock: bigint): Promise<EboEvent<EboEventName>[]>;
 
     /**
-     * Checks whether the specified address has staked assets.
-     *
-     * @param address The address to check.
-     * @returns A promise that resolves with a boolean indicating whether the address has staked assets.
-     */
-    hasStakedAssets(address: Address): Promise<boolean>;
-
-    /**
      * Gets the list of available chains that the protocol supports.
      *
      * @returns A promise that resolves with an array of chain IDs.
