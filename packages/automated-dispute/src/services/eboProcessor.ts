@@ -77,9 +77,9 @@ export class EboProcessor {
 
         for (const [moduleName, moduleAddress] of Object.entries(this.accountingModules)) {
             const isApproved = approvedModules.includes(moduleAddress);
-            const key = (isApproved ? "approved" : "notApproved") as keyof typeof summary;
+            const key = isApproved ? "approved" : "notApproved";
 
-            summary[key] = { ...summary[key], [moduleName]: moduleAddress };
+            summary[key][moduleName as keyof AccountingModules] = moduleAddress;
         }
 
         if (Object.keys(summary.notApproved).length > 0) {
