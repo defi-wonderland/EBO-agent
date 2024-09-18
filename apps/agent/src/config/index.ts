@@ -1,4 +1,5 @@
 import fs from "fs";
+import { isNativeError } from "util/types";
 import { Logger } from "@ebo-agent/shared";
 import dotenv from "dotenv";
 import yaml from "yaml";
@@ -18,8 +19,18 @@ if (!env.success) {
     process.exit(1);
 }
 
-const configFile = fs.readFileSync(env.data.EBO_AGENT_CONFIG_FILE_PATH, "utf-8");
-const configContent = yaml.parse(configFile);
+let configFile: string;
+let configContent: unknown;
+
+try {
+    configFile = fs.readFileSync(env.data.EBO_AGENT_CONFIG_FILE_PATH, "utf-8");
+    configContent = yaml.parse(configFile);
+} catch (err) {
+    logger.error(`Failed to read config file at ${env.data.EBO_AGENT_CONFIG_FILE_PATH}.`);
+    logger.error(`${isNativeError(err) ? err.message : err}`);
+
+    process.exit(1);
+}
 
 const parsedConfig = eboAgentConfigSchema.safeParse(configContent);
 
