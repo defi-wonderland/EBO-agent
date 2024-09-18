@@ -443,6 +443,7 @@ export class EboActor {
                     throw customError;
                 }
             } else {
+                this.logger.error(`Failed to escalate dispute ${dispute.id}.`);
                 throw err;
             }
         }
