@@ -13,6 +13,7 @@ const config = {
             oracle: "0x00",
             epochManager: "0x00",
             eboRequestCreator: "0x00",
+            bondEscalationModule: "0x00",
         } as const,
         privateKey: "0xsecret" as const,
     },

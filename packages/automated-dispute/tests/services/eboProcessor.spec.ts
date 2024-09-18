@@ -91,6 +91,7 @@ describe("EboProcessor", () => {
             const expectedActorRequest = expect.objectContaining({
                 id: requestCreatedEvent.requestId,
                 epoch: currentEpoch.number,
+                chainId: request.chainId,
             });
 
             expect(mockCreateActor).toHaveBeenCalledWith(
@@ -101,11 +102,51 @@ describe("EboProcessor", () => {
             );
         });
 
-        it("throws if called more than once", async () => {
-            const { processor, protocolProvider } = mocks.buildEboProcessor(
-                logger,
-                accountingModules,
+        it("does not create actors to handle unsupported chains", async () => {
+            const { processor, actorsManager, protocolProvider } = mocks.buildEboProcessor(logger);
+
+            const currentEpoch: Epoch = {
+                number: 1n,
+                firstBlockNumber: 1n,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+            };
+
+            const request = {
+                ...DEFAULT_MOCKED_REQUEST_CREATED_DATA,
+                chainId: "eip155:61" as const, // ETC
+            };
+
+            const requestCreatedEvent: EboEvent<"RequestCreated"> = {
+                name: "RequestCreated",
+                blockNumber: 1n,
+                logIndex: 1,
+                requestId: request.id,
+                metadata: {
+                    requestId: request.id,
+                    epoch: request.epoch,
+                    chainId: request.chainId,
+                    request: request.prophetData,
+                },
+            };
+
+            vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
+                allModulesApproved,
             );
+            vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
+            vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(
+                currentEpoch.firstBlockNumber + 10n,
+            );
+            vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([requestCreatedEvent]);
+
+            const mockCreateActor = vi.spyOn(actorsManager, "createActor");
+
+            await processor.start(msBetweenChecks);
+
+            expect(mockCreateActor).not.toHaveBeenCalled();
+        });
+
+        it("throws if called more than once", async () => {
+            const { processor, protocolProvider } = mocks.buildEboProcessor(logger);
 
             const currentEpoch: Epoch = {
                 number: 1n,

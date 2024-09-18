@@ -1,1 +1,6 @@
-export const ProtocolContractsNames = ["oracle", "epochManager", "eboRequestCreator"] as const;
+export const ProtocolContractsNames = [
+    "oracle",
+    "epochManager",
+    "eboRequestCreator",
+    "bondEscalationModule",
+] as const;

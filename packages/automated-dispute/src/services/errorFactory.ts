@@ -54,6 +54,27 @@ export class ErrorFactory {
                 // case "EBOFinalityModule_InvalidRequester":
                 // case "Oracle_InvalidFinalizedResponse":
                 // case "Oracle_FinalizableResponseExists":
+                // case "ValidatorLib_InvalidDispute":
+                // case "BondEscalationModule_CannotBreakTieDuringTyingBuffer":
+                // case "BondEscalationModule_CanOnlySurpassByOnePledge":
+                // case "BondEscalationModule_MaxNumberOfEscalationsReached":
+                // case "BondEscalationModule_BondEscalationOver":
+                // case "BondEscalationModule_InvalidDispute":
+                // case "Validator_InvalidDispute":
+                // case "ArbitratorModule_InvalidArbitrator":
+                // case "BondEscalationAccounting_AlreadySettled":
+                // case "BondEscalationAccounting_InsufficientFunds":
+                // case "AccountingExtension_InsufficientFunds":
+                // case "AccountingExtension_NotAllowed":
+                // case "AccountingExtension_UnauthorizedModule":
+                // case "Oracle_InvalidDisputeId":
+                // case "Oracle_InvalidDispute":
+                // case "BondEscalationModule_NotEscalatable":
+                // case "BondEscalationModule_BondEscalationNotOver":
+                // case "Oracle_NotDisputeOrResolutionModule":
+                // case "BondEscalationModule_ShouldBeEscalated":
+                // case "BondEscalationModule_BondEscalationCantBeSettled":
+                // case "ValidatorLib_InvalidResponseBody":
                 return new Error(`Contract reverted: ${errorName}`);
             default:
                 return new Error(`Unknown error: ${errorName}`);
