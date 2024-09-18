@@ -1,5 +1,5 @@
 import { CustomContractError } from "../exceptions/index.js";
-import { ErrorScenario, EventReactError } from "../types/index.js";
+import { EventReactError } from "../types/index.js";
 
 export class ErrorHandler {
     public static async handle(error: CustomContractError, context: any): Promise<void> {
@@ -29,22 +29,6 @@ export class ErrorHandler {
             if (context.consumeEvent) {
                 context.consumeEvent();
             }
-        }
-
-        switch (strategy.scenario) {
-            case ErrorScenario.Skippable:
-                console.info(`Skippable error: ${error.message}. Consuming the event.`);
-
-                break;
-            case ErrorScenario.Retryable:
-                console.warn(`Retryable error: ${error.message}. Will retry later.`);
-
-                break;
-            case ErrorScenario.Unrecoverable:
-                console.error(`Unrecoverable error: ${error.message}.`);
-                break;
-            default:
-                console.error(`Unknown error scenario: ${strategy.scenario}`);
         }
     }
 

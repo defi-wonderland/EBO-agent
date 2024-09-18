@@ -17,14 +17,11 @@ import type {
 } from "../types/index.js";
 import { ErrorHandler } from "../exceptions/ErrorHandler.js";
 import {
+    CustomContractError,
     DisputeWithoutResponse,
-    EBORequestCreator_ChainNotAdded,
-    EBORequestCreator_InvalidEpoch,
-    EBORequestModule_InvalidRequester,
     ErrorFactory,
     InvalidActorState,
     InvalidDisputeStatus,
-    Oracle_InvalidRequestBody,
     PastEventEnqueueError,
     RequestMismatch,
     ResponseAlreadyProposed,
@@ -40,7 +37,6 @@ import {
     UpdateDisputeStatus,
 } from "../services/index.js";
 import { ActorRequest } from "../types/actorRequest.js";
-import { ErrorScenario } from "../types/index.js";
 
 /**
  * Compare function to sort events chronologically in ascending order by block number
@@ -150,41 +146,17 @@ export class EboActor {
                         await this.onLastEvent(event);
                     }
                 } catch (err) {
-                    if (err instanceof ContractFunctionRevertedError) {
-                        // TODO: Add all errors appropriately -- this is boilerplate
-                        const customError = ErrorFactory.createError(err.name)
-                            .setContext({ event, registry: this.registry })
-                            .on("BondEscalationModule_ShouldBeEscalated", async (context) => {
-                                await this.protocolProvider.escalateDispute(
-                                    context.request.prophetData,
-                                    context.response.prophetData,
-                                    context.dispute.prophetData,
-                                );
-                            });
+                    this.logger.error(`Error processing event ${event.name}: ${err}`);
 
-                        await ErrorHandler.handle(customError, {
-                            consumeEvent: () => {
-                                // TODO: consume logic
-                            },
-                            reenqueueEvent: () => {
-                                if (event) {
-                                    this.eventsQueue.push(event);
-                                }
-                            },
-                            terminateActor: () => {
-                                // TODO: correct termination logic
-                                this.registry.removeRequest(this.actorRequest.id);
-                            },
-                        });
+                    this.eventsQueue.push(event);
+                    updateStateCommand.undo();
 
-                        if (customError.strategy.scenario === ErrorScenario.Unrecoverable) {
-                            updateStateCommand.undo();
-                            throw customError;
-                        }
-                    } else {
-                        // For other errors, rethrow
+                    if (err instanceof CustomContractError && err.strategy.shouldTerminate) {
+                        // Rethrow for EboProcessor to handle
                         throw err;
                     }
+
+                    return;
                 }
             }
         });
@@ -292,26 +264,7 @@ export class EboActor {
      * @param blockNumber block number to check open/closed windows
      */
     public async onLastBlockUpdated(blockNumber: bigint): Promise<void> {
-        try {
-            await this.settleDisputes(blockNumber);
-        } catch (err) {
-            if (err instanceof ContractFunctionRevertedError) {
-                const customError = ErrorFactory.createError(err.name).setContext({
-                    blockNumber,
-                    registry: this.registry,
-                });
-
-                await ErrorHandler.handle(customError, {
-                    terminateActor: () => {
-                        // TODO: correct termination logic
-                        this.registry.removeRequest(this.actorRequest.id);
-                    },
-                });
-            } else {
-                throw err;
-            }
-        }
-
+        await this.settleDisputes(blockNumber);
         const request = this.getActorRequest();
         const proposalDeadline = request.prophetData.responseModuleData.deadline;
         const isProposalWindowOpen = blockNumber <= proposalDeadline;
@@ -340,10 +293,7 @@ export class EboActor {
                     });
 
                     await ErrorHandler.handle(customError, {
-                        terminateActor: () => {
-                            // TODO: correct termination logic
-                            this.registry.removeRequest(this.actorRequest.id);
-                        },
+                        //TODO: error logic
                     });
                 } else {
                     throw err;
@@ -360,29 +310,46 @@ export class EboActor {
      * @param blockNumber block number to check if the dispute is to be settled
      */
     private async settleDisputes(blockNumber: bigint): Promise<void> {
-        const request = this.getActorRequest();
-        const disputes: Dispute[] = this.getActiveDisputes();
+        try {
+            const request = this.getActorRequest();
+            const disputes: Dispute[] = this.getActiveDisputes();
 
-        const settledDisputes = disputes.map(async (dispute) => {
-            const responseId = dispute.prophetData.responseId;
-            const response = this.registry.getResponse(responseId);
+            const settledDisputes = disputes.map(async (dispute) => {
+                const responseId = dispute.prophetData.responseId;
+                const response = this.registry.getResponse(responseId);
 
-            if (!response) {
-                this.logger.error(
-                    `While trying to settle dispute ${dispute.id} its response with` +
-                        `id ${dispute.prophetData.responseId} was not found in the registry.`,
-                );
+                if (!response) {
+                    this.logger.error(
+                        `While trying to settle dispute ${dispute.id}, its response with ` +
+                            `id ${dispute.prophetData.responseId} was not found in the registry.`,
+                    );
 
-                throw new DisputeWithoutResponse(dispute);
+                    throw new DisputeWithoutResponse(dispute);
+                }
+
+                if (this.canBeSettled(request, dispute, blockNumber)) {
+                    await this.settleDispute(request, response, dispute);
+                }
+            });
+
+            await Promise.all(settledDisputes);
+        } catch (err) {
+            if (err instanceof ContractFunctionRevertedError) {
+                const customError = ErrorFactory.createError(err.name).setContext({
+                    blockNumber,
+                    registry: this.registry,
+                });
+
+                await ErrorHandler.handle(customError, {
+                    terminateActor: () => {
+                        // TODO: correct termination logic
+                        this.registry.removeRequest(this.actorRequest.id);
+                    },
+                });
+            } else {
+                throw err;
             }
-
-            if (this.canBeSettled(request, dispute, blockNumber)) {
-                await this.settleDispute(request, response, dispute);
-            }
-        });
-
-        // Any of the disputes not being handled correctly should make the actor fail
-        await Promise.all(settledDisputes);
+        }
     }
 
     private getActiveDisputes(): Dispute[] {
@@ -557,15 +524,23 @@ export class EboActor {
         try {
             await this.proposeResponse(chainId);
         } catch (err) {
-            if (err instanceof ResponseAlreadyProposed) this.logger.info(err.message);
-            else if (err instanceof EBORequestCreator_InvalidEpoch) {
-                // TODO: Handle error
-            } else if (err instanceof Oracle_InvalidRequestBody) {
-                // TODO: Handle error
-            } else if (err instanceof EBORequestModule_InvalidRequester) {
-                // TODO: Handle error
-            } else if (err instanceof EBORequestCreator_ChainNotAdded) {
-                // TODO: Handle error
+            if (err instanceof ContractFunctionRevertedError) {
+                const customError = ErrorFactory.createError(err.name)
+                    .setContext({ event, registry: this.registry })
+                    .on("ErrorName", async (context) => {
+                        console.log(context);
+                    });
+
+                await ErrorHandler.handle(customError, {
+                    reenqueueEvent: () => {
+                        this.eventsQueue.push(event);
+                    },
+                });
+
+                if (customError.strategy.shouldTerminate) {
+                    // Rethrow for EboProcessor to handle
+                    throw customError;
+                }
             } else {
                 throw err;
             }
