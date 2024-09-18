@@ -149,7 +149,6 @@ export class ProtocolProvider implements IProtocolProvider {
         getCurrentEpoch: this.getCurrentEpoch.bind(this),
         getLastFinalizedBlock: this.getLastFinalizedBlock.bind(this),
         getEvents: this.getEvents.bind(this),
-        hasStakedAssets: this.hasStakedAssets.bind(this),
         getAvailableChains: this.getAvailableChains.bind(this),
     };
 
@@ -262,11 +261,6 @@ export class ProtocolProvider implements IProtocolProvider {
 
                 return 0;
             });
-    }
-
-    async hasStakedAssets(_address: Address): Promise<boolean> {
-        // TODO: implement actual method.
-        return true;
     }
 
     // TODO: use Caip2 Chain ID instead of string in return type

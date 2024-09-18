@@ -1,9 +1,10 @@
 import { isNativeError } from "util/types";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
-import { Address, ILogger } from "@ebo-agent/shared";
+import { Address, EBO_SUPPORTED_CHAIN_IDS, ILogger } from "@ebo-agent/shared";
 
 import { ProcessorAlreadyStarted } from "../exceptions/index.js";
+import { isRequestCreatedEvent } from "../guards.js";
 import { ProtocolProvider } from "../providers/protocolProvider.js";
 import { alreadyDeletedActorWarning, droppingUnhandledEventsWarning } from "../templates/index.js";
 import { ActorRequest, EboEvent, EboEventName, Epoch, RequestId } from "../types/index.js";
@@ -222,13 +223,33 @@ export class EboProcessor {
 
         if (actor) return actor;
 
-        if (firstEvent && firstEvent.name === "RequestCreated") {
-            this.logger.info(`Creating a new EboActor to handle request ${requestId}...`);
+        if (firstEvent && isRequestCreatedEvent(firstEvent)) {
+            const chainId = firstEvent.metadata.chainId;
 
-            return this.createNewActor(firstEvent as EboEvent<"RequestCreated">);
+            if (this.isChainSupported(chainId)) {
+                this.logger.info(`Creating a new EboActor to handle request ${requestId}...`);
+
+                return this.createNewActor(firstEvent);
+            } else {
+                this.logger.warn(`Chain ${chainId} not supported by the agent. Skipping...`);
+
+                // TODO: notify
+
+                return null;
+            }
         } else {
             return null;
         }
+    }
+
+    /**
+     * Returns true if the CAIP2 compliant chain ID is supported by the EBO agent.
+     *
+     * @param chainId CAIP2 chain ID
+     * @returns true if the chain is supported, otherwise false
+     */
+    private isChainSupported(chainId: Caip2ChainId): boolean {
+        return EBO_SUPPORTED_CHAIN_IDS.includes(chainId);
     }
 
     /**

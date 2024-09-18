@@ -253,11 +253,6 @@ describe("ProtocolProvider", () => {
         it("throws if the RPC client fails");
     });
 
-    describe.skip("hasStakedAssets", () => {
-        it("returns true if the address has more than 0 assets staked");
-        it("returns false if the address has 0 staked assets");
-    });
-
     describe.skip("getAvailableChains", () => {
         it("returns an array of available chains in CAIP-2 compliant format");
         it("throws if the RPC client fails");
