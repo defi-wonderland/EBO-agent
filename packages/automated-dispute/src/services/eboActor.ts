@@ -149,16 +149,26 @@ export class EboActor {
                 } catch (err) {
                     this.logger.error(`Error processing event ${event.name}: ${err}`);
 
-                    // Enqueue the event again as it's supposed to be reprocessed
-                    this.eventsQueue.push(event);
-                    // Undo last state update
-                    updateStateCommand.undo();
+                    if (err instanceof CustomContractError) {
+                        await ErrorHandler.handle(err, {
+                            reenqueueEvent: () => {
+                                // Enqueue the event again as it's supposed to be reprocessed
+                                if (event) {
+                                    this.eventsQueue.push(event);
+                                }
+                                updateStateCommand.undo();
+                            },
+                            terminateActor: () => {
+                                throw err;
+                            },
+                        });
 
-                    if (err instanceof CustomContractError && err.strategy.shouldTerminate) {
-                        // Rethrow for EboProcessor to handle
+                        if (err.strategy.shouldTerminate) {
+                            throw err;
+                        }
+                    } else {
                         throw err;
                     }
-
                     return;
                 }
             }
@@ -358,8 +368,7 @@ export class EboActor {
 
                 await ErrorHandler.handle(customError, {
                     terminateActor: () => {
-                        // TODO: correct termination logic
-                        this.registry.removeRequest(this.actorRequest.id);
+                        throw customError;
                     },
                 });
             } else {
@@ -426,7 +435,6 @@ export class EboActor {
                         this.logger.info(`Consuming error: ${customError.name}`);
                     },
                     terminateActor: () => {
-                        // Rethrow to allow EboProcessor to handle termination
                         throw customError;
                     },
                 });
