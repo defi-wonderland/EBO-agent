@@ -286,15 +286,27 @@ export class EboActor {
                 );
             } catch (err) {
                 if (err instanceof ContractFunctionRevertedError) {
-                    const customError = ErrorFactory.createError(err.name).setContext({
+                    const errorName = err.data?.errorName || err.name;
+                    this.logger.warn(`Finalize request failed due to: ${errorName}`);
+
+                    const customError = ErrorFactory.createError(errorName).setContext({
                         request,
                         acceptedResponse,
                         registry: this.registry,
                     });
 
                     await ErrorHandler.handle(customError, {
-                        //TODO: error logic
+                        consumeEvent: () => {
+                            this.logger.info(`Consuming error: ${customError.name}`);
+                        },
+                        terminateActor: () => {
+                            throw customError;
+                        },
                     });
+
+                    if (customError.strategy.shouldTerminate) {
+                        throw customError;
+                    }
                 } else {
                     throw err;
                 }
@@ -375,50 +387,53 @@ export class EboActor {
      * @param response the dispute's response
      * @param dispute the dispute
      */
-    private settleDispute(request: Request, response: Response, dispute: Dispute): Promise<void> {
-        return Promise.resolve()
-            .then(async () => {
-                this.logger.info(`Settling dispute ${dispute.id}...`);
+    private async settleDispute(
+        request: Request,
+        response: Response,
+        dispute: Dispute,
+    ): Promise<void> {
+        try {
+            this.logger.info(`Settling dispute ${dispute.id}...`);
 
-                // OPTIMIZE: check for pledges to potentially save the ShouldBeEscalated error
+            // OPTIMIZE: check for pledges to potentially save the ShouldBeEscalated error
 
-                await this.protocolProvider.settleDispute(
-                    request.prophetData,
-                    response.prophetData,
-                    dispute.prophetData,
-                );
+            await this.protocolProvider.settleDispute(
+                request.prophetData,
+                response.prophetData,
+                dispute.prophetData,
+            );
 
-                this.logger.info(`Dispute ${dispute.id} settled.`);
-            })
-            .catch(async (err) => {
-                this.logger.warn(`Dispute ${dispute.id} was not settled.`);
+            this.logger.info(`Dispute ${dispute.id} settled.`);
+        } catch (err) {
+            if (err instanceof ContractFunctionRevertedError) {
+                const errorName = err.data?.errorName || err.name;
+                this.logger.warn(`Call reverted for dispute ${dispute.id} due to: ${errorName}`);
 
-                // TODO: use custom errors to be developed while implementing ProtocolProvider
-                if (!(err instanceof ContractFunctionRevertedError)) throw err;
+                const customError = ErrorFactory.createError(errorName).setContext({
+                    request,
+                    response,
+                    dispute,
+                    registry: this.registry,
+                });
 
-                this.logger.warn(`Call reverted for ${dispute.id} due to: ${err.data?.errorName}`);
+                await ErrorHandler.handle(customError, {
+                    consumeEvent: () => {
+                        // TODO: consume
+                        this.logger.info(`Consuming error: ${customError.name}`);
+                    },
+                    terminateActor: () => {
+                        // Rethrow to allow EboProcessor to handle termination
+                        throw customError;
+                    },
+                });
 
-                if (err.data?.errorName === "BondEscalationModule_ShouldBeEscalated") {
-                    this.logger.warn(`Escalating dispute ${dispute.id}...`);
-
-                    await this.protocolProvider.escalateDispute(
-                        request.prophetData,
-                        response.prophetData,
-                        dispute.prophetData,
-                    );
-
-                    // TODO: notify
-
-                    this.logger.warn(`Dispute ${dispute.id} was escalated.`);
+                if (customError.strategy.shouldTerminate) {
+                    throw customError;
                 }
-            })
-            .catch((err) => {
-                this.logger.error(`Failed to escalate dispute ${dispute.id}.`);
-
-                // TODO: notify
-
+            } else {
                 throw err;
-            });
+            }
+        }
     }
 
     /**
@@ -771,24 +786,38 @@ export class EboActor {
      */
     private async pledgeFor(request: Request, dispute: Dispute) {
         try {
-            this.logger.info(`Pledging against dispute ${dispute.id}`);
+            this.logger.info(`Pledging for dispute ${dispute.id}`);
 
             await this.protocolProvider.pledgeForDispute(request.prophetData, dispute.prophetData);
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
-                // TODO: handle each error appropriately
-                this.logger.warn(`Pledging for dispute ${dispute.id} was reverted. Skipping...`);
-            } else {
-                // TODO: handle each error appropriately
-                this.logger.error(
-                    `Actor handling request ${this.actorRequest.id} is not able to continue.`,
-                );
+                const errorName = err.data?.errorName || err.name;
+                this.logger.warn(`Pledge for dispute ${dispute.id} reverted due to: ${errorName}`);
 
+                const customError = ErrorFactory.createError(errorName).setContext({
+                    request,
+                    dispute,
+                    registry: this.registry,
+                });
+
+                await ErrorHandler.handle(customError, {
+                    consumeEvent: () => {
+                        // TODO: consume error
+                        this.logger.info(`Consuming error: ${customError.name}`);
+                    },
+                    terminateActor: () => {
+                        throw customError;
+                    },
+                });
+
+                if (customError.strategy.shouldTerminate) {
+                    throw customError;
+                }
+            } else {
                 throw err;
             }
         }
     }
-
     /**
      * Pledge against the dispute.
      *
@@ -797,7 +826,7 @@ export class EboActor {
      */
     private async pledgeAgainst(request: Request, dispute: Dispute) {
         try {
-            this.logger.info(`Pledging for dispute ${dispute.id}`);
+            this.logger.info(`Pledging against dispute ${dispute.id}`);
 
             await this.protocolProvider.pledgeAgainstDispute(
                 request.prophetData,
@@ -805,14 +834,30 @@ export class EboActor {
             );
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
-                // TODO: handle each error appropriately
-                this.logger.warn(`Pledging on dispute ${dispute.id} was reverted. Skipping...`);
-            } else {
-                // TODO: handle each error appropriately
-                this.logger.error(
-                    `Actor handling request ${this.actorRequest.id} is not able to continue.`,
+                const errorName = err.data?.errorName || err.name;
+                this.logger.warn(
+                    `Pledge against dispute ${dispute.id} reverted due to: ${errorName}`,
                 );
 
+                const customError = ErrorFactory.createError(errorName).setContext({
+                    request,
+                    dispute,
+                    registry: this.registry,
+                });
+
+                await ErrorHandler.handle(customError, {
+                    consumeEvent: () => {
+                        this.logger.info(`Consuming error: ${customError.name}`);
+                    },
+                    terminateActor: () => {
+                        throw customError;
+                    },
+                });
+
+                if (customError.strategy.shouldTerminate) {
+                    throw customError;
+                }
+            } else {
                 throw err;
             }
         }
