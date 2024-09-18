@@ -1,11 +1,4 @@
-export enum ErrorScenario {
-    Skippable = "Skippable",
-    Retryable = "Retryable",
-    Unrecoverable = "Unrecoverable",
-}
-
 export type BaseErrorStrategy = {
-    scenario: ErrorScenario;
     shouldNotify: boolean;
     shouldTerminate: boolean;
     shouldConsume: boolean;
