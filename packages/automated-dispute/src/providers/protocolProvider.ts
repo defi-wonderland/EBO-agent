@@ -449,7 +449,7 @@ export class ProtocolProvider implements IProtocolProvider {
 
             const receipt = await this.readClient.waitForTransactionReceipt({
                 hash,
-                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+                confirmations: this.rpcConfig.transactionReceiptConfirmations,
             });
 
             if (receipt.status !== "success") {
@@ -495,7 +495,7 @@ export class ProtocolProvider implements IProtocolProvider {
 
             const receipt = await this.readClient.waitForTransactionReceipt({
                 hash,
-                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+                confirmations: this.rpcConfig.transactionReceiptConfirmations,
             });
 
             if (receipt.status !== "success") {
@@ -543,7 +543,7 @@ export class ProtocolProvider implements IProtocolProvider {
 
             const receipt = await this.readClient.waitForTransactionReceipt({
                 hash,
-                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+                confirmations: this.rpcConfig.transactionReceiptConfirmations,
             });
 
             if (receipt.status !== "success") {
