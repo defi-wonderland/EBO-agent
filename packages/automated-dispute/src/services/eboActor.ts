@@ -129,6 +129,7 @@ export class EboActor {
      * @throws {RequestMismatch} when an event from another request was enqueued in this actor
      */
     public async processEvents(): Promise<void> {
+        // TODO: check for actor expiration (ie if it makes no sense to still handle the request events)
         return this.eventProcessingMutex.runExclusive(async () => {
             let event: EboEvent<EboEventName> | undefined;
 
@@ -148,7 +149,9 @@ export class EboActor {
                 } catch (err) {
                     this.logger.error(`Error processing event ${event.name}: ${err}`);
 
+                    // Enqueue the event again as it's supposed to be reprocessed
                     this.eventsQueue.push(event);
+                    // Undo last state update
                     updateStateCommand.undo();
 
                     if (err instanceof CustomContractError && err.strategy.shouldTerminate) {
@@ -344,6 +347,7 @@ export class EboActor {
                 }
             });
 
+            // Any of the disputes not being handled correctly should make the actor fail
             await Promise.all(settledDisputes);
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
