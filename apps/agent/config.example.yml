@@ -1,0 +1,29 @@
+protocolProvider:
+    rpcsConfig:
+        urls:
+            - http://localhost
+        transactionReceiptConfirmations: 1
+        timeout: 10000
+        retryInterval: 150
+    contracts:
+        oracle: "0x1234567890123456789012345678901234567890"
+        epochManager: "0x1234567890123456789012345678901234567890"
+        eboRequestCreator: "0x1234567890123456789012345678901234567890"
+
+blockNumberService:
+    chainRpcUrls:
+        - chainId: "eip155:1"
+          urls:
+              - http://localhost
+        - chainId: "eip155:42161"
+          urls:
+              - http://localhost
+    blockmetaConfig:
+        baseUrl: "localhost:443"
+        servicePaths:
+            blockByTime: /sf.blockmeta.v2.BlockByTime
+            block: /sf.blockmeta.v2.Block
+        bearerTokenExpirationWindow: 31536000000
+
+processor:
+    msBetweenChecks: 1000

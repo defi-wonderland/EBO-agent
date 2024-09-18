@@ -33,10 +33,12 @@ import {
 } from "../interfaces/index.js";
 import { ErrorFactory } from "../services/errorFactory.js";
 
-// TODO: these constants should be env vars
-const TRANSACTION_RECEIPT_CONFIRMATIONS = 1;
-const TIMEOUT = 10000;
-const RETRY_INTERVAL = 150;
+type ProtocolRpcConfig = {
+    urls: string[];
+    transactionReceiptConfirmations: number;
+    timeout: number;
+    retryInterval: number;
+};
 
 export class ProtocolProvider implements IProtocolProvider {
     private readClient: PublicClient<FallbackTransport<HttpTransport[]>>;
@@ -63,18 +65,24 @@ export class ProtocolProvider implements IProtocolProvider {
      * @param contracts The addresses of the protocol contracts that will be instantiated
      * @param privateKey The private key of the account that will be used to interact with the contracts
      */
-    constructor(rpcUrls: string[], contracts: ProtocolContractsAddresses, privateKey: Hex) {
-        if (rpcUrls.length === 0) {
+    constructor(
+        private readonly rpcConfig: ProtocolRpcConfig,
+        contracts: ProtocolContractsAddresses,
+        privateKey: Hex,
+    ) {
+        const { urls, timeout, retryInterval } = rpcConfig;
+
+        if (urls.length === 0) {
             throw new RpcUrlsEmpty();
         }
 
         this.readClient = createPublicClient({
             chain: arbitrum,
             transport: fallback(
-                rpcUrls.map((url) =>
+                urls.map((url) =>
                     http(url, {
-                        timeout: TIMEOUT,
-                        retryDelay: RETRY_INTERVAL,
+                        timeout: timeout,
+                        retryDelay: retryInterval,
                     }),
                 ),
             ),
@@ -85,10 +93,10 @@ export class ProtocolProvider implements IProtocolProvider {
         this.writeClient = createWalletClient({
             chain: arbitrum,
             transport: fallback(
-                rpcUrls.map((url) =>
+                urls.map((url) =>
                     http(url, {
-                        timeout: TIMEOUT,
-                        retryDelay: RETRY_INTERVAL,
+                        timeout: timeout,
+                        retryDelay: retryInterval,
                     }),
                 ),
             ),
@@ -289,7 +297,7 @@ export class ProtocolProvider implements IProtocolProvider {
 
             const receipt = await this.readClient.waitForTransactionReceipt({
                 hash,
-                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+                confirmations: this.rpcConfig.transactionReceiptConfirmations,
             });
 
             if (receipt.status !== "success") {
@@ -335,7 +343,7 @@ export class ProtocolProvider implements IProtocolProvider {
 
             const receipt = await this.readClient.waitForTransactionReceipt({
                 hash,
-                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+                confirmations: this.rpcConfig.transactionReceiptConfirmations,
             });
 
             if (receipt.status !== "success") {
@@ -383,7 +391,7 @@ export class ProtocolProvider implements IProtocolProvider {
 
             const receipt = await this.readClient.waitForTransactionReceipt({
                 hash,
-                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+                confirmations: this.rpcConfig.transactionReceiptConfirmations,
             });
 
             if (receipt.status !== "success") {
@@ -461,7 +469,7 @@ export class ProtocolProvider implements IProtocolProvider {
 
             const receipt = await this.readClient.waitForTransactionReceipt({
                 hash,
-                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+                confirmations: this.rpcConfig.transactionReceiptConfirmations,
             });
 
             if (receipt.status !== "success") {
@@ -513,7 +521,7 @@ export class ProtocolProvider implements IProtocolProvider {
 
             const receipt = await this.readClient.waitForTransactionReceipt({
                 hash,
-                confirmations: TRANSACTION_RECEIPT_CONFIRMATIONS,
+                confirmations: this.rpcConfig.transactionReceiptConfirmations,
             });
 
             if (receipt.status !== "success") {
