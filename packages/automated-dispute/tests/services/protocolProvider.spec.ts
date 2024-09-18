@@ -41,7 +41,13 @@ vi.mock("viem", async () => {
 });
 
 describe("ProtocolProvider", () => {
-    const mockRpcUrls = ["http://localhost:8545"];
+    const mockRpcConfig = {
+        urls: ["http://localhost:8545"],
+        retryInterval: 1,
+        timeout: 100,
+        transactionReceiptConfirmations: 1,
+    };
+
     const mockContractAddress: ProtocolContractsAddresses = {
         oracle: "0x1234567890123456789012345678901234567890",
         epochManager: "0x1234567890123456789012345678901234567890",
@@ -103,7 +109,7 @@ describe("ProtocolProvider", () => {
     describe("constructor", () => {
         it("creates a new ProtocolProvider instance successfully", () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -111,7 +117,7 @@ describe("ProtocolProvider", () => {
             expect(createPublicClient).toHaveBeenCalledWith({
                 chain: arbitrum,
                 transport: fallback(
-                    mockRpcUrls.map((url) =>
+                    mockRpcConfig.urls.map((url) =>
                         http(url, {
                             timeout: protocolProvider["TIMEOUT"],
                             retryDelay: protocolProvider["RETRY_INTERVAL"],
@@ -123,7 +129,7 @@ describe("ProtocolProvider", () => {
             expect(createWalletClient).toHaveBeenCalledWith({
                 chain: arbitrum,
                 transport: fallback(
-                    mockRpcUrls.map((url) =>
+                    mockRpcConfig.urls.map((url) =>
                         http(url, {
                             timeout: protocolProvider["TIMEOUT"],
                             retryDelay: protocolProvider["RETRY_INTERVAL"],
@@ -155,7 +161,12 @@ describe("ProtocolProvider", () => {
         });
         it("throws if rpcUrls are empty", () => {
             expect(
-                () => new ProtocolProvider([], mockContractAddress, mockedPrivateKey),
+                () =>
+                    new ProtocolProvider(
+                        { ...mockRpcConfig, urls: [] },
+                        mockContractAddress,
+                        mockedPrivateKey,
+                    ),
             ).toThrowError(RpcUrlsEmpty);
         });
     });
@@ -171,7 +182,7 @@ describe("ProtocolProvider", () => {
             });
 
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -192,7 +203,7 @@ describe("ProtocolProvider", () => {
         });
         it("throws when current epoch request fails", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -211,7 +222,7 @@ describe("ProtocolProvider", () => {
 
         it("throws when current epoch block request fails", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -250,7 +261,7 @@ describe("ProtocolProvider", () => {
     describe("proposeResponse", () => {
         it("successfully proposes a response", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -265,7 +276,7 @@ describe("ProtocolProvider", () => {
 
         it("throws TransactionExecutionError when transaction fails", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -284,7 +295,7 @@ describe("ProtocolProvider", () => {
 
         it("throws when transaction couldn't be confirmed", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -303,7 +314,7 @@ describe("ProtocolProvider", () => {
 
         it("throws ContractFunctionRevertedError when viem throws it", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -325,7 +336,7 @@ describe("ProtocolProvider", () => {
 
         it("throws WaitForTransactionReceiptTimeoutError when waitForTransactionReceipt times out", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -346,7 +357,7 @@ describe("ProtocolProvider", () => {
     describe("disputeResponse", () => {
         it("successfully disputes a response", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -366,7 +377,7 @@ describe("ProtocolProvider", () => {
 
         it("throws TransactionExecutionError when transaction fails", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -392,7 +403,7 @@ describe("ProtocolProvider", () => {
     describe("escalateDispute", () => {
         it("successfully escalates a dispute", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -412,7 +423,7 @@ describe("ProtocolProvider", () => {
 
         it("throws TransactionExecutionError when transaction fails", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -448,7 +459,7 @@ describe("ProtocolProvider", () => {
     describe("finalize", () => {
         it("successfully finalizes a request", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -463,7 +474,7 @@ describe("ProtocolProvider", () => {
 
         it("throws TransactionExecutionError when transaction fails", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -482,7 +493,6 @@ describe("ProtocolProvider", () => {
     });
 
     describe("createRequest", () => {
-        const mockRpcUrls = ["http://localhost:8545"];
         const mockContractAddress: ProtocolContractsAddresses = {
             oracle: "0x1234567890123456789012345678901234567890",
             epochManager: "0x1234567890123456789012345678901234567890",
@@ -491,7 +501,7 @@ describe("ProtocolProvider", () => {
 
         it("creates a request successfully", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -524,7 +534,7 @@ describe("ProtocolProvider", () => {
 
         it("throws if chains array is empty", async () => {
             const protocolProvider = new ProtocolProvider(
-                ["http://localhost:8545"],
+                mockRpcConfig,
                 {
                     oracle: "0x1234567890123456789012345678901234567890",
                     epochManager: "0x1234567890123456789012345678901234567890",
@@ -542,7 +552,7 @@ describe("ProtocolProvider", () => {
     describe("getAccountAddress", () => {
         it("returns the correct account address", () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -553,7 +563,7 @@ describe("ProtocolProvider", () => {
 
         it("throws InvalidAccountOnClient when there's no account", () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );

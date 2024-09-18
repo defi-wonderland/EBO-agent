@@ -1,7 +1,5 @@
 protocolProvider:
     rpcsConfig:
-        urls:
-            - http://localhost
         transactionReceiptConfirmations: 1
         timeout: 10000
         retryInterval: 150
@@ -11,13 +9,6 @@ protocolProvider:
         eboRequestCreator: "0x1234567890123456789012345678901234567890"
 
 blockNumberService:
-    chainRpcUrls:
-        - chainId: "eip155:1"
-          urls:
-              - http://localhost
-        - chainId: "eip155:42161"
-          urls:
-              - http://localhost
     blockmetaConfig:
         baseUrl: "localhost:443"
         servicePaths:

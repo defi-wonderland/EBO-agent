@@ -1,21 +1,39 @@
 import { Caip2Utils } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { isAddress, isHex } from "viem";
 import { z } from "zod";
 
 // TODO: test schemas
 
+const stringToJSONSchema = z.string().transform((str, ctx): z.infer<ReturnType<typeof Object>> => {
+    try {
+        return JSON.parse(str);
+    } catch (e) {
+        ctx.addIssue({ code: "custom", message: "Invalid JSON" });
+        return z.NEVER;
+    }
+});
+
+const chainIdSchema = z.string().refine((id) => Caip2Utils.validateChainId(id));
+const chainRpcUrlSchema = z
+    .record(chainIdSchema, z.array(z.string().url()))
+    .transform((records) => new Map(Object.entries(records) as [Caip2ChainId, string[]][]));
+
 export const envSchema = z.object({
     PROTOCOL_PROVIDER_PRIVATE_KEY: z.string().refine((key) => isHex(key)),
-    BLOCK_NUMBER_SERVICE_BEARER_TOKEN: z.string(),
+    PROTOCOL_PROVIDER_RPC_URLS: z
+        .string()
+        .transform((str) => str.split(","))
+        .refine((arr) => arr.every((url) => z.string().url().safeParse(url).success)),
+    BLOCK_NUMBER_RPC_URLS_MAP: stringToJSONSchema.pipe(chainRpcUrlSchema),
+    BLOCK_NUMBER_BLOCKMETA_TOKEN: z.string(),
     EBO_AGENT_CONFIG_FILE_PATH: z.string(),
 });
 
 const addressSchema = z.string().refine((address) => isAddress(address));
-const chainIdSchema = z.string().refine((id) => Caip2Utils.validateChainId(id));
 
 const protocolProviderConfigSchema = z.object({
     rpcsConfig: z.object({
-        urls: z.array(z.string().url()),
         transactionReceiptConfirmations: z.number().int().positive(),
         timeout: z.number().int().positive(),
         retryInterval: z.number().int().positive(),
@@ -27,15 +45,7 @@ const protocolProviderConfigSchema = z.object({
     }),
 });
 
-const chainRpcUrlSchema = z.object({
-    chainId: chainIdSchema,
-    urls: z.array(z.string().url()),
-});
-
 const blockNumberServiceSchema = z.object({
-    chainRpcUrls: z
-        .array(chainRpcUrlSchema)
-        .transform((arr) => new Map(arr.map(({ chainId, urls }) => [chainId, urls]))),
     blockmetaConfig: z.object({
         baseUrl: z
             .string()

@@ -36,13 +36,17 @@ const { data: configData } = parsedConfig;
 export const config = {
     protocolProvider: {
         ...configData.protocolProvider,
+        rpcsConfig: {
+            ...configData.protocolProvider.rpcsConfig,
+            urls: envData.PROTOCOL_PROVIDER_RPC_URLS,
+        },
         privateKey: envData.PROTOCOL_PROVIDER_PRIVATE_KEY,
     },
     blockNumberService: {
-        chainRpcUrls: configData.blockNumberService.chainRpcUrls,
+        chainRpcUrls: envData.BLOCK_NUMBER_RPC_URLS_MAP,
         blockmetaConfig: {
             ...configData.blockNumberService.blockmetaConfig,
-            bearerToken: envData.BLOCK_NUMBER_SERVICE_BEARER_TOKEN,
+            bearerToken: envData.BLOCK_NUMBER_BLOCKMETA_TOKEN,
         },
     },
     processor: { ...configData.processor },

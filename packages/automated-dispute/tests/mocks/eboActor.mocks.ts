@@ -21,9 +21,13 @@ import {
 export function buildEboActor(request: Request, logger: ILogger) {
     const { id, chainId, epoch } = request;
 
-    const protocolProviderRpcUrls = ["http://localhost:8538"];
     const protocolProvider = new ProtocolProvider(
-        protocolProviderRpcUrls,
+        {
+            urls: ["http://localhost:8545"],
+            retryInterval: 1,
+            timeout: 100,
+            transactionReceiptConfirmations: 1,
+        },
         DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
         mockedPrivateKey,
     );
@@ -31,14 +35,26 @@ export function buildEboActor(request: Request, logger: ILogger) {
     const blockNumberRpcUrls = new Map<Caip2ChainId, string[]>([
         [chainId, ["http://localhost:8539"]],
     ]);
-    const blockNumberService = new BlockNumberService(blockNumberRpcUrls, logger);
+    const blockNumberService = new BlockNumberService(
+        blockNumberRpcUrls,
+        {
+            baseUrl: new URL("http://localhost"),
+            bearerToken: "secret-token",
+            bearerTokenExpirationWindow: 10,
+            servicePaths: {
+                block: "/block",
+                blockByTime: "/blockbytime",
+            },
+        },
+        logger,
+    );
 
     const registry = new EboMemoryRegistry();
 
     const eventProcessingMutex = new Mutex();
 
     const actor = new EboActor(
-        { id, epoch },
+        { id, epoch, chainId },
         protocolProvider,
         blockNumberService,
         registry,
