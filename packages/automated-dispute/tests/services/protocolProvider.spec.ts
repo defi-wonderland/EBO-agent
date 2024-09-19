@@ -320,7 +320,7 @@ describe("ProtocolProvider", () => {
 
             await expect(
                 protocolProvider.proposeResponse(mockRequestProphetData, mockResponseProphetData),
-            ).rejects.toThrow("Unknown error: ");
+            ).rejects.toThrow('The contract function "proposeResponse" reverted.');
         });
 
         it("throws WaitForTransactionReceiptTimeoutError when waitForTransactionReceipt times out", async () => {

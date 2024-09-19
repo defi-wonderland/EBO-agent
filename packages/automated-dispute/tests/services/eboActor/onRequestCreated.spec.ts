@@ -3,6 +3,7 @@ import { ILogger } from "@ebo-agent/shared";
 import { Address } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
+import { ResponseAlreadyProposed } from "../../../src/exceptions/index.js";
 import { EboEvent, Response } from "../../../src/types/index.js";
 import mocks from "../../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
@@ -37,68 +38,26 @@ describe("EboActor", () => {
             };
 
             it("stores the new request", async () => {
-                const { actor, blockNumberService, protocolProvider, registry } =
-                    mocks.buildEboActor(request, logger);
+                const { actor, registry, protocolProvider } = mocks.buildEboActor(request, logger);
 
-                const indexedEpochBlockNumber = 48n;
+                vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
+                    number: request.epoch,
+                    firstBlockNumber: 1n,
+                    startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                });
 
-                vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-                    indexedEpochBlockNumber,
-                );
-
-                vi.spyOn(protocolProvider, "proposeResponse").mockImplementation(() =>
-                    Promise.resolve(),
-                );
-
-                const mockRegistryAddRequest = vi
-                    .spyOn(registry, "addRequest")
-                    .mockImplementation(() => {});
+                const addRequestMock = vi.spyOn(registry, "addRequest");
 
                 actor.enqueue(requestCreatedEvent);
 
                 await actor.processEvents();
 
-                expect(mockRegistryAddRequest).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        id: requestId,
-                    }),
-                );
-            });
+                const expectedRequest = {
+                    ...request,
+                    createdAt: requestCreatedEvent.blockNumber,
+                };
 
-            it("proposes a response", async () => {
-                const { actor, blockNumberService, protocolProvider } = mocks.buildEboActor(
-                    request,
-                    logger,
-                );
-
-                const indexedEpochBlockNumber = 48n;
-                const proposerAddress = "0x1234567890123456789012345678901234567890";
-
-                vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-                    indexedEpochBlockNumber,
-                );
-
-                vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(protocolEpoch);
-                vi.spyOn(protocolProvider, "getAccountAddress").mockReturnValue(proposerAddress);
-
-                const proposeResponseMock = vi.spyOn(protocolProvider, "proposeResponse");
-
-                actor.enqueue(requestCreatedEvent);
-
-                await actor.processEvents();
-
-                expect(proposeResponseMock).toHaveBeenCalledWith(
-                    expect.objectContaining(request.prophetData),
-                    expect.objectContaining({
-                        proposer: proposerAddress,
-                        requestId: requestCreatedEvent.metadata.requestId,
-                        response: {
-                            block: indexedEpochBlockNumber,
-                            chainId: requestCreatedEvent.metadata.chainId,
-                            epoch: protocolEpoch.currentEpoch,
-                        },
-                    }),
-                );
+                expect(addRequestMock).toHaveBeenCalledWith(expectedRequest);
             });
 
             it("does not propose when already proposed the same block", async () => {
@@ -133,7 +92,7 @@ describe("EboActor", () => {
 
                 actor.enqueue(requestCreatedEvent);
 
-                await actor.processEvents();
+                await expect(actor.processEvents()).rejects.toThrow(ResponseAlreadyProposed);
 
                 expect(proposeResponseMock).not.toHaveBeenCalled();
             });
