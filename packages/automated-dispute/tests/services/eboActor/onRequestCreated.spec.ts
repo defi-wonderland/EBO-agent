@@ -4,7 +4,14 @@ import { Address } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProtocolProvider } from "../../../src/providers/index.js";
-import { EboEvent, Epoch, Response, ResponseBody } from "../../../src/types/index.js";
+import {
+    EboEvent,
+    Epoch,
+    RequestId,
+    Response,
+    ResponseBody,
+    ResponseId,
+} from "../../../src/types/index.js";
 import mocks from "../../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
 
@@ -15,7 +22,7 @@ describe("EboActor", () => {
         describe("when RequestCreated is enqueued", () => {
             const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
 
-            const requestId: Address = request.id;
+            const requestId: RequestId = request.id;
             const indexedChainId: Caip2ChainId = request.chainId;
 
             const protocolEpoch: Epoch = {
@@ -135,7 +142,7 @@ describe("EboActor", () => {
                 };
                 const previousResponses: Response[] = [
                     {
-                        id: "0x01",
+                        id: "0x01" as ResponseId,
                         createdAt: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
                         decodedData: {
                             response: responseBody,

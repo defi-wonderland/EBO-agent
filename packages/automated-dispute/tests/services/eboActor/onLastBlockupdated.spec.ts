@@ -2,6 +2,7 @@ import { ContractFunctionRevertedError } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
 import { DisputeWithoutResponse } from "../../../src/exceptions/index.js";
+import { ResponseId } from "../../../src/types/prophet.js";
 import mocks from "../../mocks";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures";
 
@@ -13,7 +14,7 @@ describe("EboActor", () => {
             const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
             const { disputeModuleData } = request.decodedData;
 
-            const response = mocks.buildResponse(request, { id: "0x10" });
+            const response = mocks.buildResponse(request, { id: "0x10" as ResponseId });
             const dispute = mocks.buildDispute(request, response, { createdAt: 1n });
             const disputeDeadline =
                 disputeModuleData.bondEscalationDeadline + disputeModuleData.tyingBuffer;
@@ -50,7 +51,7 @@ describe("EboActor", () => {
             const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
             const { disputeModuleData } = request.decodedData;
 
-            const response = mocks.buildResponse(request, { id: "0x10" });
+            const response = mocks.buildResponse(request, { id: "0x10" as ResponseId });
             const dispute = mocks.buildDispute(request, response, { createdAt: 1n });
             const disputeDeadline =
                 disputeModuleData.bondEscalationDeadline + disputeModuleData.tyingBuffer;
@@ -102,7 +103,7 @@ describe("EboActor", () => {
             const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
             const { disputeModuleData } = request.decodedData;
 
-            const response = mocks.buildResponse(request, { id: "0x10" });
+            const response = mocks.buildResponse(request, { id: "0x10" as ResponseId });
             const dispute = mocks.buildDispute(request, response, { createdAt: 1n });
             const disputeDeadline =
                 disputeModuleData.bondEscalationDeadline + disputeModuleData.tyingBuffer;
@@ -126,7 +127,7 @@ describe("EboActor", () => {
 
         it("logs and returns when response deadline has not been reached", async () => {
             const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
-            const response = mocks.buildResponse(request, { id: "0x10" });
+            const response = mocks.buildResponse(request, { id: "0x10" as ResponseId });
 
             const { responseModuleData } = request.decodedData;
             const deadline = responseModuleData.deadline;
@@ -155,11 +156,17 @@ describe("EboActor", () => {
 
         it("finalizes the request using the first accepted response", async () => {
             const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
-            const firstResponse = mocks.buildResponse(request, { id: "0x10", createdAt: 5n });
+            const firstResponse = mocks.buildResponse(request, {
+                id: "0x10" as ResponseId,
+                createdAt: 5n,
+            });
             const firstResponseDispute = mocks.buildDispute(request, firstResponse, {
                 status: "Lost",
             });
-            const secondResponse = mocks.buildResponse(request, { id: "0x11", createdAt: 10n });
+            const secondResponse = mocks.buildResponse(request, {
+                id: "0x11" as ResponseId,
+                createdAt: 10n,
+            });
 
             const { actor, registry, protocolProvider } = mocks.buildEboActor(request, logger);
 

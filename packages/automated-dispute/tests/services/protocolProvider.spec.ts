@@ -1,3 +1,4 @@
+import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import {
     ContractFunctionRevertedError,
     createPublicClient,
@@ -23,8 +24,9 @@ import {
     RpcUrlsEmpty,
     TransactionExecutionError,
 } from "../../src/exceptions/index.js";
+import { ProtocolContractsAddresses } from "../../src/interfaces/index.js";
 import { ProtocolProvider } from "../../src/providers/index.js";
-import { ProtocolContractsAddresses, Response } from "../../src/types/index.js";
+import { Response } from "../../src/types/index.js";
 import {
     DEFAULT_MOCKED_DISPUTE_DATA,
     DEFAULT_MOCKED_REQUEST_CREATED_DATA,
@@ -536,7 +538,7 @@ describe("ProtocolProvider", () => {
             );
 
             const mockEpoch = 1n;
-            const mockChains = ["eip155:1", "eip155:42161"];
+            const mockChains: Caip2ChainId[] = ["eip155:1", "eip155:42161"];
 
             const mockWriteContractResponse = "0xmockedTransactionHash";
             (protocolProvider["writeClient"].writeContract as Mock).mockResolvedValue(

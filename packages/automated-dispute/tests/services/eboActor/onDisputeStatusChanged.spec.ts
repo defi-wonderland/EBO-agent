@@ -2,7 +2,7 @@ import { ILogger } from "@ebo-agent/shared";
 import { describe, expect, it, vi } from "vitest";
 
 import { ProtocolProvider } from "../../../src/providers/index.ts";
-import { EboEvent } from "../../../src/types/index.js";
+import { DisputeId, EboEvent } from "../../../src/types/index.js";
 import mocks from "../../mocks/index.ts";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.ts";
 
@@ -25,7 +25,7 @@ describe("onDisputeStatusChanged", () => {
             blockNumber: 1n,
             logIndex: 1,
             metadata: {
-                disputeId: "0x01",
+                disputeId: "0x01" as DisputeId,
                 status: "Lost",
                 dispute: dispute.prophetData,
                 blockNumber: 1n,
@@ -55,7 +55,7 @@ describe("onDisputeStatusChanged", () => {
             blockNumber: 1n,
             logIndex: 1,
             metadata: {
-                disputeId: "0x01",
+                disputeId: "0x01" as DisputeId,
                 status: "NoResolution",
                 dispute: dispute.prophetData,
                 blockNumber: 1n,

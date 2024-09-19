@@ -2,7 +2,7 @@ import { ILogger } from "@ebo-agent/shared";
 import { describe, expect, it, vi } from "vitest";
 
 import { EboEvent } from "../../../src/types/events.js";
-import { Response } from "../../../src/types/prophet.js";
+import { DisputeId, Response } from "../../../src/types/prophet.js";
 import mocks from "../../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
 
@@ -18,7 +18,7 @@ describe("onResponseDisputed", () => {
         blockNumber: 1n,
         logIndex: 1,
         metadata: {
-            disputeId: "0x03",
+            disputeId: "0x03" as DisputeId,
             responseId: response.id,
             dispute: {
                 requestId: actorRequest.id,
