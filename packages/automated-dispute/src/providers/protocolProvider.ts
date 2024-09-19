@@ -3,7 +3,6 @@ import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import {
     Address,
     BaseError,
-    BaseErrorType,
     ContractFunctionRevertedError,
     createPublicClient,
     createWalletClient,
@@ -376,7 +375,7 @@ export class ProtocolProvider implements IProtocolProvider {
      * and then executing it if the simulation is successful.
      *
      * @param {bigint} epoch - The epoch for which the request is being created.
-     * @param {string[]} chains - An array of chain identifiers where the request should be created.
+     * @param {Caip2ChainId[]} chains - An array of chain identifiers where the request should be created.
      * @throws {Error} Throws an error if the chains array is empty or if the transaction fails.
      * @throws {EBORequestCreator_InvalidEpoch} Throws if the epoch is invalid.
      * @throws {Oracle_InvalidRequestBody} Throws if the request body is invalid.
@@ -384,7 +383,7 @@ export class ProtocolProvider implements IProtocolProvider {
      * @throws {EBORequestCreator_ChainNotAdded} Throws if the specified chain is not added.
      * @returns {Promise<void>} A promise that resolves when the request is successfully created.
      */
-    async createRequest(epoch: bigint, chains: string[]): Promise<void> {
+    async createRequest(epoch: bigint, chains: Caip2ChainId[]): Promise<void> {
         if (chains.length === 0) {
             throw new Error("Chains array cannot be empty");
         }
