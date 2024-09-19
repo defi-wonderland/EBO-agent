@@ -1,5 +1,4 @@
-import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types";
+import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
 import { ILogger } from "@ebo-agent/shared";
 
 import { ProtocolProvider } from "../../src/providers/index.js";

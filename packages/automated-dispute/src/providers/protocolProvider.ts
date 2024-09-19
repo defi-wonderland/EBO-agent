@@ -1,5 +1,4 @@
-import { Caip2Utils, InvalidChainId } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
+import { Caip2ChainId, Caip2Utils, InvalidChainId } from "@ebo-agent/blocknumber";
 import {
     Address,
     BaseError,

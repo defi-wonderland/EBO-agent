@@ -1,5 +1,4 @@
-import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
+import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
 import { Address, ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";

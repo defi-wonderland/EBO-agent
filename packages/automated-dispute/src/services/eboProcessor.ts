@@ -1,6 +1,5 @@
 import { isNativeError } from "util/types";
-import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
+import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
 import { Address, EBO_SUPPORTED_CHAIN_IDS, ILogger } from "@ebo-agent/shared";
 
 import { ProcessorAlreadyStarted } from "../exceptions/index.js";

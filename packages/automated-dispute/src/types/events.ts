@@ -1,4 +1,4 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
+import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import { Address, Hex, Log } from "viem";
 
 import {
