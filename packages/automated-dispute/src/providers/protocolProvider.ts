@@ -3,6 +3,7 @@ import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import {
     Address,
     BaseError,
+    BaseErrorType,
     ContractFunctionRevertedError,
     createPublicClient,
     createWalletClient,
@@ -277,6 +278,13 @@ export class ProtocolProvider implements IProtocolProvider {
         return ["eip155:1", "eip155:42161"];
     }
 
+    /**
+     * Decodes the Prophet's request responseModuleData bytes into an object.
+     *
+     * @param responseModuleData responseModuleData bytes
+     * @throws {BaseErrorType} when the responseModuleData decoding fails
+     * @returns a decoded object with responseModuleData properties
+     */
     static decodeRequestResponseModuleData(
         responseModuleData: Request["prophetData"]["responseModuleData"],
     ): Request["decodedData"]["responseModuleData"] {
@@ -294,6 +302,13 @@ export class ProtocolProvider implements IProtocolProvider {
         };
     }
 
+    /**
+     * Decodes the Prophet's request disputeModuelData bytes into an object.
+     *
+     * @param disputeModuelData disputeModuelData bytes
+     * @throws {BaseErrorType} when the disputeModuelData decoding fails
+     * @returns a decoded object with disputeModuelData properties
+     */
     static decodeRequestDisputeModuleData(
         disputeModuleData: Request["prophetData"]["disputeModuleData"],
     ): Request["decodedData"]["disputeModuleData"] {
@@ -313,6 +328,12 @@ export class ProtocolProvider implements IProtocolProvider {
         };
     }
 
+    /**
+     * Encodes a Prophet's response body object into bytes.
+     *
+     * @param response response body object
+     * @returns byte-encode response body
+     */
     static encodeResponse(
         response: Response["decodedData"]["response"],
     ): Response["prophetData"]["response"] {
@@ -323,6 +344,12 @@ export class ProtocolProvider implements IProtocolProvider {
         ]);
     }
 
+    /**
+     * Decodes a Prophet's response body bytes into an object.
+     *
+     * @param response response body bytes
+     * @returns decoded response body object
+     */
     static decodeResponse(
         response: Response["prophetData"]["response"],
     ): Response["decodedData"]["response"] {
