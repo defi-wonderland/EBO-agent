@@ -61,7 +61,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: false,
+            shouldConsume: true,
             customAction: async (context) => {
                 context.registry.removeDispute(context.dispute.id);
             },
@@ -87,7 +87,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         "EBORequestModule_InvalidRequester",
         {
             shouldNotify: true,
-            shouldTerminate: false,
+            shouldTerminate: true,
             shouldConsume: false,
         },
     ],
@@ -215,6 +215,9 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
             shouldNotify: true,
             shouldTerminate: false,
             shouldConsume: true,
+            customAction: async (context) => {
+                context.registry.removeResponse(context.response.id);
+            },
         },
     ],
     [
