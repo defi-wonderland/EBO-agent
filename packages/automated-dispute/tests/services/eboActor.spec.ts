@@ -95,14 +95,18 @@ describe("EboActor", () => {
 
             const mockEventsQueuePush = vi.spyOn(queue, "push");
 
-            actor["onLastEvent"] = vi.fn().mockImplementation(() => Promise.reject());
+            actor["onLastEvent"] = vi
+                .fn()
+                .mockImplementation(() => Promise.reject(new Error("Test Error")));
 
             actor.enqueue(event);
 
-            await actor.processEvents();
+            // Expect processEvents to throw and handle the rejection
+            await expect(actor.processEvents()).rejects.toThrow("Test Error");
 
-            expect(mockEventsQueuePush).toHaveBeenNthCalledWith(1, event);
-            expect(mockEventsQueuePush).toHaveBeenNthCalledWith(2, event);
+            expect(mockEventsQueuePush).toHaveBeenCalledWith(event);
+            // Event is first queued and then queued upon error
+            expect(mockEventsQueuePush).toHaveBeenCalledTimes(2);
         });
 
         it("enqueues again an event at the top if its processing throws", async () => {

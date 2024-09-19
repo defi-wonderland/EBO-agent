@@ -1,7 +1,9 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types";
+import { BlockmetaClientConfig } from "@ebo-agent/blocknumber/src/providers/index.js";
 import { ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
+import { vi } from "vitest";
 
 import { ProtocolProvider } from "../../src/providers/index.js";
 import { EboActor, EboMemoryRegistry } from "../../src/services/index.js";
@@ -28,17 +30,38 @@ export function buildEboActor(request: Request, logger: ILogger) {
         mockedPrivateKey,
     );
 
+    vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
+        number: BigInt(1),
+        firstBlockNumber: BigInt(100),
+        startTimestamp: BigInt(Date.now()),
+    });
+    vi.spyOn(protocolProvider, "proposeResponse").mockResolvedValue(undefined);
+    vi.spyOn(protocolProvider, "disputeResponse").mockResolvedValue(undefined);
+    vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(BigInt(1000));
+
     const blockNumberRpcUrls = new Map<Caip2ChainId, string[]>([
         [chainId, ["http://localhost:8539"]],
     ]);
-    const blockNumberService = new BlockNumberService(blockNumberRpcUrls, logger);
+
+    const blockmetaConfig: BlockmetaClientConfig = {
+        baseUrl: new URL("http://localhost:8540"),
+        servicePaths: {
+            block: "/block",
+            blockByTime: "/block/by-time",
+        },
+        bearerToken: "mockedBearerToken",
+        bearerTokenExpirationWindow: 300,
+    };
+    const blockNumberService = new BlockNumberService(blockNumberRpcUrls, blockmetaConfig, logger);
+
+    vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(BigInt(12345));
 
     const registry = new EboMemoryRegistry();
 
     const eventProcessingMutex = new Mutex();
 
     const actor = new EboActor(
-        { id, epoch },
+        { id, epoch, chainId },
         protocolProvider,
         blockNumberService,
         registry,

@@ -153,6 +153,7 @@ export class EboActor {
                         if (!err.strategy.shouldConsume) {
                             this.eventsQueue.push(event);
                             updateStateCommand.undo();
+                            return;
                         }
 
                         if (err.strategy.shouldTerminate) {
@@ -160,9 +161,10 @@ export class EboActor {
                             throw err;
                         }
                     } else {
+                        if (this.eventsQueue) this.eventsQueue.push(event);
+                        updateStateCommand.undo();
                         throw err;
                     }
-                    return;
                 }
             }
         });
@@ -441,47 +443,36 @@ export class EboActor {
                 const errorName = err.data?.errorName || err.name;
                 this.logger.warn(`Call reverted for dispute ${dispute.id} due to: ${errorName}`);
 
-                const customError = ErrorFactory.createError(errorName).setContext({
-                    request,
-                    response,
-                    dispute,
-                    registry: this.registry,
-                });
+                if (errorName === "BondEscalationModule_ShouldBeEscalated") {
+                    try {
+                        await this.protocolProvider.escalateDispute(
+                            request.prophetData,
+                            response.prophetData,
+                            dispute.prophetData,
+                        );
+                        this.logger.info(`Dispute ${dispute.id} escalated.`);
+                    } catch (escalationError) {
+                        this.logger.error(`Failed to escalate dispute ${dispute.id}.`);
+                        throw escalationError;
+                    }
+                } else {
+                    const customError = ErrorFactory.createError(errorName).setContext({
+                        request,
+                        response,
+                        dispute,
+                        registry: this.registry,
+                    });
 
-                await ErrorHandler.handle(customError, {
-                    terminateActor: () => {
+                    await ErrorHandler.handle(customError, {
+                        terminateActor: () => {
+                            throw customError;
+                        },
+                    });
+
+                    if (customError.strategy.shouldTerminate) {
+                        // Rethrow for EboProcessor to handle
                         throw customError;
-                    },
-
-                    // TODO: implement notificationService
-                    // notifyError: async () => {
-                    //     await this.notificationService.notifyError(customError, {
-                    //         request,
-                    //         response,
-                    //         dispute,
-                    //         registry: this.registry,
-                    //     });
-                    // },
-                    escalateDispute: async () => {
-                        if (customError.name === "BondEscalationModule_ShouldBeEscalated") {
-                            try {
-                                await this.protocolProvider.escalateDispute(
-                                    request.prophetData,
-                                    response.prophetData,
-                                    dispute.prophetData,
-                                );
-                                this.logger.info(`Dispute ${dispute.id} escalated.`);
-                            } catch (escalationError) {
-                                this.logger.error(`Failed to escalate dispute ${dispute.id}.`);
-                                throw escalationError;
-                            }
-                        }
-                    },
-                });
-
-                if (customError.strategy.shouldTerminate) {
-                    // Rethrow for EboProcessor to handle
-                    throw customError;
+                    }
                 }
             } else {
                 this.logger.error(`Failed to escalate dispute ${dispute.id}.`);
