@@ -1,6 +1,7 @@
 import { ILogger } from "@ebo-agent/shared";
 import { describe, expect, it, vi } from "vitest";
 
+import { ProtocolProvider } from "../../../src/providers/index.ts";
 import { EboEvent } from "../../../src/types/index.js";
 import mocks from "../../mocks/index.ts";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.ts";
@@ -70,13 +71,13 @@ describe("onDisputeStatusChanged", () => {
         vi.spyOn(registry, "getDispute").mockReturnValue(dispute);
 
         vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-            currentEpoch: actorRequest.epoch,
-            currentEpochBlockNumber: actorRequest.createdAt,
-            currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0)),
+            number: actorRequest.epoch,
+            firstBlockNumber: actorRequest.createdAt,
+            startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0)),
         });
 
         vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-            response.prophetData.response.block + 1n,
+            response.decodedData.response.block + 1n,
         );
 
         vi.spyOn(protocolProvider, "getAccountAddress").mockReturnValue(proposerAddress);
@@ -92,11 +93,11 @@ describe("onDisputeStatusChanged", () => {
             expect.objectContaining({
                 proposer: proposerAddress,
                 requestId: actorRequest.id,
-                response: {
+                response: ProtocolProvider.encodeResponse({
                     block: 2n,
                     chainId: actorRequest.chainId,
                     epoch: actorRequest.epoch,
-                },
+                }),
             }),
         );
     });

@@ -1,9 +1,10 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
 import { Address } from "viem";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { EboEvent, Response } from "../../../src/types/index.js";
+import { ProtocolProvider } from "../../../src/providers/index.js";
+import { EboEvent, Epoch, Response, ResponseBody } from "../../../src/types/index.js";
 import mocks from "../../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
 
@@ -17,10 +18,10 @@ describe("EboActor", () => {
             const requestId: Address = request.id;
             const indexedChainId: Caip2ChainId = request.chainId;
 
-            const protocolEpoch = {
-                currentEpoch: request.epoch,
-                currentEpochBlockNumber: 1n,
-                currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+            const protocolEpoch: Epoch = {
+                number: request.epoch,
+                firstBlockNumber: 1n,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
             };
 
             const requestCreatedEvent: EboEvent<"RequestCreated"> = {
@@ -30,11 +31,25 @@ describe("EboActor", () => {
                 name: "RequestCreated",
                 metadata: {
                     chainId: indexedChainId,
-                    epoch: protocolEpoch.currentEpoch,
+                    epoch: protocolEpoch.number,
                     requestId: requestId,
                     request: request.prophetData,
                 },
             };
+
+            beforeEach(() => {
+                vi.spyOn(ProtocolProvider, "decodeRequestDisputeModuleData").mockReturnValue(
+                    request.decodedData.disputeModuleData,
+                );
+
+                vi.spyOn(ProtocolProvider, "decodeRequestResponseModuleData").mockReturnValue(
+                    request.decodedData.responseModuleData,
+                );
+            });
+
+            afterEach(() => {
+                vi.restoreAllMocks();
+            });
 
             it("stores the new request", async () => {
                 const { actor, blockNumberService, protocolProvider, registry } =
@@ -92,11 +107,11 @@ describe("EboActor", () => {
                     expect.objectContaining({
                         proposer: proposerAddress,
                         requestId: requestCreatedEvent.metadata.requestId,
-                        response: {
+                        response: ProtocolProvider.encodeResponse({
                             block: indexedEpochBlockNumber,
                             chainId: requestCreatedEvent.metadata.chainId,
-                            epoch: protocolEpoch.currentEpoch,
-                        },
+                            epoch: protocolEpoch.number,
+                        }),
                     }),
                 );
             });
@@ -113,18 +128,22 @@ describe("EboActor", () => {
 
                 const proposeResponseMock = vi.spyOn(protocolProvider, "proposeResponse");
 
+                const responseBody: ResponseBody = {
+                    block: indexedEpochBlockNumber,
+                    chainId: requestCreatedEvent.metadata.chainId,
+                    epoch: protocolEpoch.number,
+                };
                 const previousResponses: Response[] = [
                     {
                         id: "0x01",
                         createdAt: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                        decodedData: {
+                            response: responseBody,
+                        },
                         prophetData: {
                             proposer: "0x02",
                             requestId: requestId,
-                            response: {
-                                block: indexedEpochBlockNumber,
-                                chainId: requestCreatedEvent.metadata.chainId,
-                                epoch: protocolEpoch.currentEpoch,
-                            },
+                            response: ProtocolProvider.encodeResponse(responseBody),
                         },
                     },
                 ];

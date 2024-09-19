@@ -1,5 +1,6 @@
 import { CommandAlreadyRun, CommandNotRun } from "../../../exceptions/index.js";
 import { EboRegistry, EboRegistryCommand } from "../../../interfaces/index.js";
+import { ProtocolProvider } from "../../../providers/index.js";
 import { EboEvent, Request } from "../../../types/index.js";
 
 export class AddRequest implements EboRegistryCommand {
@@ -14,11 +15,20 @@ export class AddRequest implements EboRegistryCommand {
         event: EboEvent<"RequestCreated">,
         registry: EboRegistry,
     ): AddRequest {
+        const eventRequest = event.metadata.request;
         const request: Request = {
             id: event.requestId,
             chainId: event.metadata.chainId,
             epoch: event.metadata.epoch,
             createdAt: event.blockNumber,
+            decodedData: {
+                disputeModuleData: ProtocolProvider.decodeRequestDisputeModuleData(
+                    eventRequest.disputeModuleData,
+                ),
+                responseModuleData: ProtocolProvider.decodeRequestResponseModuleData(
+                    eventRequest.responseModuleData,
+                ),
+            },
             prophetData: event.metadata.request,
             status: "Active",
         };

@@ -1,3 +1,4 @@
+import { Caip2Utils, InvalidChainId } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import {
     Address,
@@ -5,6 +6,8 @@ import {
     ContractFunctionRevertedError,
     createPublicClient,
     createWalletClient,
+    decodeAbiParameters,
+    encodeAbiParameters,
     fallback,
     FallbackTransport,
     getContract,
@@ -37,6 +40,30 @@ import {
     ProtocolContractsAddresses,
 } from "../interfaces/index.js";
 import { ErrorFactory } from "../services/errorFactory.js";
+
+export const REQUEST_RESPONSE_MODULE_DATA_ABI_FIELDS = [
+    { name: "accountingExtension", type: "address" },
+    { name: "bondToken", type: "address" },
+    { name: "bondSize", type: "uint256" },
+    { name: "deadline", type: "uint256" },
+    { name: "disputeWindow", type: "uint256" },
+] as const;
+
+export const REQUEST_DISPUTE_MODULE_DATA_ABI_FIELDS = [
+    { name: "accountingExtension", type: "address" },
+    { name: "bondToken", type: "address" },
+    { name: "bondSize", type: "uint256" },
+    { name: "maxNumberOfEscalations", type: "uint256" },
+    { name: "bondEscalationDeadline", type: "uint256" },
+    { name: "tyingBuffer", type: "uint256" },
+    { name: "disputeWindow", type: "uint256" },
+] as const;
+
+export const RESPONSE_ABI_FIELDS = [
+    { name: "chainId", type: "string" },
+    { name: "epoch", type: "uint256" },
+    { name: "block", type: "uint256" },
+] as const;
 
 // TODO: these constants should be env vars
 const TRANSACTION_RECEIPT_CONFIRMATIONS = 1;
@@ -201,25 +228,6 @@ export class ProtocolProvider implements IProtocolProvider {
 
         const oracleEvents = [
             {
-                name: "ResponseProposed",
-                blockNumber: 2n,
-                logIndex: 1,
-                requestId: "0x01",
-                metadata: {
-                    requestId: "0x01",
-                    responseId: "0x02",
-                    response: {
-                        proposer: "0x12345678901234567890123456789012",
-                        requestId: "0x01",
-                        response: {
-                            block: 1n,
-                            chainId: "eip155:1",
-                            epoch: 20n,
-                        },
-                    },
-                },
-            } as EboEvent<"ResponseProposed">,
-            {
                 name: "ResponseDisputed",
                 blockNumber: 3n,
                 logIndex: 1,
@@ -267,6 +275,72 @@ export class ProtocolProvider implements IProtocolProvider {
     async getAvailableChains(): Promise<Caip2ChainId[]> {
         // TODO: implement actual method
         return ["eip155:1", "eip155:42161"];
+    }
+
+    static decodeRequestResponseModuleData(
+        responseModuleData: Request["prophetData"]["responseModuleData"],
+    ): Request["decodedData"]["responseModuleData"] {
+        const decodedParameters = decodeAbiParameters(
+            REQUEST_RESPONSE_MODULE_DATA_ABI_FIELDS,
+            responseModuleData,
+        );
+
+        return {
+            accountingExtension: decodedParameters[0],
+            bondToken: decodedParameters[1],
+            bondSize: decodedParameters[2],
+            deadline: decodedParameters[3],
+            disputeWindow: decodedParameters[4],
+        };
+    }
+
+    static decodeRequestDisputeModuleData(
+        disputeModuleData: Request["prophetData"]["disputeModuleData"],
+    ): Request["decodedData"]["disputeModuleData"] {
+        const decodedParameters = decodeAbiParameters(
+            REQUEST_DISPUTE_MODULE_DATA_ABI_FIELDS,
+            disputeModuleData,
+        );
+
+        return {
+            accountingExtension: decodedParameters[0],
+            bondToken: decodedParameters[1],
+            bondSize: decodedParameters[2],
+            maxNumberOfEscalations: decodedParameters[3],
+            bondEscalationDeadline: decodedParameters[4],
+            tyingBuffer: decodedParameters[5],
+            disputeWindow: decodedParameters[6],
+        };
+    }
+
+    static encodeResponse(
+        response: Response["decodedData"]["response"],
+    ): Response["prophetData"]["response"] {
+        return encodeAbiParameters(RESPONSE_ABI_FIELDS, [
+            response.chainId,
+            response.epoch,
+            response.block,
+        ]);
+    }
+
+    static decodeResponse(
+        response: Response["prophetData"]["response"],
+    ): Response["decodedData"]["response"] {
+        const decodedParameters = decodeAbiParameters(RESPONSE_ABI_FIELDS, response);
+
+        const chainId = decodedParameters[0];
+
+        if (Caip2Utils.isCaip2ChainId(chainId)) {
+            return {
+                chainId: chainId,
+                epoch: decodedParameters[1],
+                block: decodedParameters[2],
+            };
+        } else {
+            throw new InvalidChainId(
+                `Could not decode response chain ID while decoding:\n${response}`,
+            );
+        }
     }
 
     // TODO: waiting for ChainId to be merged for _chains parameter

@@ -1,6 +1,7 @@
 import { CommandAlreadyRun, CommandNotRun } from "../../../exceptions/index.js";
 import { EboRegistry, EboRegistryCommand } from "../../../interfaces/index.js";
-import { EboEvent, Response } from "../../../types/index.js";
+import { ProtocolProvider } from "../../../providers/index.js";
+import { EboEvent, Response, ResponseBody } from "../../../types/index.js";
 
 export class AddResponse implements EboRegistryCommand {
     private wasRun: boolean = false;
@@ -11,9 +12,15 @@ export class AddResponse implements EboRegistryCommand {
     ) {}
 
     static buildFromEvent(event: EboEvent<"ResponseProposed">, registry: EboRegistry) {
+        const encodedResponse = event.metadata.response.response;
+        const responseBody: ResponseBody = ProtocolProvider.decodeResponse(encodedResponse);
+
         const response: Response = {
             id: event.metadata.responseId,
             createdAt: event.blockNumber,
+            decodedData: {
+                response: responseBody,
+            },
             prophetData: event.metadata.response,
         };
 

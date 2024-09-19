@@ -11,7 +11,7 @@ describe("EboActor", () => {
     describe("onLastBlockUpdated", () => {
         it("settles all disputes when escalation deadline and tying buffer passed", async () => {
             const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
-            const { disputeModuleData } = request.prophetData;
+            const { disputeModuleData } = request.decodedData;
 
             const response = mocks.buildResponse(request, { id: "0x10" });
             const dispute = mocks.buildDispute(request, response, { createdAt: 1n });
@@ -48,7 +48,7 @@ describe("EboActor", () => {
 
         it("escalates dispute if cannot settle", async () => {
             const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
-            const { disputeModuleData } = request.prophetData;
+            const { disputeModuleData } = request.decodedData;
 
             const response = mocks.buildResponse(request, { id: "0x10" });
             const dispute = mocks.buildDispute(request, response, { createdAt: 1n });
@@ -100,7 +100,7 @@ describe("EboActor", () => {
 
         it("throws if the dispute has no response in registry", async () => {
             const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
-            const { disputeModuleData } = request.prophetData;
+            const { disputeModuleData } = request.decodedData;
 
             const response = mocks.buildResponse(request, { id: "0x10" });
             const dispute = mocks.buildDispute(request, response, { createdAt: 1n });
@@ -128,7 +128,7 @@ describe("EboActor", () => {
             const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
             const response = mocks.buildResponse(request, { id: "0x10" });
 
-            const { responseModuleData } = request.prophetData;
+            const { responseModuleData } = request.decodedData;
             const deadline = responseModuleData.deadline;
 
             const { actor, registry, protocolProvider } = mocks.buildEboActor(request, logger);
@@ -174,7 +174,7 @@ describe("EboActor", () => {
             });
 
             const newBlock =
-                secondResponse.createdAt + request.prophetData.responseModuleData.disputeWindow;
+                secondResponse.createdAt + request.decodedData.responseModuleData.disputeWindow;
 
             await actor.onLastBlockUpdated(newBlock + 1n);
 

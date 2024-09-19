@@ -5,6 +5,7 @@ import {
     fallback,
     getContract,
     http,
+    isHex,
     WaitForTransactionReceiptTimeoutError,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -23,7 +24,7 @@ import {
     TransactionExecutionError,
 } from "../../src/exceptions/index.js";
 import { ProtocolProvider } from "../../src/providers/index.js";
-import { ProtocolContractsAddresses } from "../../src/types/index.js";
+import { ProtocolContractsAddresses, Response } from "../../src/types/index.js";
 import {
     DEFAULT_MOCKED_DISPUTE_DATA,
     DEFAULT_MOCKED_REQUEST_CREATED_DATA,
@@ -175,6 +176,32 @@ describe("ProtocolProvider", () => {
             ).toThrowError(RpcUrlsEmpty);
         });
     });
+
+    describe("encodeResponse", () => {
+        const response: Response["decodedData"]["response"] = {
+            chainId: "eip155:1",
+            block: 1n,
+            epoch: 1n,
+        };
+
+        it("generates a hex string with the response encoded", () => {
+            const encodedResponse = ProtocolProvider.encodeResponse(response);
+
+            expect(encodedResponse).toSatisfy((bytes) => isHex(bytes));
+        });
+
+        it("is able to decode encoded data correctly", () => {
+            const encodedResponse = ProtocolProvider.encodeResponse(response);
+            const decodedResponse = ProtocolProvider.decodeResponse(encodedResponse);
+
+            expect(decodedResponse).toEqual(response);
+        });
+    });
+
+    // TODO: whenever we manage to create an actual Request on-chain we can use it
+    //  to feed an encoded Request here for testing
+    describe.todo("decodeRequestResponseModuleData");
+    describe.todo("decodeRequestDisputeModuleData");
 
     describe("getCurrentEpoch", () => {
         it("returns currentEpoch and currentEpochBlock successfully", async () => {

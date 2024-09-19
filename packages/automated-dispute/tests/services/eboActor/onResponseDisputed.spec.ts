@@ -39,13 +39,13 @@ describe("onResponseDisputed", () => {
         vi.spyOn(registry, "getResponse").mockReturnValue(response);
 
         vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-            currentEpoch: actorRequest.epoch,
-            currentEpochBlockNumber: response.prophetData.response.block,
-            currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 1, 0, 0, 0)),
+            number: actorRequest.epoch,
+            firstBlockNumber: response.decodedData.response.block,
+            startTimestamp: BigInt(Date.UTC(2024, 1, 1, 1, 0, 0, 0)),
         });
 
         vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-            response.prophetData.response.block + 1n,
+            response.decodedData.response.block + 1n,
         );
 
         const mockPledgeForDispute = vi.spyOn(protocolProvider, "pledgeForDispute");
@@ -67,13 +67,13 @@ describe("onResponseDisputed", () => {
         vi.spyOn(registry, "getResponse").mockReturnValue(response);
 
         vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-            currentEpoch: actorRequest.epoch,
-            currentEpochBlockNumber: response.prophetData.response.block,
-            currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 1, 0, 0, 0)),
+            number: actorRequest.epoch,
+            firstBlockNumber: response.decodedData.response.block,
+            startTimestamp: BigInt(Date.UTC(2024, 1, 1, 1, 0, 0, 0)),
         });
 
         vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-            response.prophetData.response.block,
+            response.decodedData.response.block,
         );
 
         const mockPledgeAgainstDispute = vi.spyOn(protocolProvider, "pledgeAgainstDispute");
@@ -95,13 +95,13 @@ describe("onResponseDisputed", () => {
         vi.spyOn(registry, "getResponse").mockReturnValue(response);
 
         vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-            currentEpoch: actorRequest.epoch,
-            currentEpochBlockNumber: response.prophetData.response.block,
-            currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 1, 0, 0, 0)),
+            number: actorRequest.epoch,
+            firstBlockNumber: response.decodedData.response.block,
+            startTimestamp: BigInt(Date.UTC(2024, 1, 1, 1, 0, 0, 0)),
         });
 
         vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-            response.prophetData.response.block,
+            response.decodedData.response.block,
         );
 
         vi.spyOn(protocolProvider, "pledgeAgainstDispute").mockResolvedValue();
