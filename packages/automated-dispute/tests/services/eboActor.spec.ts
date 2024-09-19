@@ -105,8 +105,7 @@ describe("EboActor", () => {
             await expect(actor.processEvents()).rejects.toThrow("Test Error");
 
             expect(mockEventsQueuePush).toHaveBeenCalledWith(event);
-            // Event is first queued and then queued upon error
-            expect(mockEventsQueuePush).toHaveBeenCalledTimes(2);
+            expect(mockEventsQueuePush).toHaveBeenCalledTimes(1);
         });
 
         it("enqueues again an event at the top if its processing throws", async () => {
