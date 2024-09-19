@@ -449,9 +449,6 @@ export class EboActor {
                 });
 
                 await ErrorHandler.handle(customError, {
-                    consumeEvent: () => {
-                        this.logger.info(`Consuming error: ${customError.name}`);
-                    },
                     terminateActor: () => {
                         throw customError;
                     },
