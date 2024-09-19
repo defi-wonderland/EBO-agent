@@ -155,7 +155,7 @@ export class EboProcessor {
         const groupedEvents = new Map<RequestId, EboEventStream>();
 
         for (const event of events) {
-            const requestId = Address.normalize(event.requestId);
+            const requestId = Address.normalize(event.requestId) as RequestId;
             const requestEvents = groupedEvents.get(requestId) || [];
 
             groupedEvents.set(requestId, [...requestEvents, event]);
@@ -171,11 +171,11 @@ export class EboProcessor {
      * @param eventsRequestIds request IDs observed in an events batch
      * @returns request IDS to sync
      */
-    private calculateSynchableRequests(eventsRequestIds: RequestId[]) {
+    private calculateSynchableRequests(eventsRequestIds: RequestId[]): RequestId[] {
         const actorsRequestIds = this.actorsManager.getRequestIds();
         const uniqueRequestIds = new Set([...eventsRequestIds, ...actorsRequestIds]);
 
-        return [...uniqueRequestIds].map((requestId) => Address.normalize(requestId));
+        return [...uniqueRequestIds].map((requestId) => Address.normalize(requestId) as RequestId);
     }
 
     /**
@@ -259,8 +259,8 @@ export class EboProcessor {
      * @returns a new `EboActor` instance, `null` if the actor was not created
      */
     private createNewActor(event: EboEvent<"RequestCreated">) {
-        const actorRequest = {
-            id: Address.normalize(event.requestId),
+        const actorRequest: ActorRequest = {
+            id: Address.normalize(event.requestId) as RequestId,
             epoch: event.metadata.epoch,
             chainId: event.metadata.chainId,
         };

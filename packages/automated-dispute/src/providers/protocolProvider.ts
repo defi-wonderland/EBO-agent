@@ -21,7 +21,17 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum } from "viem/chains";
 
-import type { Dispute, EboEvent, EboEventName, Epoch, Request, Response } from "../types/index.js";
+import type {
+    Dispute,
+    DisputeId,
+    EboEvent,
+    EboEventName,
+    Epoch,
+    Request,
+    RequestId,
+    Response,
+    ResponseId,
+} from "../types/index.js";
 import {
     bondEscalationModuleAbi,
     eboRequestCreatorAbi,
@@ -231,16 +241,16 @@ export class ProtocolProvider implements IProtocolProvider {
                 name: "ResponseDisputed",
                 blockNumber: 3n,
                 logIndex: 1,
-                requestId: "0x01",
+                requestId: "0x01" as RequestId,
                 metadata: {
-                    requestId: "0x01",
-                    responseId: "0x02",
-                    disputeId: "0x03",
+                    requestId: "0x01" as RequestId,
+                    responseId: "0x02" as ResponseId,
+                    disputeId: "0x03" as DisputeId,
                     dispute: {
                         disputer: "0x12345678901234567890123456789012",
                         proposer: "0x12345678901234567890123456789012",
-                        responseId: "0x02",
-                        requestId: "0x01",
+                        responseId: "0x02" as ResponseId,
+                        requestId: "0x01" as RequestId,
                     },
                 },
             } as EboEvent<"ResponseDisputed">,

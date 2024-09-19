@@ -1,6 +1,6 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
-import { ILogger } from "@ebo-agent/shared";
+import { Address, ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
 import { BlockNumber, ContractFunctionRevertedError } from "viem";
@@ -14,6 +14,7 @@ import type {
     Request,
     Response,
     ResponseBody,
+    ResponseId,
 } from "../types/index.js";
 import {
     DisputeWithoutResponse,
@@ -611,7 +612,7 @@ export class EboActor {
         const dispute: Dispute["prophetData"] = {
             disputer: disputer,
             proposer: eventResponse.proposer,
-            responseId: event.metadata.responseId,
+            responseId: Address.normalize(event.metadata.responseId) as ResponseId,
             requestId: request.id,
         };
 
