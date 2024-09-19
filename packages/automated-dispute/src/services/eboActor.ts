@@ -150,20 +150,13 @@ export class EboActor {
                     this.logger.error(`Error processing event ${event.name}: ${err}`);
 
                     if (err instanceof CustomContractError) {
-                        await ErrorHandler.handle(err, {
-                            reenqueueEvent: () => {
-                                // Enqueue the event again as it's supposed to be reprocessed
-                                if (event) {
-                                    this.eventsQueue.push(event);
-                                }
-                                updateStateCommand.undo();
-                            },
-                            terminateActor: () => {
-                                throw err;
-                            },
-                        });
+                        if (!err.strategy.shouldConsume) {
+                            this.eventsQueue.push(event);
+                            updateStateCommand.undo();
+                        }
 
                         if (err.strategy.shouldTerminate) {
+                            // Rethrow for EboProcessor to handle
                             throw err;
                         }
                     } else {
@@ -271,62 +264,79 @@ export class EboActor {
     }
 
     /**
+     * Finalize the request if the proposal window is closed and there is an accepted response.
+     *
+     * @param request The request to finalize
+     * @param blockNumber The current block number
+     */
+    private async finalizeRequest(request: Request, blockNumber: bigint): Promise<void> {
+        try {
+            const proposalDeadline = request.prophetData.responseModuleData.deadline;
+            const isProposalWindowOpen = blockNumber <= proposalDeadline;
+
+            if (isProposalWindowOpen) {
+                this.logger.debug(`Proposal window for request ${request.id} not closed yet.`);
+                return;
+            }
+
+            const acceptedResponse = this.getAcceptedResponse(blockNumber);
+
+            if (acceptedResponse) {
+                this.logger.info(`Finalizing request ${request.id}...`);
+
+                await this.protocolProvider.finalize(
+                    request.prophetData,
+                    acceptedResponse.prophetData,
+                );
+            }
+            // TODO: check for responseModuleData.deadline, if no answer has been accepted after the deadline
+            //  notify and (TBD) finalize with no response
+        } catch (err) {
+            if (err instanceof ContractFunctionRevertedError) {
+                const customError = ErrorFactory.createError(err.name).setContext({
+                    request,
+                    blockNumber,
+                    registry: this.registry,
+                });
+
+                await ErrorHandler.handle(customError, {
+                    terminateActor: () => {
+                        throw customError;
+                    },
+                });
+            } else {
+                throw err;
+            }
+        }
+    }
+
+    /**
      * Triggers time-based interactions with smart contracts. This handles window-based
      * checks like proposal windows to close requests, or dispute windows to accept responses.
      *
      * @param blockNumber block number to check open/closed windows
      */
     public async onLastBlockUpdated(blockNumber: bigint): Promise<void> {
-        await this.settleDisputes(blockNumber);
-        const request = this.getActorRequest();
-        const proposalDeadline = request.prophetData.responseModuleData.deadline;
-        const isProposalWindowOpen = blockNumber <= proposalDeadline;
+        try {
+            await this.settleDisputes(blockNumber);
+            const request = this.getActorRequest();
+            await this.finalizeRequest(request, blockNumber);
+        } catch (err) {
+            if (err instanceof ContractFunctionRevertedError) {
+                const customError = ErrorFactory.createError(err.name).setContext({
+                    blockNumber,
+                    registry: this.registry,
+                });
 
-        if (isProposalWindowOpen) {
-            this.logger.debug(`Proposal window for request ${request.id} not closed yet.`);
-            return;
-        }
-
-        const acceptedResponse = this.getAcceptedResponse(blockNumber);
-
-        if (acceptedResponse) {
-            this.logger.info(`Finalizing request ${request.id}...`);
-
-            try {
-                await this.protocolProvider.finalize(
-                    request.prophetData,
-                    acceptedResponse.prophetData,
-                );
-            } catch (err) {
-                if (err instanceof ContractFunctionRevertedError) {
-                    const errorName = err.data?.errorName || err.name;
-                    this.logger.warn(`Finalize request failed due to: ${errorName}`);
-
-                    const customError = ErrorFactory.createError(errorName).setContext({
-                        request,
-                        acceptedResponse,
-                        registry: this.registry,
-                    });
-
-                    await ErrorHandler.handle(customError, {
-                        consumeEvent: () => {
-                            this.logger.info(`Consuming error: ${customError.name}`);
-                        },
-                        terminateActor: () => {
-                            throw customError;
-                        },
-                    });
-
-                    if (customError.strategy.shouldTerminate) {
+                await ErrorHandler.handle(customError, {
+                    terminateActor: () => {
                         throw customError;
-                    }
-                } else {
-                    throw err;
-                }
+                    },
+                });
+            } else {
+                throw err;
             }
         }
-        // TODO: check for responseModuleData.deadline, if no answer has been accepted after the deadline
-        //  notify and (TBD) finalize with no response
     }
 
     /**
@@ -360,20 +370,7 @@ export class EboActor {
             // Any of the disputes not being handled correctly should make the actor fail
             await Promise.all(settledDisputes);
         } catch (err) {
-            if (err instanceof ContractFunctionRevertedError) {
-                const customError = ErrorFactory.createError(err.name).setContext({
-                    blockNumber,
-                    registry: this.registry,
-                });
-
-                await ErrorHandler.handle(customError, {
-                    terminateActor: () => {
-                        throw customError;
-                    },
-                });
-            } else {
-                throw err;
-            }
+            throw err;
         }
     }
 
@@ -430,16 +427,37 @@ export class EboActor {
                 });
 
                 await ErrorHandler.handle(customError, {
-                    consumeEvent: () => {
-                        // TODO: consume
-                        this.logger.info(`Consuming error: ${customError.name}`);
-                    },
                     terminateActor: () => {
                         throw customError;
+                    },
+                    // TODO: implement notificationService
+                    // notifyError: async () => {
+                    //     await this.notificationService.notifyError(customError, {
+                    //         request,
+                    //         response,
+                    //         dispute,
+                    //         registry: this.registry,
+                    //     });
+                    // },
+                    escalateDispute: async () => {
+                        if (customError.name === "BondEscalationModule_ShouldBeEscalated") {
+                            try {
+                                await this.protocolProvider.escalateDispute(
+                                    request.prophetData,
+                                    response.prophetData,
+                                    dispute.prophetData,
+                                );
+                                this.logger.info(`Dispute ${dispute.id} escalated.`);
+                            } catch (escalationError) {
+                                this.logger.error(`Failed to escalate dispute ${dispute.id}.`);
+                                throw escalationError;
+                            }
+                        }
                     },
                 });
 
                 if (customError.strategy.shouldTerminate) {
+                    // Rethrow for EboProcessor to handle
                     throw customError;
                 }
             } else {
@@ -553,11 +571,10 @@ export class EboActor {
             await this.proposeResponse(chainId);
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
-                const customError = ErrorFactory.createError(err.name)
-                    .setContext({ event, registry: this.registry })
-                    .on("ErrorName", async (context) => {
-                        console.log(context);
-                    });
+                const customError = ErrorFactory.createError(err.name).setContext({
+                    event,
+                    registry: this.registry,
+                });
 
                 await ErrorHandler.handle(customError, {
                     reenqueueEvent: () => {
@@ -824,6 +841,7 @@ export class EboActor {
                 });
 
                 if (customError.strategy.shouldTerminate) {
+                    // Rethrow for EboProcessor to handle
                     throw customError;
                 }
             } else {
@@ -868,6 +886,7 @@ export class EboActor {
                 });
 
                 if (customError.strategy.shouldTerminate) {
+                    // Rethrow for EboProcessor to handle
                     throw customError;
                 }
             } else {
