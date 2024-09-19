@@ -301,9 +301,21 @@ export class EboActor {
                 });
 
                 await ErrorHandler.handle(customError, {
+                    consumeEvent: () => {
+                        this.logger.info(`Consuming error: ${customError.name}`);
+                    },
                     terminateActor: () => {
                         throw customError;
                     },
+                    // TODO: implement notificationService
+                    // notifyError: async () => {
+                    //     await this.notificationService.notifyError(customError, {
+                    //         request,
+                    //         response,
+                    //         dispute,
+                    //         registry: this.registry,
+                    //     });
+                    // },
                 });
             } else {
                 throw err;
@@ -333,6 +345,15 @@ export class EboActor {
                     terminateActor: () => {
                         throw customError;
                     },
+                    // TODO: implement notificationService
+                    // notifyError: async () => {
+                    //     await this.notificationService.notifyError(customError, {
+                    //         request,
+                    //         response,
+                    //         dispute,
+                    //         registry: this.registry,
+                    //     });
+                    // },
                 });
             } else {
                 throw err;
@@ -428,6 +449,9 @@ export class EboActor {
                 });
 
                 await ErrorHandler.handle(customError, {
+                    consumeEvent: () => {
+                        this.logger.info(`Consuming error: ${customError.name}`);
+                    },
                     terminateActor: () => {
                         throw customError;
                     },
@@ -579,6 +603,9 @@ export class EboActor {
                 });
 
                 await ErrorHandler.handle(customError, {
+                    consumeEvent: () => {
+                        this.logger.info(`Consuming error: ${customError.name}`);
+                    },
                     reenqueueEvent: () => {
                         this.eventsQueue.push(event);
                     },
@@ -742,6 +769,9 @@ export class EboActor {
                 });
 
                 await ErrorHandler.handle(customError, {
+                    consumeEvent: () => {
+                        this.logger.info(`Consuming error: ${customError.name}`);
+                    },
                     reenqueueEvent: () => {
                         this.eventsQueue.push(event);
                     },
@@ -869,6 +899,15 @@ export class EboActor {
                     terminateActor: () => {
                         throw customError;
                     },
+                    // TODO: implement notificationService
+                    // notifyError: async () => {
+                    //     await this.notificationService.notifyError(customError, {
+                    //         request,
+                    //         response,
+                    //         dispute,
+                    //         registry: this.registry,
+                    //     });
+                    // },
                 });
 
                 if (customError.strategy.shouldTerminate) {
@@ -914,6 +953,15 @@ export class EboActor {
                     terminateActor: () => {
                         throw customError;
                     },
+                    // TODO: implement notificationService
+                    // notifyError: async () => {
+                    //     await this.notificationService.notifyError(customError, {
+                    //         request,
+                    //         response,
+                    //         dispute,
+                    //         registry: this.registry,
+                    //     });
+                    // },
                 });
 
                 if (customError.strategy.shouldTerminate) {
