@@ -15,7 +15,7 @@ import type {
     Response,
     ResponseBody,
 } from "../types/index.js";
-import { ErrorHandler } from "../exceptions/ErrorHandler.js";
+import { ErrorHandler } from "../exceptions/errorHandler.js";
 import {
     CustomContractError,
     DisputeWithoutResponse,

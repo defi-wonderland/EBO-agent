@@ -1,8 +1,6 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import {
     Address,
-    BaseError,
-    ContractFunctionRevertedError,
     createPublicClient,
     createWalletClient,
     fallback,
@@ -31,7 +29,6 @@ import {
     IWriteProvider,
     ProtocolContractsAddresses,
 } from "../interfaces/index.js";
-import { ErrorFactory } from "../services/errorFactory.js";
 
 // TODO: these constants should be env vars
 const TRANSACTION_RECEIPT_CONFIRMATIONS = 1;
@@ -296,15 +293,6 @@ export class ProtocolProvider implements IProtocolProvider {
                 throw new TransactionExecutionError("createRequest transaction failed");
             }
         } catch (error) {
-            if (error instanceof BaseError) {
-                const revertError = error.walk(
-                    (err) => err instanceof ContractFunctionRevertedError,
-                );
-                if (revertError instanceof ContractFunctionRevertedError) {
-                    const errorName = revertError.data?.errorName ?? "";
-                    throw ErrorFactory.createError(errorName);
-                }
-            }
             throw error;
         }
     }
@@ -342,15 +330,6 @@ export class ProtocolProvider implements IProtocolProvider {
                 throw new TransactionExecutionError("proposeResponse transaction failed");
             }
         } catch (error) {
-            if (error instanceof BaseError) {
-                const revertError = error.walk(
-                    (err) => err instanceof ContractFunctionRevertedError,
-                );
-                if (revertError instanceof ContractFunctionRevertedError) {
-                    const errorName = revertError.data?.errorName ?? "";
-                    throw ErrorFactory.createError(errorName);
-                }
-            }
             throw error;
         }
     }
@@ -390,15 +369,6 @@ export class ProtocolProvider implements IProtocolProvider {
                 throw new TransactionExecutionError("disputeResponse transaction failed");
             }
         } catch (error) {
-            if (error instanceof BaseError) {
-                const revertError = error.walk(
-                    (err) => err instanceof ContractFunctionRevertedError,
-                );
-                if (revertError instanceof ContractFunctionRevertedError) {
-                    const errorName = revertError.data?.errorName ?? "";
-                    throw ErrorFactory.createError(errorName);
-                }
-            }
             throw error;
         }
     }
@@ -468,15 +438,6 @@ export class ProtocolProvider implements IProtocolProvider {
                 throw new TransactionExecutionError("escalateDispute transaction failed");
             }
         } catch (error) {
-            if (error instanceof BaseError) {
-                const revertError = error.walk(
-                    (err) => err instanceof ContractFunctionRevertedError,
-                );
-                if (revertError instanceof ContractFunctionRevertedError) {
-                    const errorName = revertError.data?.errorName ?? "";
-                    throw ErrorFactory.createError(errorName);
-                }
-            }
             throw error;
         }
     }
@@ -520,15 +481,6 @@ export class ProtocolProvider implements IProtocolProvider {
                 throw new TransactionExecutionError("finalize transaction failed");
             }
         } catch (error) {
-            if (error instanceof BaseError) {
-                const revertError = error.walk(
-                    (err) => err instanceof ContractFunctionRevertedError,
-                );
-                if (revertError instanceof ContractFunctionRevertedError) {
-                    const errorName = revertError.data?.errorName ?? "";
-                    throw ErrorFactory.createError(errorName);
-                }
-            }
             throw error;
         }
     }
