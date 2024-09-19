@@ -1,6 +1,5 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import { ILogger } from "@ebo-agent/shared";
-import { Address } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProtocolProvider } from "../../../src/providers/index.js";
