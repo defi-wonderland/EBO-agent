@@ -295,6 +295,7 @@ export class EboActor {
             if (err instanceof ContractFunctionRevertedError) {
                 const customError = ErrorFactory.createError(err.name).setContext({
                     request,
+                    response: this.getAcceptedResponse(blockNumber),
                     blockNumber,
                     registry: this.registry,
                 });
@@ -430,6 +431,7 @@ export class EboActor {
                     terminateActor: () => {
                         throw customError;
                     },
+
                     // TODO: implement notificationService
                     // notifyError: async () => {
                     //     await this.notificationService.notifyError(customError, {
@@ -722,7 +724,37 @@ export class EboActor {
             responseId: event.metadata.responseId,
             requestId: request.id,
         };
-        await this.protocolProvider.disputeResponse(request.prophetData, eventResponse, dispute);
+        try {
+            await this.protocolProvider.disputeResponse(
+                request.prophetData,
+                eventResponse,
+                dispute,
+            );
+        } catch (err) {
+            if (err instanceof ContractFunctionRevertedError) {
+                const customError = ErrorFactory.createError(err.name).setContext({
+                    event,
+                    request,
+                    eventResponse,
+                    dispute,
+                    response: eventResponse,
+                    registry: this.registry,
+                });
+
+                await ErrorHandler.handle(customError, {
+                    reenqueueEvent: () => {
+                        this.eventsQueue.push(event);
+                    },
+                });
+
+                if (customError.strategy.shouldTerminate) {
+                    // Rethrow for EboProcessor to handle
+                    throw customError;
+                }
+            } else {
+                throw err;
+            }
+        }
     }
 
     /**
@@ -832,7 +864,6 @@ export class EboActor {
 
                 await ErrorHandler.handle(customError, {
                     consumeEvent: () => {
-                        // TODO: consume error
                         this.logger.info(`Consuming error: ${customError.name}`);
                     },
                     terminateActor: () => {
