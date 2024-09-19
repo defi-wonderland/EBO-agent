@@ -1,7 +1,10 @@
 import { inspect } from "util";
-import { EboActorsManager, EboProcessor } from "@ebo-agent/automated-dispute";
-import { ProtocolProvider } from "@ebo-agent/automated-dispute/dist/providers/protocolProvider.js";
-import { AccountingModules } from "@ebo-agent/automated-dispute/dist/types/prophet.js";
+import {
+    AccountingModules,
+    EboActorsManager,
+    EboProcessor,
+    ProtocolProvider,
+} from "@ebo-agent/automated-dispute";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Logger } from "@ebo-agent/shared";
 
