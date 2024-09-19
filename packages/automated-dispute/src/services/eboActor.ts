@@ -3,7 +3,7 @@ import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
-import { ContractFunctionRevertedError } from "viem";
+import { BlockNumber, ContractFunctionRevertedError } from "viem";
 
 import type {
     Dispute,
@@ -130,8 +130,6 @@ export class EboActor {
      * @throws {RequestMismatch} when an event from another request was enqueued in this actor
      */
     public processEvents(): Promise<void> {
-        // TODO: check for actor expiration (ie if it makes no sense to still handle the request events)
-
         return this.eventProcessingMutex.runExclusive(async () => {
             let event: EboEvent<EboEventName> | undefined;
 
@@ -451,7 +449,7 @@ export class EboActor {
      * @param blockNumber block number to check proposals' status against
      * @returns an array of `Response` instances
      */
-    private activeProposals(blockNumber: bigint): Response[] {
+    private activeProposals(blockNumber: BlockNumber): Response[] {
         const responses = this.registry.getResponses();
 
         return responses.filter((response) => {
@@ -477,16 +475,6 @@ export class EboActor {
      * @param event `RequestCreated` event
      */
     private async onRequestCreated(event: EboEvent<"RequestCreated">): Promise<void> {
-        if (this.anyActiveProposal()) {
-            // Skipping new proposal until the actor receives a ResponseDisputed event;
-            // at that moment, it will be possible to re-propose again.
-            this.logger.info(
-                `There is an active proposal for request ${this.actorRequest.id}. Skipping...`,
-            );
-
-            return;
-        }
-
         const { chainId } = event.metadata;
 
         try {
@@ -505,16 +493,6 @@ export class EboActor {
                 throw err;
             }
         }
-    }
-
-    /**
-     * Check if there's at least one proposal that has not received any dispute yet.
-     *
-     * @returns
-     */
-    private anyActiveProposal() {
-        // TODO: implement this function
-        return false;
     }
 
     /**

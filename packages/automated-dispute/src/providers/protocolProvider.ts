@@ -269,13 +269,12 @@ export class ProtocolProvider implements IProtocolProvider {
         return ["eip155:1", "eip155:42161"];
     }
 
-    // TODO: waiting for ChainId to be merged for _chains parameter
     /**
      * Creates a request on the EBO Request Creator contract by simulating the transaction
      * and then executing it if the simulation is successful.
      *
      * @param {bigint} epoch - The epoch for which the request is being created.
-     * @param {string[]} chains - An array of chain identifiers where the request should be created.
+     * @param {Caip2ChainId[]} chains - An array of chain identifiers where the request should be created.
      * @throws {Error} Throws an error if the chains array is empty or if the transaction fails.
      * @throws {EBORequestCreator_InvalidEpoch} Throws if the epoch is invalid.
      * @throws {Oracle_InvalidRequestBody} Throws if the request body is invalid.
@@ -283,7 +282,7 @@ export class ProtocolProvider implements IProtocolProvider {
      * @throws {EBORequestCreator_ChainNotAdded} Throws if the specified chain is not added.
      * @returns {Promise<void>} A promise that resolves when the request is successfully created.
      */
-    async createRequest(epoch: bigint, chains: string[]): Promise<void> {
+    async createRequest(epoch: bigint, chains: Caip2ChainId[]): Promise<void> {
         if (chains.length === 0) {
             throw new Error("Chains array cannot be empty");
         }
