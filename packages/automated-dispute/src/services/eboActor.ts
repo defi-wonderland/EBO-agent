@@ -161,8 +161,6 @@ export class EboActor {
                             throw err;
                         }
                     } else {
-                        if (this.eventsQueue) this.eventsQueue.push(event);
-                        updateStateCommand.undo();
                         throw err;
                     }
                 }
