@@ -1,6 +1,5 @@
 import { beforeEach } from "node:test";
-import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
+import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
 import { ILogger } from "@ebo-agent/shared";
 import { describe, expect, it } from "vitest";
 

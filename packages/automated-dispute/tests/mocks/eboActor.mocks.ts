@@ -1,11 +1,10 @@
-import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types";
+import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
 import { ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 
 import { ProtocolProvider } from "../../src/providers/index.js";
 import { EboActor, EboMemoryRegistry } from "../../src/services/index.js";
-import { Dispute, Request, Response } from "../../src/types/index.js";
+import { Dispute, Request, Response, ResponseBody } from "../../src/types/index.js";
 import {
     DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
     mockedPrivateKey,
@@ -80,17 +79,22 @@ export function buildEboActor(request: Request, logger: ILogger) {
  * @returns a `Response`
  */
 export function buildResponse(request: Request, attributes: Partial<Response> = {}): Response {
+    const responseBody: ResponseBody = {
+        chainId: request.chainId,
+        block: 1n,
+        epoch: request.epoch,
+    };
+
     const baseResponse: Response = {
         id: "0x01",
         createdAt: request.createdAt + 1n,
+        decodedData: {
+            response: responseBody,
+        },
         prophetData: {
             proposer: "0x01",
             requestId: request.id,
-            response: {
-                chainId: request.chainId,
-                block: 1n,
-                epoch: request.epoch,
-            },
+            response: ProtocolProvider.encodeResponse(responseBody),
         },
     };
 

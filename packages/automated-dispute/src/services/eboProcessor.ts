@@ -1,13 +1,23 @@
 import { isNativeError } from "util/types";
-import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
+import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
 import { Address, EBO_SUPPORTED_CHAIN_IDS, ILogger } from "@ebo-agent/shared";
 
-import { ProcessorAlreadyStarted } from "../exceptions/index.js";
+import { PendingModulesApproval, ProcessorAlreadyStarted } from "../exceptions/index.js";
 import { isRequestCreatedEvent } from "../guards.js";
 import { ProtocolProvider } from "../providers/protocolProvider.js";
-import { alreadyDeletedActorWarning, droppingUnhandledEventsWarning } from "../templates/index.js";
-import { ActorRequest, EboEvent, EboEventName, Epoch, RequestId } from "../types/index.js";
+import {
+    alreadyDeletedActorWarning,
+    droppingUnhandledEventsWarning,
+    pendingApprovedModulesError,
+} from "../templates/index.js";
+import {
+    AccountingModules,
+    ActorRequest,
+    EboEvent,
+    EboEventName,
+    Epoch,
+    RequestId,
+} from "../types/index.js";
 import { EboActorsManager } from "./eboActorsManager.js";
 
 const DEFAULT_MS_BETWEEN_CHECKS = 10 * 60 * 1000; // 10 minutes
@@ -19,6 +29,7 @@ export class EboProcessor {
     private lastCheckedBlock?: bigint;
 
     constructor(
+        private readonly accountingModules: AccountingModules,
         private readonly protocolProvider: ProtocolProvider,
         private readonly blockNumberService: BlockNumberService,
         private readonly actorsManager: EboActorsManager,
@@ -33,6 +44,8 @@ export class EboProcessor {
     public async start(msBetweenChecks: number = DEFAULT_MS_BETWEEN_CHECKS) {
         if (this.eventsInterval) throw new ProcessorAlreadyStarted();
 
+        await this.checkAllModulesApproved();
+
         await this.sync(); // Bootstrapping
 
         this.eventsInterval = setInterval(async () => {
@@ -46,6 +59,42 @@ export class EboProcessor {
                 throw err;
             }
         }, msBetweenChecks);
+    }
+
+    /**
+     * Check if all the modules have been granted approval within the accounting module.
+     *
+     * @throws {PendingModulesApproval} when there is at least one module pending approval
+     */
+    private async checkAllModulesApproved() {
+        const approvedModules: Address[] =
+            await this.protocolProvider.getAccountingApprovedModules();
+
+        const summary: Record<"approved" | "notApproved", Partial<AccountingModules>> = {
+            approved: {},
+            notApproved: {},
+        };
+
+        for (const [moduleName, moduleAddress] of Object.entries(this.accountingModules)) {
+            const isApproved = approvedModules.includes(moduleAddress);
+            const key = isApproved ? "approved" : "notApproved";
+
+            summary[key][moduleName as keyof AccountingModules] = moduleAddress;
+        }
+
+        if (Object.keys(summary.notApproved).length > 0) {
+            const accountingModuleAddress = this.protocolProvider.getAccountingModuleAddress();
+
+            this.logger.error(
+                pendingApprovedModulesError(
+                    accountingModuleAddress,
+                    summary["approved"],
+                    summary["notApproved"],
+                ),
+            );
+
+            throw new PendingModulesApproval(summary["approved"], summary["notApproved"]);
+        }
     }
 
     /** Sync new blocks and their events with their corresponding actors. */
@@ -155,7 +204,7 @@ export class EboProcessor {
         const groupedEvents = new Map<RequestId, EboEventStream>();
 
         for (const event of events) {
-            const requestId = Address.normalize(event.requestId);
+            const requestId = Address.normalize(event.requestId) as RequestId;
             const requestEvents = groupedEvents.get(requestId) || [];
 
             groupedEvents.set(requestId, [...requestEvents, event]);
@@ -171,11 +220,11 @@ export class EboProcessor {
      * @param eventsRequestIds request IDs observed in an events batch
      * @returns request IDS to sync
      */
-    private calculateSynchableRequests(eventsRequestIds: RequestId[]) {
+    private calculateSynchableRequests(eventsRequestIds: RequestId[]): RequestId[] {
         const actorsRequestIds = this.actorsManager.getRequestIds();
         const uniqueRequestIds = new Set([...eventsRequestIds, ...actorsRequestIds]);
 
-        return [...uniqueRequestIds].map((requestId) => Address.normalize(requestId));
+        return [...uniqueRequestIds].map((requestId) => Address.normalize(requestId) as RequestId);
     }
 
     /**
@@ -259,8 +308,8 @@ export class EboProcessor {
      * @returns a new `EboActor` instance, `null` if the actor was not created
      */
     private createNewActor(event: EboEvent<"RequestCreated">) {
-        const actorRequest = {
-            id: Address.normalize(event.requestId),
+        const actorRequest: ActorRequest = {
+            id: Address.normalize(event.requestId) as RequestId,
             epoch: event.metadata.epoch,
             chainId: event.metadata.chainId,
         };

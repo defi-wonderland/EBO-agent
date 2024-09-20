@@ -23,7 +23,13 @@ const main = async (): Promise<void> => {
 
     const actorsManager = new EboActorsManager();
 
-    const processor = new EboProcessor(protocolProvider, blockNumberService, actorsManager, logger);
+    const processor = new EboProcessor(
+        config.processor.accountingModules,
+        protocolProvider,
+        blockNumberService,
+        actorsManager,
+        logger,
+    );
 
     await processor.start(config.processor.msBetweenChecks);
 };

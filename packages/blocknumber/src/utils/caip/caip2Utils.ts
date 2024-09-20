@@ -35,6 +35,16 @@ export class Caip2Utils {
         return true;
     }
 
+    public static isCaip2ChainId(chainId: string): chainId is Caip2ChainId {
+        try {
+            this.validateChainId(chainId);
+
+            return true;
+        } catch (err) {
+            return false;
+        }
+    }
+
     public static getNamespace(chainId: string | Caip2ChainId) {
         this.validateChainId(chainId);
 

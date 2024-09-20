@@ -1,8 +1,11 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
-import { NormalizedAddress } from "@ebo-agent/shared";
-import { Address } from "viem";
+import { Caip2ChainId } from "@ebo-agent/blocknumber";
+import { Branded, NormalizedAddress } from "@ebo-agent/shared";
+import { Address, Hex } from "viem";
 
-export type RequestId = NormalizedAddress;
+export type RequestId = Branded<NormalizedAddress, "RequestId">;
+export type ResponseId = Branded<NormalizedAddress, "ResponseId">;
+export type DisputeId = Branded<NormalizedAddress, "DisputeId">;
+
 export type RequestStatus = "Active" | "Finalized";
 
 export interface Request {
@@ -12,14 +15,7 @@ export interface Request {
     createdAt: bigint;
     status: RequestStatus;
 
-    prophetData: Readonly<{
-        requester: Address;
-        requestModule: Address;
-        responseModule: Address;
-        disputeModule: Address;
-        resolutionModule: Address;
-        finalityModule: Address;
-        // Modules' data
+    decodedData: {
         responseModuleData: {
             accountingExtension: Address;
             bondToken: Address;
@@ -36,39 +32,64 @@ export interface Request {
             tyingBuffer: bigint;
             disputeWindow: bigint;
         };
+    };
+
+    prophetData: Readonly<{
+        nonce: bigint;
+        requester: Address;
+
+        requestModule: Address;
+        responseModule: Address;
+        disputeModule: Address;
+        resolutionModule: Address;
+        finalityModule: Address;
+
+        requestModuleData: Hex;
+        responseModuleData: Hex;
+        disputeModuleData: Hex;
+        resolutionModuleData: Hex;
+        finalityModuleData: Hex;
     }>;
 }
 
+export type ResponseBody = {
+    chainId: Caip2ChainId;
+    block: bigint;
+    epoch: bigint;
+};
+
 export interface Response {
-    id: string;
+    id: ResponseId;
     createdAt: bigint;
+
+    decodedData: {
+        response: ResponseBody;
+    };
 
     prophetData: Readonly<{
         proposer: Address;
         requestId: RequestId;
-
-        // To be byte-encode when sending it to Prophet
-        response: {
-            chainId: Caip2ChainId; // TODO: Pending on-chain definition on CAIP-2 usage
-            block: bigint;
-            epoch: bigint;
-        };
+        response: Hex;
     }>;
 }
-
-export type ResponseBody = Response["prophetData"]["response"];
 
 export type DisputeStatus = "None" | "Active" | "Escalated" | "Won" | "Lost" | "NoResolution";
 
 export interface Dispute {
-    id: string;
+    id: DisputeId;
     createdAt: bigint;
     status: DisputeStatus;
 
     prophetData: {
         disputer: Address;
         proposer: Address;
-        responseId: string;
+        responseId: ResponseId;
         requestId: RequestId;
     };
 }
+
+export type AccountingModules = {
+    requestModule: Address;
+    responseModule: Address;
+    escalationModule: Address;
+};

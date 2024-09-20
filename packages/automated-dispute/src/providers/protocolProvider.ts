@@ -1,10 +1,12 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
+import { Caip2ChainId, Caip2Utils, InvalidChainId } from "@ebo-agent/blocknumber";
 import {
     Address,
     BaseError,
     ContractFunctionRevertedError,
     createPublicClient,
     createWalletClient,
+    decodeAbiParameters,
+    encodeAbiParameters,
     fallback,
     FallbackTransport,
     getContract,
@@ -18,7 +20,17 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum } from "viem/chains";
 
-import type { Dispute, EboEvent, EboEventName, Epoch, Request, Response } from "../types/index.js";
+import type {
+    Dispute,
+    DisputeId,
+    EboEvent,
+    EboEventName,
+    Epoch,
+    Request,
+    RequestId,
+    Response,
+    ResponseId,
+} from "../types/index.js";
 import {
     bondEscalationModuleAbi,
     eboRequestCreatorAbi,
@@ -44,6 +56,29 @@ type ProtocolRpcConfig = {
     timeout: number;
     retryInterval: number;
 };
+export const REQUEST_RESPONSE_MODULE_DATA_ABI_FIELDS = [
+    { name: "accountingExtension", type: "address" },
+    { name: "bondToken", type: "address" },
+    { name: "bondSize", type: "uint256" },
+    { name: "deadline", type: "uint256" },
+    { name: "disputeWindow", type: "uint256" },
+] as const;
+
+export const REQUEST_DISPUTE_MODULE_DATA_ABI_FIELDS = [
+    { name: "accountingExtension", type: "address" },
+    { name: "bondToken", type: "address" },
+    { name: "bondSize", type: "uint256" },
+    { name: "maxNumberOfEscalations", type: "uint256" },
+    { name: "bondEscalationDeadline", type: "uint256" },
+    { name: "tyingBuffer", type: "uint256" },
+    { name: "disputeWindow", type: "uint256" },
+] as const;
+
+export const RESPONSE_ABI_FIELDS = [
+    { name: "chainId", type: "string" },
+    { name: "epoch", type: "uint256" },
+    { name: "block", type: "uint256" },
+] as const;
 
 export class ProtocolProvider implements IProtocolProvider {
     private readClient: PublicClient<FallbackTransport<HttpTransport[]>>;
@@ -151,6 +186,7 @@ export class ProtocolProvider implements IProtocolProvider {
         settleDispute: this.settleDispute.bind(this),
         escalateDispute: this.escalateDispute.bind(this),
         finalize: this.finalize.bind(this),
+        approveAccountingModules: this.approveAccountingModules.bind(this),
     };
 
     public read: IReadProvider = {
@@ -158,6 +194,8 @@ export class ProtocolProvider implements IProtocolProvider {
         getLastFinalizedBlock: this.getLastFinalizedBlock.bind(this),
         getEvents: this.getEvents.bind(this),
         getAvailableChains: this.getAvailableChains.bind(this),
+        getAccountingModuleAddress: this.getAccountingModuleAddress.bind(this),
+        getAccountingApprovedModules: this.getAccountingApprovedModules.bind(this),
     };
 
     /**
@@ -209,38 +247,19 @@ export class ProtocolProvider implements IProtocolProvider {
 
         const oracleEvents = [
             {
-                name: "ResponseProposed",
-                blockNumber: 2n,
-                logIndex: 1,
-                requestId: "0x01",
-                metadata: {
-                    requestId: "0x01",
-                    responseId: "0x02",
-                    response: {
-                        proposer: "0x12345678901234567890123456789012",
-                        requestId: "0x01",
-                        response: {
-                            block: 1n,
-                            chainId: "eip155:1",
-                            epoch: 20n,
-                        },
-                    },
-                },
-            } as EboEvent<"ResponseProposed">,
-            {
                 name: "ResponseDisputed",
                 blockNumber: 3n,
                 logIndex: 1,
-                requestId: "0x01",
+                requestId: "0x01" as RequestId,
                 metadata: {
-                    requestId: "0x01",
-                    responseId: "0x02",
-                    disputeId: "0x03",
+                    requestId: "0x01" as RequestId,
+                    responseId: "0x02" as ResponseId,
+                    disputeId: "0x03" as DisputeId,
                     dispute: {
                         disputer: "0x12345678901234567890123456789012",
                         proposer: "0x12345678901234567890123456789012",
-                        responseId: "0x02",
-                        requestId: "0x01",
+                        responseId: "0x02" as ResponseId,
+                        requestId: "0x01" as RequestId,
                     },
                 },
             } as EboEvent<"ResponseDisputed">,
@@ -277,13 +296,119 @@ export class ProtocolProvider implements IProtocolProvider {
         return ["eip155:1", "eip155:42161"];
     }
 
+    getAccountingModuleAddress(): Address {
+        // TODO: implement actual method
+        return "0x01";
+    }
+
+    async getAccountingApprovedModules(): Promise<Address[]> {
+        // TODO: implement actual method
+        return [];
+    }
+
+    async approveAccountingModules(_modules: Address[]): Promise<void> {
+        // TODO: implement actual method
+    }
+
+    /**
+     * Decodes the Prophet's request responseModuleData bytes into an object.
+     *
+     * @param responseModuleData responseModuleData bytes
+     * @throws {BaseErrorType} when the responseModuleData decoding fails
+     * @returns a decoded object with responseModuleData properties
+     */
+    static decodeRequestResponseModuleData(
+        responseModuleData: Request["prophetData"]["responseModuleData"],
+    ): Request["decodedData"]["responseModuleData"] {
+        const decodedParameters = decodeAbiParameters(
+            REQUEST_RESPONSE_MODULE_DATA_ABI_FIELDS,
+            responseModuleData,
+        );
+
+        return {
+            accountingExtension: decodedParameters[0],
+            bondToken: decodedParameters[1],
+            bondSize: decodedParameters[2],
+            deadline: decodedParameters[3],
+            disputeWindow: decodedParameters[4],
+        };
+    }
+
+    /**
+     * Decodes the Prophet's request disputeModuelData bytes into an object.
+     *
+     * @param disputeModuelData disputeModuelData bytes
+     * @throws {BaseErrorType} when the disputeModuelData decoding fails
+     * @returns a decoded object with disputeModuelData properties
+     */
+    static decodeRequestDisputeModuleData(
+        disputeModuleData: Request["prophetData"]["disputeModuleData"],
+    ): Request["decodedData"]["disputeModuleData"] {
+        const decodedParameters = decodeAbiParameters(
+            REQUEST_DISPUTE_MODULE_DATA_ABI_FIELDS,
+            disputeModuleData,
+        );
+
+        return {
+            accountingExtension: decodedParameters[0],
+            bondToken: decodedParameters[1],
+            bondSize: decodedParameters[2],
+            maxNumberOfEscalations: decodedParameters[3],
+            bondEscalationDeadline: decodedParameters[4],
+            tyingBuffer: decodedParameters[5],
+            disputeWindow: decodedParameters[6],
+        };
+    }
+
+    /**
+     * Encodes a Prophet's response body object into bytes.
+     *
+     * @param response response body object
+     * @returns byte-encode response body
+     */
+    static encodeResponse(
+        response: Response["decodedData"]["response"],
+    ): Response["prophetData"]["response"] {
+        return encodeAbiParameters(RESPONSE_ABI_FIELDS, [
+            response.chainId,
+            response.epoch,
+            response.block,
+        ]);
+    }
+
+    /**
+     * Decodes a Prophet's response body bytes into an object.
+     *
+     * @param response response body bytes
+     * @returns decoded response body object
+     */
+    static decodeResponse(
+        response: Response["prophetData"]["response"],
+    ): Response["decodedData"]["response"] {
+        const decodedParameters = decodeAbiParameters(RESPONSE_ABI_FIELDS, response);
+
+        const chainId = decodedParameters[0];
+
+        if (Caip2Utils.isCaip2ChainId(chainId)) {
+            return {
+                chainId: chainId,
+                epoch: decodedParameters[1],
+                block: decodedParameters[2],
+            };
+        } else {
+            throw new InvalidChainId(
+                `Could not decode response chain ID while decoding:\n${response}`,
+            );
+        }
+    }
+
     // TODO: waiting for ChainId to be merged for _chains parameter
     /**
      * Creates a request on the EBO Request Creator contract by simulating the transaction
      * and then executing it if the simulation is successful.
      *
      * @param {bigint} epoch - The epoch for which the request is being created.
-     * @param {string[]} chains - An array of chain identifiers where the request should be created.
+     * @param {Caip2ChainId[]} chains - An array of chain identifiers where the request should be created.
      * @throws {Error} Throws an error if the chains array is empty or if the transaction fails.
      * @throws {EBORequestCreator_InvalidEpoch} Throws if the epoch is invalid.
      * @throws {Oracle_InvalidRequestBody} Throws if the request body is invalid.
@@ -291,7 +416,7 @@ export class ProtocolProvider implements IProtocolProvider {
      * @throws {EBORequestCreator_ChainNotAdded} Throws if the specified chain is not added.
      * @returns {Promise<void>} A promise that resolves when the request is successfully created.
      */
-    async createRequest(epoch: bigint, chains: string[]): Promise<void> {
+    async createRequest(epoch: bigint, chains: Caip2ChainId[]): Promise<void> {
         if (chains.length === 0) {
             throw new Error("Chains array cannot be empty");
         }

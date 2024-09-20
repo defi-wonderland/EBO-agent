@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PastEventEnqueueError, RequestMismatch } from "../../src/exceptions/index.js";
+import { ProtocolProvider } from "../../src/providers/index.js";
 import { EboEvent, Request, RequestId } from "../../src/types/index.js";
 import mocks from "../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../services/eboActor/fixtures.js";
@@ -22,6 +23,20 @@ describe("EboActor", () => {
             request: request.prophetData,
         },
     };
+
+    beforeEach(() => {
+        vi.spyOn(ProtocolProvider, "decodeRequestDisputeModuleData").mockReturnValue(
+            request.decodedData.disputeModuleData,
+        );
+
+        vi.spyOn(ProtocolProvider, "decodeRequestResponseModuleData").mockReturnValue(
+            request.decodedData.responseModuleData,
+        );
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
 
     describe("enqueue", () => {
         it("enqueues an event", () => {
@@ -248,7 +263,7 @@ describe("EboActor", () => {
     describe("canBeTerminated", () => {
         it("returns false if the request has not been finalized yet", () => {
             const { actor, registry } = mocks.buildEboActor(request, logger);
-            const currentBlockNumber = request.prophetData.responseModuleData.disputeWindow - 1n;
+            const currentBlockNumber = request.decodedData.responseModuleData.disputeWindow - 1n;
 
             vi.spyOn(registry, "getRequest").mockReturnValue(request);
             vi.spyOn(registry, "getResponses").mockReturnValue([]);
@@ -262,7 +277,7 @@ describe("EboActor", () => {
             const response = mocks.buildResponse(request);
             const { actor, registry } = mocks.buildEboActor(request, logger);
             const currentBlockNumber =
-                response.createdAt + request.prophetData.disputeModuleData.disputeWindow - 1n;
+                response.createdAt + request.decodedData.disputeModuleData.disputeWindow - 1n;
 
             vi.spyOn(registry, "getRequest").mockReturnValue(request);
             vi.spyOn(registry, "getResponses").mockReturnValue([response]);
@@ -284,7 +299,7 @@ describe("EboActor", () => {
 
             const { actor, registry } = mocks.buildEboActor(request, logger);
             const currentBlockNumber =
-                response.createdAt + request.prophetData.disputeModuleData.disputeWindow - 1n;
+                response.createdAt + request.decodedData.disputeModuleData.disputeWindow - 1n;
 
             vi.spyOn(registry, "getRequest").mockReturnValue(request);
             vi.spyOn(registry, "getResponses").mockReturnValue([response]);
@@ -307,7 +322,7 @@ describe("EboActor", () => {
             const disputedResponse = mocks.buildResponse(request, { id: "0x01" });
             const undisputedResponse = mocks.buildResponse(request, {
                 id: "0x02",
-                createdAt: request.prophetData.responseModuleData.deadline - 1n,
+                createdAt: request.decodedData.responseModuleData.deadline - 1n,
             });
 
             const escalatedDispute = mocks.buildDispute(request, disputedResponse, {
@@ -317,7 +332,7 @@ describe("EboActor", () => {
             const { actor, registry } = mocks.buildEboActor(request, logger);
             const currentBlockNumber =
                 undisputedResponse.createdAt +
-                request.prophetData.disputeModuleData.disputeWindow +
+                request.decodedData.disputeModuleData.disputeWindow +
                 1n;
 
             vi.spyOn(registry, "getRequest").mockReturnValue(request);
@@ -362,7 +377,7 @@ describe("EboActor", () => {
             const disputedResponse = mocks.buildResponse(request, { id: "0x01" });
             const undisputedResponse = mocks.buildResponse(request, {
                 id: "0x02",
-                createdAt: request.prophetData.responseModuleData.deadline - 1n,
+                createdAt: request.decodedData.responseModuleData.deadline - 1n,
             });
 
             const escalatedDispute = mocks.buildDispute(request, disputedResponse, {
@@ -372,7 +387,7 @@ describe("EboActor", () => {
             const { actor, registry } = mocks.buildEboActor(request, logger);
             const currentBlockNumber =
                 undisputedResponse.createdAt +
-                request.prophetData.disputeModuleData.disputeWindow +
+                request.decodedData.disputeModuleData.disputeWindow +
                 1n;
 
             vi.spyOn(registry, "getRequest").mockReturnValue(request);
