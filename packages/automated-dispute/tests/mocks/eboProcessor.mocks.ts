@@ -18,9 +18,13 @@ export function buildEboProcessor(
         escalationModule: "0x03",
     },
 ) {
-    const protocolProviderRpcUrls = ["http://localhost:8538"];
     const protocolProvider = new ProtocolProvider(
-        protocolProviderRpcUrls,
+        {
+            urls: ["http://localhost:8538"],
+            retryInterval: 1,
+            timeout: 100,
+            transactionReceiptConfirmations: 1,
+        },
         DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
         mockedPrivateKey,
     );
@@ -28,7 +32,19 @@ export function buildEboProcessor(
     const blockNumberRpcUrls = new Map<Caip2ChainId, string[]>([
         ["eip155:1" as Caip2ChainId, ["http://localhost:8539"]],
     ]);
-    const blockNumberService = new BlockNumberService(blockNumberRpcUrls, logger);
+    const blockNumberService = new BlockNumberService(
+        blockNumberRpcUrls,
+        {
+            baseUrl: new URL("http://localhost"),
+            bearerToken: "secret-token",
+            bearerTokenExpirationWindow: 10,
+            servicePaths: {
+                block: "/block",
+                blockByTime: "/blockbytime",
+            },
+        },
+        logger,
+    );
 
     const actorsManager = new EboActorsManager();
 
