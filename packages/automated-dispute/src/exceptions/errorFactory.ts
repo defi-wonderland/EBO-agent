@@ -7,7 +7,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -15,7 +15,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: false,
+            shouldReenqueue: false,
         },
     ],
     [
@@ -23,7 +23,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -31,7 +31,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
             customAction: async (context) => {
                 context.registry.removeDispute(context.dispute.id);
             },
@@ -42,7 +42,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: false,
+            shouldReenqueue: false,
         },
     ],
     [
@@ -50,7 +50,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
             customAction: async (context) => {
                 context.registry.removeDispute(context.dispute.id);
             },
@@ -61,7 +61,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
             customAction: async (context) => {
                 context.registry.removeDispute(context.dispute.id);
             },
@@ -72,7 +72,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: true,
-            shouldConsume: false,
+            shouldReenqueue: false,
         },
     ],
     [
@@ -80,7 +80,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -88,7 +88,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: true,
-            shouldConsume: false,
+            shouldReenqueue: false,
         },
     ],
     [
@@ -96,7 +96,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: false,
+            shouldReenqueue: false,
         },
     ],
     [
@@ -104,7 +104,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -112,7 +112,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: true,
-            shouldConsume: false,
+            shouldReenqueue: false,
         },
     ],
     [
@@ -120,7 +120,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -128,7 +128,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: false,
+            shouldReenqueue: false,
         },
     ],
     [
@@ -136,7 +136,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -144,7 +144,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: false,
+            shouldReenqueue: false,
         },
     ],
     [
@@ -152,7 +152,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -160,7 +160,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -168,7 +168,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -176,7 +176,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
             customAction: async (context) => {
                 context.registry.removeDispute(context.dispute.id);
             },
@@ -187,7 +187,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
             customAction: async (context) => {
                 context.registry.removeDispute(context.dispute.id);
             },
@@ -198,7 +198,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: false,
+            shouldReenqueue: false,
         },
     ],
     [
@@ -206,7 +206,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -214,7 +214,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
             customAction: async (context) => {
                 context.registry.removeResponse(context.response.id);
             },
@@ -225,7 +225,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -233,7 +233,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
             customAction: async (context) => {
                 context.registry.removeDispute(context.dispute.id);
             },
@@ -244,7 +244,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: true,
-            shouldConsume: false,
+            shouldReenqueue: false,
         },
     ],
     [
@@ -252,7 +252,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -260,7 +260,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -268,7 +268,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -276,7 +276,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -284,7 +284,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -292,7 +292,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -300,7 +300,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -308,7 +308,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -316,7 +316,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: false,
+            shouldReenqueue: false,
         },
     ],
     [
@@ -324,7 +324,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: true,
             shouldTerminate: false,
-            shouldConsume: false,
+            shouldReenqueue: false,
             // Custom action to escalate dispute is implemented in eboActor.ts
         },
     ],
@@ -333,7 +333,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
     [
@@ -341,7 +341,7 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldConsume: true,
+            shouldReenqueue: true,
         },
     ],
 ];
@@ -356,7 +356,7 @@ export class ErrorFactory {
             return new CustomContractError(errorName, {
                 shouldNotify: true,
                 shouldTerminate: false,
-                shouldConsume: true,
+                shouldReenqueue: true,
             });
         }
 

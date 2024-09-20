@@ -25,9 +25,9 @@ export class ErrorHandler {
             }
         }
 
-        if (strategy.shouldConsume) {
-            if (context.consumeEvent) {
-                context.consumeEvent();
+        if (strategy.shouldReenqueue) {
+            if (context.reenqueueEvent) {
+                context.reenqueueEvent();
             }
         }
     }

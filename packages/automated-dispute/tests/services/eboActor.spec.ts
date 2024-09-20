@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { PastEventEnqueueError, RequestMismatch } from "../../src/exceptions/index.js";
+import {
+    CustomContractError,
+    PastEventEnqueueError,
+    RequestMismatch,
+} from "../../src/exceptions/index.js";
 import { EboEvent, Request, RequestId } from "../../src/types/index.js";
 import mocks from "../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../services/eboActor/fixtures.js";
@@ -104,8 +108,9 @@ describe("EboActor", () => {
             // Expect processEvents to throw and handle the rejection
             await expect(actor.processEvents()).rejects.toThrow("Test Error");
 
-            expect(mockEventsQueuePush).toHaveBeenCalledWith(event);
+            // The event should not be re-enqueued because it was the only event in the queue
             expect(mockEventsQueuePush).toHaveBeenCalledTimes(1);
+            expect(queue.size()).toBe(0);
         });
 
         it("enqueues again an event at the top if its processing throws", async () => {
@@ -115,10 +120,16 @@ describe("EboActor", () => {
             const firstEvent = { ...event };
             const secondEvent = { ...firstEvent, blockNumber: firstEvent.blockNumber + 1n };
 
+            const mockError = new CustomContractError("TestError", {
+                shouldReenqueue: true,
+                shouldTerminate: false,
+                shouldNotify: false,
+            });
+
             actor["onLastEvent"] = vi.fn().mockImplementation(() => {
                 return new Promise((resolve, reject) => {
                     setTimeout(() => {
-                        reject();
+                        reject(mockError);
                     }, 10);
                 });
             });
@@ -145,7 +156,7 @@ describe("EboActor", () => {
             expect(queue.peek()).toEqual(secondEvent);
 
             // processEvents throws and re-enqueues first event
-            await vi.advanceTimersByTime(10);
+            await vi.advanceTimersByTimeAsync(10);
 
             expect(queue.size()).toEqual(2);
             expect(queue.peek()).toEqual(firstEvent);
