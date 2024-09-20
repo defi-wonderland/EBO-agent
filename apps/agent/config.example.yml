@@ -19,3 +19,7 @@ blockNumberService:
 
 processor:
     msBetweenChecks: 1000
+    accountingModules:
+        requestModule: "0x1234567890123456789012345678901234567890"
+        responseModule: "0x1234567890123456789012345678901234567890"
+        escalationModule: "0x1234567890123456789012345678901234567890"

@@ -62,6 +62,11 @@ const blockNumberServiceSchema = z.object({
 
 const processorSchema = z.object({
     msBetweenChecks: z.number().int().positive(),
+    accountingModules: z.object({
+        requestModule: addressSchema,
+        responseModule: addressSchema,
+        escalationModule: addressSchema,
+    }),
 });
 
 export const eboAgentConfigSchema = z.object({
