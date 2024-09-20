@@ -1,5 +1,10 @@
 import { inspect } from "util";
-import { EboActorsManager, EboProcessor, ProtocolProvider } from "@ebo-agent/automated-dispute";
+import {
+    AccountingModules,
+    EboActorsManager,
+    EboProcessor,
+    ProtocolProvider,
+} from "@ebo-agent/automated-dispute";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Logger } from "@ebo-agent/shared";
 
@@ -29,6 +34,11 @@ const config = {
     },
     processor: {
         msBetweenChecks: 1,
+        accountingModules: {
+            requestModule: "0x01",
+            responseModule: "0x02",
+            escalationModule: "0x03",
+        } as AccountingModules,
     },
 };
 
@@ -49,7 +59,13 @@ const main = async (): Promise<void> => {
 
     const actorsManager = new EboActorsManager();
 
-    const processor = new EboProcessor(protocolProvider, blockNumberService, actorsManager, logger);
+    const processor = new EboProcessor(
+        config.processor.accountingModules,
+        protocolProvider,
+        blockNumberService,
+        actorsManager,
+        logger,
+    );
 
     await processor.start(config.processor.msBetweenChecks);
 };
