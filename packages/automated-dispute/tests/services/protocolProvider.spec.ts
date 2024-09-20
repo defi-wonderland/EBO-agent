@@ -619,7 +619,7 @@ describe("ProtocolProvider", () => {
     describe("pledgeForDispute", () => {
         it("successfully pledges for a dispute", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -634,7 +634,7 @@ describe("ProtocolProvider", () => {
 
         it("throws TransactionExecutionError when transaction fails", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -655,7 +655,7 @@ describe("ProtocolProvider", () => {
     describe("pledgeAgainstDispute", () => {
         it("successfully pledges against a dispute", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -673,7 +673,7 @@ describe("ProtocolProvider", () => {
 
         it("throws TransactionExecutionError when transaction fails", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -697,7 +697,7 @@ describe("ProtocolProvider", () => {
     describe("settleDispute", () => {
         it("successfully settles a dispute", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -717,7 +717,7 @@ describe("ProtocolProvider", () => {
 
         it("throws TransactionExecutionError when transaction fails", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
