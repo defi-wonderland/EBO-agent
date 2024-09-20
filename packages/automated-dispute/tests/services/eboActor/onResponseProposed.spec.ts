@@ -1,7 +1,8 @@
 import { ILogger } from "@ebo-agent/shared";
 import { describe, expect, it, vi } from "vitest";
 
-import { EboEvent } from "../../../src/types/index.js";
+import { ProtocolProvider } from "../../../src/providers/index.js";
+import { EboEvent, ResponseBody } from "../../../src/types/index.js";
 import mocks from "../../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
 
@@ -11,6 +12,12 @@ describe("EboActor", () => {
     describe("processEvents", () => {
         describe("when ResponseProposed is enqueued", () => {
             const actorRequest = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
+
+            const proposedResponseBody: ResponseBody = {
+                block: 1n,
+                chainId: actorRequest.chainId,
+                epoch: 1n,
+            };
 
             const responseProposedEvent: EboEvent<"ResponseProposed"> = {
                 name: "ResponseProposed",
@@ -23,16 +30,10 @@ describe("EboActor", () => {
                     response: {
                         proposer: "0x03",
                         requestId: actorRequest.id,
-                        response: {
-                            block: 1n,
-                            chainId: actorRequest.chainId,
-                            epoch: 1n,
-                        },
+                        response: ProtocolProvider.encodeResponse(proposedResponseBody),
                     },
                 },
             };
-
-            const proposeData = responseProposedEvent.metadata.response.response;
 
             it("adds the response to the registry", async () => {
                 const { actor, registry, blockNumberService } = mocks.buildEboActor(
@@ -43,7 +44,7 @@ describe("EboActor", () => {
                 vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
 
                 vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-                    proposeData.block,
+                    proposedResponseBody.block,
                 );
 
                 const addResponseMock = vi.spyOn(registry, "addResponse");
@@ -62,7 +63,7 @@ describe("EboActor", () => {
                 vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
 
                 vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-                    proposeData.block,
+                    proposedResponseBody.block,
                 );
 
                 const mockDisputeResponse = vi.spyOn(protocolProvider, "disputeResponse");
@@ -81,13 +82,13 @@ describe("EboActor", () => {
                 vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
 
                 vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-                    currentEpoch: proposeData.epoch,
-                    currentEpochBlockNumber: 1n,
-                    currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                    number: proposedResponseBody.epoch,
+                    firstBlockNumber: 1n,
+                    startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
                 });
 
                 vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-                    proposeData.block + 1n,
+                    proposedResponseBody.block + 1n,
                 );
 
                 const mockDisputeResponse = vi.spyOn(protocolProvider, "disputeResponse");

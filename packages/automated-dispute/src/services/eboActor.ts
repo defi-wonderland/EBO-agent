@@ -1,6 +1,5 @@
-import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
-import { ILogger } from "@ebo-agent/shared";
+import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
+import { Address, ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
 import { BlockNumber, ContractFunctionRevertedError } from "viem";
@@ -14,6 +13,7 @@ import type {
     Request,
     Response,
     ResponseBody,
+    ResponseId,
 } from "../types/index.js";
 import {
     DisputeWithoutResponse,
@@ -266,7 +266,7 @@ export class EboActor {
         await this.settleDisputes(blockNumber);
 
         const request = this.getActorRequest();
-        const proposalDeadline = request.prophetData.responseModuleData.deadline;
+        const proposalDeadline = request.decodedData.responseModuleData.deadline;
         const isProposalWindowOpen = blockNumber <= proposalDeadline;
 
         if (isProposalWindowOpen) {
@@ -328,7 +328,7 @@ export class EboActor {
     private canBeSettled(request: Request, dispute: Dispute, blockNumber: bigint): boolean {
         if (dispute.status !== "Active") return false;
 
-        const { bondEscalationDeadline, tyingBuffer } = request.prophetData.disputeModuleData;
+        const { bondEscalationDeadline, tyingBuffer } = request.decodedData.disputeModuleData;
         const deadline = bondEscalationDeadline + tyingBuffer;
 
         return blockNumber > deadline;
@@ -412,7 +412,7 @@ export class EboActor {
         const request = this.getActorRequest();
         const dispute = this.registry.getResponseDispute(response);
         const disputeWindow =
-            response.createdAt + request.prophetData.disputeModuleData.disputeWindow;
+            response.createdAt + request.decodedData.disputeModuleData.disputeWindow;
 
         // Response is still able to be disputed
         if (blockNumber <= disputeWindow) return false;
@@ -513,7 +513,7 @@ export class EboActor {
 
         for (const proposedResponse of responses) {
             const responseId = proposedResponse.id;
-            const proposedBody = proposedResponse.prophetData.response;
+            const proposedBody = proposedResponse.decodedData.response;
 
             if (this.equalResponses(proposedBody, newResponse)) {
                 this.logger.info(
@@ -569,7 +569,7 @@ export class EboActor {
         const response: Response["prophetData"] = {
             proposer: proposerAddress,
             requestId: request.id,
-            response: responseBody,
+            response: ProtocolProvider.encodeResponse(responseBody),
         };
 
         try {
@@ -598,23 +598,23 @@ export class EboActor {
      */
     private async onResponseProposed(event: EboEvent<"ResponseProposed">): Promise<void> {
         const eventResponse = event.metadata.response;
-        const actorResponse = await this.buildResponse(eventResponse.response.chainId);
+        const decodedResponse = ProtocolProvider.decodeResponse(eventResponse.response);
+        const actorResponse = await this.buildResponse(decodedResponse.chainId);
 
-        if (this.equalResponses(actorResponse, eventResponse.response)) {
+        if (this.equalResponses(actorResponse, decodedResponse)) {
             this.logger.info(`Response ${event.metadata.responseId} was validated. Skipping...`);
             return;
         }
 
         const request = this.getActorRequest();
-
         const disputer = this.protocolProvider.getAccountAddress();
-
         const dispute: Dispute["prophetData"] = {
             disputer: disputer,
             proposer: eventResponse.proposer,
-            responseId: event.metadata.responseId,
+            responseId: Address.normalize(event.metadata.responseId) as ResponseId,
             requestId: request.id,
         };
+
         await this.protocolProvider.disputeResponse(request.prophetData, eventResponse, dispute);
     }
 
@@ -690,12 +690,12 @@ export class EboActor {
      */
     private async isValidDispute(proposedResponse: Response) {
         const actorResponse = await this.buildResponse(
-            proposedResponse.prophetData.response.chainId,
+            proposedResponse.decodedData.response.chainId,
         );
 
         const equalResponses = this.equalResponses(
             actorResponse,
-            proposedResponse.prophetData.response,
+            proposedResponse.decodedData.response,
         );
 
         return !equalResponses;

@@ -1,7 +1,8 @@
 import { ILogger } from "@ebo-agent/shared";
 import { describe, expect, it, vi } from "vitest";
 
-import { EboEvent } from "../../../src/types/index.js";
+import { ProtocolProvider } from "../../../src/providers/index.ts";
+import { DisputeId, EboEvent } from "../../../src/types/index.js";
 import mocks from "../../mocks/index.ts";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.ts";
 
@@ -24,7 +25,7 @@ describe("onDisputeStatusChanged", () => {
             blockNumber: 1n,
             logIndex: 1,
             metadata: {
-                disputeId: "0x01",
+                disputeId: "0x01" as DisputeId,
                 status: "Lost",
                 dispute: dispute.prophetData,
                 blockNumber: 1n,
@@ -54,7 +55,7 @@ describe("onDisputeStatusChanged", () => {
             blockNumber: 1n,
             logIndex: 1,
             metadata: {
-                disputeId: "0x01",
+                disputeId: "0x01" as DisputeId,
                 status: "NoResolution",
                 dispute: dispute.prophetData,
                 blockNumber: 1n,
@@ -70,13 +71,13 @@ describe("onDisputeStatusChanged", () => {
         vi.spyOn(registry, "getDispute").mockReturnValue(dispute);
 
         vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-            currentEpoch: actorRequest.epoch,
-            currentEpochBlockNumber: actorRequest.createdAt,
-            currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0)),
+            number: actorRequest.epoch,
+            firstBlockNumber: actorRequest.createdAt,
+            startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0)),
         });
 
         vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-            response.prophetData.response.block + 1n,
+            response.decodedData.response.block + 1n,
         );
 
         vi.spyOn(protocolProvider, "getAccountAddress").mockReturnValue(proposerAddress);
@@ -92,11 +93,11 @@ describe("onDisputeStatusChanged", () => {
             expect.objectContaining({
                 proposer: proposerAddress,
                 requestId: actorRequest.id,
-                response: {
+                response: ProtocolProvider.encodeResponse({
                     block: 2n,
                     chainId: actorRequest.chainId,
                     epoch: actorRequest.epoch,
-                },
+                }),
             }),
         );
     });

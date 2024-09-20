@@ -21,7 +21,9 @@ export class EboActorsManager {
      * @returns array of normalized request IDs
      */
     public getRequestIds(): RequestId[] {
-        return [...this.requestActorMap.keys()].map((requestId) => Address.normalize(requestId));
+        return [...this.requestActorMap.keys()].map(
+            (requestId) => Address.normalize(requestId) as RequestId,
+        );
     }
 
     public getActorsRequests(): ActorRequest[] {
