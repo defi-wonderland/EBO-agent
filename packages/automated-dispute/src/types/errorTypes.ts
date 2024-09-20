@@ -1,7 +1,7 @@
 export type BaseErrorStrategy = {
     shouldNotify: boolean;
     shouldTerminate: boolean;
-    shouldConsume: boolean;
+    shouldReenqueue: boolean;
     customAction?: (context: any) => Promise<void> | void;
 };
 
