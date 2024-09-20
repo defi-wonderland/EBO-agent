@@ -150,10 +150,11 @@ export class EboActor {
                     this.logger.error(`Error processing event ${event.name}: ${err}`);
 
                     if (err instanceof CustomContractError) {
-                        if (!err.strategy.shouldConsume) {
+                        if (err.strategy.shouldReenqueue) {
                             this.eventsQueue.push(event);
                             updateStateCommand.undo();
-                            return;
+                            // Break to prevent immediate re-processing
+                            break;
                         }
 
                         if (err.strategy.shouldTerminate) {
@@ -301,9 +302,6 @@ export class EboActor {
                 });
 
                 await ErrorHandler.handle(customError, {
-                    consumeEvent: () => {
-                        this.logger.info(`Consuming error: ${customError.name}`);
-                    },
                     terminateActor: () => {
                         throw customError;
                     },
@@ -367,33 +365,29 @@ export class EboActor {
      * @param blockNumber block number to check if the dispute is to be settled
      */
     private async settleDisputes(blockNumber: bigint): Promise<void> {
-        try {
-            const request = this.getActorRequest();
-            const disputes: Dispute[] = this.getActiveDisputes();
+        const request = this.getActorRequest();
+        const disputes: Dispute[] = this.getActiveDisputes();
 
-            const settledDisputes = disputes.map(async (dispute) => {
-                const responseId = dispute.prophetData.responseId;
-                const response = this.registry.getResponse(responseId);
+        const settledDisputes = disputes.map(async (dispute) => {
+            const responseId = dispute.prophetData.responseId;
+            const response = this.registry.getResponse(responseId);
 
-                if (!response) {
-                    this.logger.error(
-                        `While trying to settle dispute ${dispute.id}, its response with ` +
-                            `id ${dispute.prophetData.responseId} was not found in the registry.`,
-                    );
+            if (!response) {
+                this.logger.error(
+                    `While trying to settle dispute ${dispute.id}, its response with ` +
+                        `id ${dispute.prophetData.responseId} was not found in the registry.`,
+                );
 
-                    throw new DisputeWithoutResponse(dispute);
-                }
+                throw new DisputeWithoutResponse(dispute);
+            }
 
-                if (this.canBeSettled(request, dispute, blockNumber)) {
-                    await this.settleDispute(request, response, dispute);
-                }
-            });
+            if (this.canBeSettled(request, dispute, blockNumber)) {
+                await this.settleDispute(request, response, dispute);
+            }
+        });
 
-            // Any of the disputes not being handled correctly should make the actor fail
-            await Promise.all(settledDisputes);
-        } catch (err) {
-            throw err;
-        }
+        // Any of the disputes not being handled correctly should make the actor fail
+        await Promise.all(settledDisputes);
     }
 
     private getActiveDisputes(): Dispute[] {
@@ -589,9 +583,6 @@ export class EboActor {
                 });
 
                 await ErrorHandler.handle(customError, {
-                    consumeEvent: () => {
-                        this.logger.info(`Consuming error: ${customError.name}`);
-                    },
                     reenqueueEvent: () => {
                         this.eventsQueue.push(event);
                     },
@@ -755,9 +746,6 @@ export class EboActor {
                 });
 
                 await ErrorHandler.handle(customError, {
-                    consumeEvent: () => {
-                        this.logger.info(`Consuming error: ${customError.name}`);
-                    },
                     reenqueueEvent: () => {
                         this.eventsQueue.push(event);
                     },
@@ -879,9 +867,6 @@ export class EboActor {
                 });
 
                 await ErrorHandler.handle(customError, {
-                    consumeEvent: () => {
-                        this.logger.info(`Consuming error: ${customError.name}`);
-                    },
                     terminateActor: () => {
                         throw customError;
                     },
@@ -933,9 +918,6 @@ export class EboActor {
                 });
 
                 await ErrorHandler.handle(customError, {
-                    consumeEvent: () => {
-                        this.logger.info(`Consuming error: ${customError.name}`);
-                    },
                     terminateActor: () => {
                         throw customError;
                     },
