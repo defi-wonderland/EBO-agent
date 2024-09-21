@@ -1,7 +1,10 @@
+import { ContractFunctionRevertedError } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ErrorHandler } from "../../src/exceptions/errorHandler.js";
 import {
     CustomContractError,
+    ErrorFactory,
     PastEventEnqueueError,
     RequestMismatch,
 } from "../../src/exceptions/index.js";
@@ -412,6 +415,100 @@ describe("EboActor", () => {
             );
 
             expect(canBeTerminated).toBe(true);
+        });
+    });
+
+    describe("onRequestCreated", () => {
+        it("should handle ContractFunctionRevertedError by creating CustomContractError via ErrorFactory and calling ErrorHandler", async () => {
+            const { actor } = mocks.buildEboActor(request, logger);
+            const event: EboEvent<"RequestCreated"> = {
+                name: "RequestCreated",
+                blockNumber: 1n,
+                logIndex: 0,
+                requestId: request.id,
+                metadata: {
+                    chainId: request.chainId,
+                    epoch: request.epoch,
+                    requestId: request.id,
+                    request: request.prophetData,
+                },
+            };
+
+            const errorName = "ContractFunctionRevertedError";
+            const contractError = new ContractFunctionRevertedError({
+                data: {
+                    errorName: errorName,
+                },
+            } as any);
+
+            actor["proposeResponse"] = vi.fn().mockRejectedValue(contractError);
+
+            const errorFactorySpy = vi.spyOn(ErrorFactory, "createError");
+            const customError = new CustomContractError(errorName, {
+                shouldNotify: false,
+                shouldTerminate: false,
+                shouldReenqueue: true,
+            });
+            errorFactorySpy.mockReturnValue(customError);
+
+            const errorHandlerSpy = vi.spyOn(ErrorHandler, "handle").mockResolvedValue();
+
+            await actor["onRequestCreated"](event);
+
+            expect(errorFactorySpy).toHaveBeenCalledWith(errorName);
+            expect(customError["context"]).toEqual({
+                event,
+                registry: actor["registry"],
+            });
+            expect(errorHandlerSpy).toHaveBeenCalledWith(customError, {
+                reenqueueEvent: expect.any(Function),
+            });
+
+            errorFactorySpy.mockRestore();
+            errorHandlerSpy.mockRestore();
+        });
+    });
+
+    describe("settleDispute", () => {
+        it("should handle ContractFunctionRevertedError and use ErrorFactory in settleDispute", async () => {
+            const { actor, registry } = mocks.buildEboActor(request, logger);
+            const response = mocks.buildResponse(request);
+            const dispute = mocks.buildDispute(request, response);
+
+            const errorName = "ContractFunctionRevertedError";
+            const contractError = new ContractFunctionRevertedError({
+                data: {
+                    errorName: errorName,
+                },
+            } as any);
+
+            actor["protocolProvider"].settleDispute = vi.fn().mockRejectedValue(contractError);
+
+            const errorFactorySpy = vi.spyOn(ErrorFactory, "createError");
+            const customError = new CustomContractError(errorName, {
+                shouldNotify: true,
+                shouldTerminate: false,
+                shouldReenqueue: false,
+            });
+            errorFactorySpy.mockReturnValue(customError);
+
+            const errorHandlerSpy = vi.spyOn(ErrorHandler, "handle").mockResolvedValue();
+
+            await actor["settleDispute"](request, response, dispute);
+
+            expect(errorFactorySpy).toHaveBeenCalledWith(errorName);
+            expect(customError["context"]).toEqual({
+                request,
+                response,
+                dispute,
+                registry,
+            });
+            expect(errorHandlerSpy).toHaveBeenCalledWith(customError, {
+                terminateActor: expect.any(Function),
+            });
+
+            errorFactorySpy.mockRestore();
+            errorHandlerSpy.mockRestore();
         });
     });
 });

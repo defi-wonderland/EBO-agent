@@ -300,7 +300,6 @@ export class EboActor {
                     blockNumber,
                     registry: this.registry,
                 });
-
                 await ErrorHandler.handle(customError, {
                     terminateActor: () => {
                         throw customError;
