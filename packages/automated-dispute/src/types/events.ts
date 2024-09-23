@@ -23,11 +23,13 @@ export interface ResponseProposed {
     requestId: Hex;
     responseId: Hex;
     response: Response["prophetData"];
+    // TODO: block number?
 }
 
 export interface RequestCreated {
     epoch: bigint;
     chainId: Caip2ChainId;
+    //TODO: remove request?
     request: Request["prophetData"];
     requestId: RequestId;
 }
@@ -36,6 +38,7 @@ export interface ResponseDisputed {
     responseId: ResponseId;
     disputeId: DisputeId;
     dispute: Dispute["prophetData"];
+    //TODO: block number?
 }
 
 export interface DisputeStatusChanged {
@@ -43,6 +46,7 @@ export interface DisputeStatusChanged {
     dispute: Dispute["prophetData"];
     status: DisputeStatus;
     blockNumber: bigint;
+    //TODO: should be disputeId, request, response,dispute?
 }
 
 export interface DisputeEscalated {

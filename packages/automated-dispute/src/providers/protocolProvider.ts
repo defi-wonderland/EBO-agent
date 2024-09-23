@@ -444,11 +444,11 @@ export class ProtocolProvider implements IProtocolProvider {
                 blockNumber: log.blockNumber ?? BigInt(0),
                 logIndex: log.logIndex ?? 0,
                 rawLog: log,
-                requestId: decodedLog._requestId,
+                requestId: decodedLog.requestId,
                 metadata: {
-                    epoch: decodedLog._epoch,
-                    chainId: decodedLog._chainId,
-                    requestId: decodedLog._requestId,
+                    epoch: decodedLog.epoch,
+                    chainId: decodedLog.chainId,
+                    requestId: decodedLog.requestId,
                 },
             };
         });

@@ -1,3 +1,4 @@
+import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import { Address } from "viem";
 
 import type {
@@ -193,14 +194,14 @@ export interface IProtocolProvider {
 export interface DecodedLogArgsMap {
     /**
      * Event arguments for the RequestCreated event.
-     * @property {RequestId} _requestId - The ID of the request.
-     * @property {bigint} _epoch - The epoch time when the request was created.
-     * @property {string} _chainId - The chain ID where the request was created.
+     * @property {RequestId} requestId - The ID of the request.
+     * @property {bigint} epoch - The epoch time when the request was created.
+     * @property {Caip2ChainId} chainId - The chain ID where the request was created.
      */
     RequestCreated: {
-        _requestId: RequestId;
-        _epoch: bigint;
-        _chainId: string;
+        requestId: RequestId;
+        epoch: bigint;
+        chainId: Caip2ChainId;
     };
 
     /**
