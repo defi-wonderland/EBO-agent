@@ -46,6 +46,7 @@ import {
     UnsupportedEvent,
 } from "../exceptions/index.js";
 import {
+    DecodedLogArgsMap,
     IProtocolProvider,
     IReadProvider,
     IWriteProvider,
@@ -249,7 +250,10 @@ export class ProtocolProvider implements IProtocolProvider {
      * @returns The decoded log data as an object.
      * @throws {Error} If the event name is unsupported or if there's an error during decoding.
      */
-    private decodeLogData(eventName: EboEventName, log: Log) {
+    private decodeLogData<TEventName extends EboEventName>(
+        eventName: TEventName,
+        log: Log,
+    ): DecodedLogArgsMap[TEventName] {
         let abi;
         switch (eventName) {
             case "RequestCreated":
@@ -257,12 +261,16 @@ export class ProtocolProvider implements IProtocolProvider {
                 break;
             case "ResponseProposed":
                 abi = oracleAbi;
+                break;
             case "ResponseDisputed":
                 abi = oracleAbi;
+                break;
             case "DisputeStatusChanged":
                 abi = oracleAbi;
+                break;
             case "DisputeEscalated":
                 abi = oracleAbi;
+                break;
             case "RequestFinalized":
                 abi = oracleAbi;
                 break;
@@ -279,13 +287,9 @@ export class ProtocolProvider implements IProtocolProvider {
                 strict: false,
             });
 
-            return {
-                ...decodedLog.args,
-                requestId: decodedLog.requestId,
-            };
+            return decodedLog.args as DecodedLogArgsMap[TEventName];
         } catch (error) {
             throw new DecodeLogDataFailure(error);
-            return {};
         }
     }
 
@@ -321,52 +325,58 @@ export class ProtocolProvider implements IProtocolProvider {
 
         switch (eventName) {
             case "ResponseProposed":
+                const responseProposedArgs = decodedLog as DecodedLogArgsMap["ResponseProposed"];
                 return {
                     ...baseEvent,
                     metadata: {
-                        requestId: decodedLog.requestId,
-                        responseId: decodedLog.responseId,
-                        response: decodedLog.response,
-                        blockNumber: decodedLog.blockNumber,
+                        requestId: responseProposedArgs.requestId,
+                        responseId: responseProposedArgs.responseId,
+                        response: responseProposedArgs.response,
+                        blockNumber: responseProposedArgs.blockNumber,
                     },
                 };
             case "ResponseDisputed":
+                const responseDisputedArgs = decodedLog as DecodedLogArgsMap["ResponseDisputed"];
                 return {
                     ...baseEvent,
                     metadata: {
-                        responseId: decodedLog.responseId,
-                        disputeId: decodedLog.disputeId,
-                        dispute: decodedLog.dispute,
-                        blockNumber: decodedLog.blockNumber,
+                        responseId: responseDisputedArgs.responseId,
+                        disputeId: responseDisputedArgs.disputeId,
+                        dispute: responseDisputedArgs.dispute,
+                        blockNumber: responseDisputedArgs.blockNumber,
                     },
                 };
             case "DisputeStatusChanged":
+                const disputeStatusChangedArgs =
+                    decodedLog as DecodedLogArgsMap["DisputeStatusChanged"];
                 return {
                     ...baseEvent,
                     metadata: {
-                        disputeId: decodedLog.disputeId,
-                        dispute: decodedLog.dispute,
-                        status: decodedLog.status,
-                        blockNumber: decodedLog.blockNumber,
+                        disputeId: disputeStatusChangedArgs.disputeId,
+                        dispute: disputeStatusChangedArgs.dispute,
+                        status: disputeStatusChangedArgs.status,
+                        blockNumber: disputeStatusChangedArgs.blockNumber,
                     },
                 };
             case "DisputeEscalated":
+                const disputeEscalatedArgs = decodedLog as DecodedLogArgsMap["DisputeEscalated"];
                 return {
                     ...baseEvent,
                     metadata: {
-                        caller: decodedLog.caller,
-                        disputeId: decodedLog.disputeId,
-                        blockNumber: decodedLog.blockNumber,
+                        caller: disputeEscalatedArgs.caller,
+                        disputeId: disputeEscalatedArgs.disputeId,
+                        blockNumber: disputeEscalatedArgs.blockNumber,
                     },
                 };
             case "RequestFinalized":
+                const requestFinalizedArgs = decodedLog as DecodedLogArgsMap["RequestFinalized"];
                 return {
                     ...baseEvent,
                     metadata: {
-                        requestId: decodedLog.requestId,
-                        responseId: decodedLog.responseId,
-                        caller: decodedLog.caller,
-                        blockNumber: decodedLog.blockNumber,
+                        requestId: requestFinalizedArgs.requestId,
+                        responseId: requestFinalizedArgs.responseId,
+                        caller: requestFinalizedArgs.caller,
+                        blockNumber: requestFinalizedArgs.blockNumber,
                     },
                 };
             default:
@@ -381,10 +391,7 @@ export class ProtocolProvider implements IProtocolProvider {
      * @param toBlock - The ending block number to fetch events to.
      * @returns A promise that resolves to an array of EboEvents.
      */
-    private async getOracleEvents(
-        fromBlock: bigint,
-        toBlock: bigint,
-    ): Promise<EboEvent<EboEventName>[]> {
+    private async getOracleEvents(fromBlock: bigint, toBlock: bigint) {
         const eventNames = [
             "ResponseProposed",
             "ResponseDisputed",
@@ -417,10 +424,7 @@ export class ProtocolProvider implements IProtocolProvider {
      * @returns A promise that resolves to an array of EboEvents.
      */
 
-    private async getEBORequestCreatorEvents(
-        fromBlock: bigint,
-        toBlock: bigint,
-    ): Promise<EboEvent<EboEventName>[]> {
+    private async getEBORequestCreatorEvents(fromBlock: bigint, toBlock: bigint) {
         const logs = await this.readClient.getLogs({
             address: this.eboRequestCreatorContract.address,
             event: eboRequestCreatorAbi.find(
@@ -431,18 +435,20 @@ export class ProtocolProvider implements IProtocolProvider {
         });
 
         return logs.map((log: Log) => {
-            const decodedLog = this.decodeLogData("RequestCreated", log);
+            const decodedLog = this.decodeLogData(
+                "RequestCreated",
+                log,
+            ) as DecodedLogArgsMap["RequestCreated"];
             return {
-                name: "RequestCreated",
+                name: "RequestCreated" as const,
                 blockNumber: log.blockNumber ?? BigInt(0),
                 logIndex: log.logIndex ?? 0,
                 rawLog: log,
-                requestId: decodedLog.requestId,
+                requestId: decodedLog._requestId,
                 metadata: {
-                    epoch: decodedLog.epoch,
-                    chainId: decodedLog.chainId,
-                    request: decodedLog.request,
-                    requestId: decodedLog.requestId,
+                    epoch: decodedLog._epoch,
+                    chainId: decodedLog._chainId,
+                    requestId: decodedLog._requestId,
                 },
             };
         });
@@ -456,7 +462,7 @@ export class ProtocolProvider implements IProtocolProvider {
      * @returns A promise that resolves to an array of EboEvents sorted by block number and log index.
      * @throws {Error} If the block range is invalid or if there's an error fetching events.
      */
-    async getEvents(fromBlock: bigint, toBlock: bigint): Promise<EboEvent<EboEventName>[]> {
+    async getEvents(fromBlock: bigint, toBlock: bigint) {
         if (fromBlock > toBlock) {
             throw new Error("Invalid block range: fromBlock must be less than or equal to toBlock");
         }

@@ -1,6 +1,14 @@
 import { Address } from "viem";
 
-import type { Dispute, EboEvent, EboEventName, Epoch, Request, Response } from "../types/index.js";
+import type {
+    Dispute,
+    EboEvent,
+    EboEventName,
+    Epoch,
+    Request,
+    RequestId,
+    Response,
+} from "../types/index.js";
 import { ProtocolContractsNames } from "../constants.js";
 
 export type ProtocolContract = (typeof ProtocolContractsNames)[number];
@@ -176,4 +184,90 @@ export interface IProtocolProvider {
      * The read operations available on the protocol.
      */
     read: IReadProvider;
+}
+
+/**
+ * @interface DecodedLogArgsMap
+ * Represents the mapping of event names to their respective argument structures.
+ */
+export interface DecodedLogArgsMap {
+    /**
+     * Event arguments for the RequestCreated event.
+     * @property {RequestId} _requestId - The ID of the request.
+     * @property {bigint} _epoch - The epoch time when the request was created.
+     * @property {string} _chainId - The chain ID where the request was created.
+     */
+    RequestCreated: {
+        _requestId: RequestId;
+        _epoch: bigint;
+        _chainId: string;
+    };
+
+    /**
+     * Event arguments for the ResponseProposed event.
+     * @property {RequestId} requestId - The ID of the request.
+     * @property {string} responseId - The ID of the response.
+     * @property {string} response - The response content.
+     * @property {bigint} blockNumber - The block number when the response was proposed.
+     */
+    ResponseProposed: {
+        requestId: RequestId;
+        responseId: string;
+        response: string;
+        blockNumber: bigint;
+    };
+
+    /**
+     * Event arguments for the ResponseDisputed event.
+     * @property {string} responseId - The ID of the response.
+     * @property {string} disputeId - The ID of the dispute.
+     * @property {string} dispute - The dispute content.
+     * @property {bigint} blockNumber - The block number when the dispute was raised.
+     */
+    ResponseDisputed: {
+        responseId: string;
+        disputeId: string;
+        dispute: string;
+        blockNumber: bigint;
+    };
+
+    /**
+     * Event arguments for the DisputeStatusChanged event.
+     * @property {string} disputeId - The ID of the dispute.
+     * @property {string} dispute - The dispute content.
+     * @property {number} status - The new status of the dispute.
+     * @property {bigint} blockNumber - The block number when the dispute status changed.
+     */
+    DisputeStatusChanged: {
+        disputeId: string;
+        dispute: string;
+        status: number;
+        blockNumber: bigint;
+    };
+
+    /**
+     * Event arguments for the DisputeEscalated event.
+     * @property {string} caller - The address of the caller who escalated the dispute.
+     * @property {string} disputeId - The ID of the dispute.
+     * @property {bigint} blockNumber - The block number when the dispute was escalated.
+     */
+    DisputeEscalated: {
+        caller: string;
+        disputeId: string;
+        blockNumber: bigint;
+    };
+
+    /**
+     * Event arguments for the RequestFinalized event.
+     * @property {RequestId} requestId - The ID of the request.
+     * @property {string} responseId - The ID of the response.
+     * @property {string} caller - The address of the caller who finalized the request.
+     * @property {bigint} blockNumber - The block number when the request was finalized.
+     */
+    RequestFinalized: {
+        requestId: RequestId;
+        responseId: string;
+        caller: string;
+        blockNumber: bigint;
+    };
 }
