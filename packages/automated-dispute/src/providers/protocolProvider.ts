@@ -1,11 +1,13 @@
 import { Caip2ChainId, Caip2Utils, InvalidChainId } from "@ebo-agent/blocknumber";
 import {
+    AbiEvent,
     Address,
     BaseError,
     ContractFunctionRevertedError,
     createPublicClient,
     createWalletClient,
     decodeAbiParameters,
+    decodeEventLog,
     encodeAbiParameters,
     fallback,
     FallbackTransport,
@@ -14,6 +16,7 @@ import {
     Hex,
     http,
     HttpTransport,
+    Log,
     PublicClient,
     WalletClient,
 } from "viem";
@@ -22,14 +25,12 @@ import { arbitrum } from "viem/chains";
 
 import type {
     Dispute,
-    DisputeId,
     EboEvent,
     EboEventName,
     Epoch,
     Request,
     RequestId,
     Response,
-    ResponseId,
 } from "../types/index.js";
 import {
     bondEscalationModuleAbi,
@@ -38,9 +39,11 @@ import {
     oracleAbi,
 } from "../abis/index.js";
 import {
+    DecodeLogDataFailure,
     InvalidAccountOnClient,
     RpcUrlsEmpty,
     TransactionExecutionError,
+    UnsupportedEvent,
 } from "../exceptions/index.js";
 import {
     IProtocolProvider,
@@ -238,34 +241,232 @@ export class ProtocolProvider implements IProtocolProvider {
         return number;
     }
 
-    async getEvents(_fromBlock: bigint, _toBlock: bigint): Promise<EboEvent<EboEventName>[]> {
-        // TODO: implement actual method.
-        //
-        // We should decode events using the corresponding ABI and also "fabricate" new events
-        // if for some triggers there are no events (e.g. dispute window ended)
-        const eboRequestCreatorEvents: EboEvent<EboEventName>[] = [];
+    /**
+     * Decodes the log data for a specific event.
+     *
+     * @param eventName - The name of the event to decode.
+     * @param log - The log object containing the event data.
+     * @returns The decoded log data as an object.
+     * @throws {Error} If the event name is unsupported or if there's an error during decoding.
+     */
+    private decodeLogData(eventName: EboEventName, log: Log) {
+        let abi;
+        switch (eventName) {
+            case "RequestCreated":
+                abi = eboRequestCreatorAbi;
+                break;
+            case "ResponseProposed":
+                abi = oracleAbi;
+            case "ResponseDisputed":
+                abi = oracleAbi;
+            case "DisputeStatusChanged":
+                abi = oracleAbi;
+            case "DisputeEscalated":
+                abi = oracleAbi;
+            case "RequestFinalized":
+                abi = oracleAbi;
+                break;
+            default:
+                throw new UnsupportedEvent(`Unsupported event name: ${eventName}`);
+        }
 
-        const oracleEvents = [
-            {
-                name: "ResponseDisputed",
-                blockNumber: 3n,
-                logIndex: 1,
-                requestId: "0x01" as RequestId,
-                metadata: {
-                    requestId: "0x01" as RequestId,
-                    responseId: "0x02" as ResponseId,
-                    disputeId: "0x03" as DisputeId,
-                    dispute: {
-                        disputer: "0x12345678901234567890123456789012",
-                        proposer: "0x12345678901234567890123456789012",
-                        responseId: "0x02" as ResponseId,
-                        requestId: "0x01" as RequestId,
+        try {
+            const decodedLog = decodeEventLog({
+                abi,
+                data: log.data,
+                topics: log.topics,
+                eventName,
+                strict: false,
+            });
+
+            return {
+                ...decodedLog.args,
+                requestId: decodedLog.requestId,
+            };
+        } catch (error) {
+            throw new DecodeLogDataFailure(error);
+            return {};
+        }
+    }
+
+    /**
+     * Parses an Oracle event log into an EboEvent.
+     *
+     * @param eventName - The name of the event.
+     * @param log - The event log to parse.
+     * @returns An EboEvent object.
+     */
+    private parseOracleEvent(eventName: EboEventName, log: Log) {
+        if (
+            ![
+                "ResponseProposed",
+                "ResponseDisputed",
+                "DisputeStatusChanged",
+                "DisputeEscalated",
+                "RequestFinalized",
+            ].includes(eventName)
+        ) {
+            throw new UnsupportedEvent(`Unsupported event name: ${eventName}`);
+        }
+
+        const baseEvent = {
+            name: eventName,
+            blockNumber: log.blockNumber ?? BigInt(0),
+            logIndex: log.logIndex ?? 0,
+            rawLog: log,
+            requestId: log.topics[1] as RequestId,
+        };
+
+        const decodedLog = this.decodeLogData(eventName, log);
+
+        switch (eventName) {
+            case "ResponseProposed":
+                return {
+                    ...baseEvent,
+                    metadata: {
+                        requestId: decodedLog.requestId,
+                        responseId: decodedLog.responseId,
+                        response: decodedLog.response,
+                        blockNumber: decodedLog.blockNumber,
                     },
-                },
-            } as EboEvent<"ResponseDisputed">,
-        ];
+                };
+            case "ResponseDisputed":
+                return {
+                    ...baseEvent,
+                    metadata: {
+                        responseId: decodedLog.responseId,
+                        disputeId: decodedLog.disputeId,
+                        dispute: decodedLog.dispute,
+                        blockNumber: decodedLog.blockNumber,
+                    },
+                };
+            case "DisputeStatusChanged":
+                return {
+                    ...baseEvent,
+                    metadata: {
+                        disputeId: decodedLog.disputeId,
+                        dispute: decodedLog.dispute,
+                        status: decodedLog.status,
+                        blockNumber: decodedLog.blockNumber,
+                    },
+                };
+            case "DisputeEscalated":
+                return {
+                    ...baseEvent,
+                    metadata: {
+                        caller: decodedLog.caller,
+                        disputeId: decodedLog.disputeId,
+                        blockNumber: decodedLog.blockNumber,
+                    },
+                };
+            case "RequestFinalized":
+                return {
+                    ...baseEvent,
+                    metadata: {
+                        requestId: decodedLog.requestId,
+                        responseId: decodedLog.responseId,
+                        caller: decodedLog.caller,
+                        blockNumber: decodedLog.blockNumber,
+                    },
+                };
+            default:
+                throw new UnsupportedEvent(`Unsupported event name: ${eventName}`);
+        }
+    }
 
-        return this.mergeEventStreams(eboRequestCreatorEvents, oracleEvents);
+    /**
+     * Fetches events from the Oracle contract.
+     *
+     * @param fromBlock - The starting block number to fetch events from.
+     * @param toBlock - The ending block number to fetch events to.
+     * @returns A promise that resolves to an array of EboEvents.
+     */
+    private async getOracleEvents(
+        fromBlock: bigint,
+        toBlock: bigint,
+    ): Promise<EboEvent<EboEventName>[]> {
+        const eventNames = [
+            "ResponseProposed",
+            "ResponseDisputed",
+            "DisputeStatusChanged",
+            "DisputeEscalated",
+            "RequestFinalized",
+        ];
+        const eventPromises = eventNames.map((eventName) =>
+            this.readClient.getLogs({
+                address: this.oracleContract.address,
+                event: oracleAbi.find(
+                    (e) => e.name === eventName && e.type === "event",
+                ) as AbiEvent,
+                fromBlock,
+                toBlock,
+            }),
+        );
+
+        const allLogs = await Promise.all(eventPromises);
+        return allLogs.flatMap((logs: Log[], index: number) =>
+            logs.map((log) => this.parseOracleEvent(eventNames[index] as EboEventName, log)),
+        );
+    }
+
+    /**
+     * Fetches events from the EBORequestCreator contract.
+     *
+     * @param fromBlock - The starting block number to fetch events from.
+     * @param toBlock - The ending block number to fetch events to.
+     * @returns A promise that resolves to an array of EboEvents.
+     */
+
+    private async getEBORequestCreatorEvents(
+        fromBlock: bigint,
+        toBlock: bigint,
+    ): Promise<EboEvent<EboEventName>[]> {
+        const logs = await this.readClient.getLogs({
+            address: this.eboRequestCreatorContract.address,
+            event: eboRequestCreatorAbi.find(
+                (e) => e.type === "event" && e.name === "RequestCreated",
+            ) as AbiEvent,
+            fromBlock,
+            toBlock,
+        });
+
+        return logs.map((log: Log) => {
+            const decodedLog = this.decodeLogData("RequestCreated", log);
+            return {
+                name: "RequestCreated",
+                blockNumber: log.blockNumber ?? BigInt(0),
+                logIndex: log.logIndex ?? 0,
+                rawLog: log,
+                requestId: decodedLog.requestId,
+                metadata: {
+                    epoch: decodedLog.epoch,
+                    chainId: decodedLog.chainId,
+                    request: decodedLog.request,
+                    requestId: decodedLog.requestId,
+                },
+            };
+        });
+    }
+
+    /**
+     * Retrieves events from all relevant contracts within a specified block range.
+     *
+     * @param fromBlock - The starting block number to fetch events from.
+     * @param toBlock - The ending block number to fetch events to.
+     * @returns A promise that resolves to an array of EboEvents sorted by block number and log index.
+     * @throws {Error} If the block range is invalid or if there's an error fetching events.
+     */
+    async getEvents(fromBlock: bigint, toBlock: bigint): Promise<EboEvent<EboEventName>[]> {
+        if (fromBlock > toBlock) {
+            throw new Error("Invalid block range: fromBlock must be less than or equal to toBlock");
+        }
+
+        const [requestCreatorEvents, oracleEvents] = await Promise.all([
+            this.getEBORequestCreatorEvents(fromBlock, toBlock),
+            this.getOracleEvents(fromBlock, toBlock),
+        ]);
+
+        return this.mergeEventStreams(requestCreatorEvents, oracleEvents);
     }
 
     /**

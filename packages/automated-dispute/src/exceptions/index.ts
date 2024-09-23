@@ -14,3 +14,5 @@ export * from "./invalidRequestBody.exception.js";
 export * from "./invalidRequester.exception.js";
 export * from "./transactionExecutionError.exception.js";
 export * from "./invalidAccountOnClient.exception.js";
+export * from "./unsupportedEvent.exception.js";
+export * from "./decodeLogDataFailure.js";
