@@ -34,6 +34,7 @@ import {
     AddRequest,
     AddResponse,
     FinalizeRequest,
+    NotificationService,
     UpdateDisputeStatus,
 } from "../services/index.js";
 import { ActorRequest } from "../types/actorRequest.js";
@@ -84,6 +85,7 @@ export class EboActor {
         private readonly registry: EboRegistry,
         private readonly eventProcessingMutex: Mutex,
         private readonly logger: ILogger,
+        private readonly notificationService: NotificationService,
     ) {
         this.eventsQueue = new Heap(EBO_EVENT_COMPARATOR);
     }
@@ -304,15 +306,14 @@ export class EboActor {
                     terminateActor: () => {
                         throw customError;
                     },
-                    // TODO: implement notificationService
-                    // notifyError: async () => {
-                    //     await this.notificationService.notifyError(customError, {
-                    //         request,
-                    //         response,
-                    //         dispute,
-                    //         registry: this.registry,
-                    //     });
-                    // },
+                    notifyError: async () => {
+                        await this.notificationService.notifyError(customError, {
+                            request,
+                            response: this.getAcceptedResponse(blockNumber),
+                            blockNumber,
+                            registry: this.registry,
+                        });
+                    },
                 });
             } else {
                 throw err;
@@ -342,15 +343,12 @@ export class EboActor {
                     terminateActor: () => {
                         throw customError;
                     },
-                    // TODO: implement notificationService
-                    // notifyError: async () => {
-                    //     await this.notificationService.notifyError(customError, {
-                    //         request,
-                    //         response,
-                    //         dispute,
-                    //         registry: this.registry,
-                    //     });
-                    // },
+                    notifyError: async () => {
+                        await this.notificationService.notifyError(customError, {
+                            blockNumber,
+                            registry: this.registry,
+                        });
+                    },
                 });
             } else {
                 throw err;
@@ -457,6 +455,14 @@ export class EboActor {
                     await ErrorHandler.handle(customError, {
                         terminateActor: () => {
                             throw customError;
+                        },
+                        notifyError: async () => {
+                            await this.notificationService.notifyError(customError, {
+                                request,
+                                response,
+                                dispute,
+                                registry: this.registry,
+                            });
                         },
                     });
 
@@ -748,6 +754,14 @@ export class EboActor {
                     reenqueueEvent: () => {
                         this.eventsQueue.push(event);
                     },
+                    notifyError: async () => {
+                        await this.notificationService.notifyError(customError, {
+                            event,
+                            request,
+                            response: eventResponse,
+                            registry: this.registry,
+                        });
+                    },
                 });
 
                 if (customError.strategy.shouldTerminate) {
@@ -869,15 +883,13 @@ export class EboActor {
                     terminateActor: () => {
                         throw customError;
                     },
-                    // TODO: implement notificationService
-                    // notifyError: async () => {
-                    //     await this.notificationService.notifyError(customError, {
-                    //         request,
-                    //         response,
-                    //         dispute,
-                    //         registry: this.registry,
-                    //     });
-                    // },
+                    notifyError: async () => {
+                        await this.notificationService.notifyError(customError, {
+                            request,
+                            dispute,
+                            registry: this.registry,
+                        });
+                    },
                 });
 
                 if (customError.strategy.shouldTerminate) {
@@ -920,15 +932,13 @@ export class EboActor {
                     terminateActor: () => {
                         throw customError;
                     },
-                    // TODO: implement notificationService
-                    // notifyError: async () => {
-                    //     await this.notificationService.notifyError(customError, {
-                    //         request,
-                    //         response,
-                    //         dispute,
-                    //         registry: this.registry,
-                    //     });
-                    // },
+                    notifyError: async () => {
+                        await this.notificationService.notifyError(customError, {
+                            request,
+                            dispute,
+                            registry: this.registry,
+                        });
+                    },
                 });
 
                 if (customError.strategy.shouldTerminate) {
@@ -980,7 +990,10 @@ export class EboActor {
     private async onDisputeEscalated(event: EboEvent<"DisputeEscalated">) {
         const request = this.getActorRequest();
 
-        // TODO: notify
+        await this.notificationService.notifyError(new Error("Dispute Escalated"), {
+            event,
+            request,
+        });
 
         this.logger.info(
             `Dispute ${event.metadata.disputeId} for request ${request.id} has been escalated.`,
@@ -999,7 +1012,11 @@ export class EboActor {
                 // This actor will just wait until the proposal window ends.
                 this.logger.warn(err.message);
 
-                // TODO: notify
+                await this.notificationService.notifyError(err, {
+                    disputeId,
+                    request,
+                    message: err.message,
+                });
             } else {
                 this.logger.error(
                     `Could not handle dispute ${disputeId} changing to NoResolution status.`,

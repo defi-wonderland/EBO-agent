@@ -2,7 +2,7 @@ import { beforeEach } from "node:test";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { RequestAlreadyHandled } from "../../src/exceptions/index.js";
 import { ProtocolProvider } from "../../src/providers/index.js";
@@ -15,6 +15,17 @@ import {
 } from "./eboActor/fixtures.js";
 
 const logger: ILogger = mocks.mockLogger();
+
+vi.mock("../../src/services/discordNotifier", () => {
+    return {
+        DiscordNotifier: vi.fn().mockImplementation(() => {
+            return {
+                initialize: vi.fn().mockResolvedValue(undefined),
+                notifyError: vi.fn().mockResolvedValue(undefined),
+            };
+        }),
+    };
+});
 
 describe("EboActorsManager", () => {
     const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
