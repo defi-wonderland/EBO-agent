@@ -5,6 +5,7 @@ import { Mutex } from "async-mutex";
 import { RequestAlreadyHandled } from "../exceptions/index.js";
 import { ProtocolProvider } from "../providers/protocolProvider.js";
 import { ActorRequest, RequestId } from "../types/index.js";
+import { DiscordNotifier } from "./discordNotifier.js";
 import { EboActor } from "./eboActor.js";
 import { EboMemoryRegistry } from "./eboRegistry/eboMemoryRegistry.js";
 
@@ -47,6 +48,11 @@ export class EboActorsManager {
 
         const eventProcessingMutex = new Mutex();
 
+        const discordNotifier = new DiscordNotifier({
+            discordBotToken: process.env.DISCORD_BOT_TOKEN!,
+            discordChannelId: process.env.DISCORD_CHANNEL_ID!,
+        });
+
         const actor = new EboActor(
             actorRequest,
             protocolProvider,
@@ -54,6 +60,7 @@ export class EboActorsManager {
             registry,
             eventProcessingMutex,
             logger,
+            discordNotifier,
         );
 
         this.requestActorMap.set(requestId, actor);

@@ -505,6 +505,7 @@ describe("EboActor", () => {
             });
             expect(errorHandlerSpy).toHaveBeenCalledWith(customError, {
                 terminateActor: expect.any(Function),
+                notifyError: expect.any(Function),
             });
 
             errorFactorySpy.mockRestore();
