@@ -71,7 +71,7 @@ describe("EboActor", () => {
 
                 await actor.processEvents();
 
-                const proposerAddress = "0x1234567890123456789012345678901234567890"; // Move this above the spy
+                const proposerAddress = "0x1234567890123456789012345678901234567890";
 
                 vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(protocolEpoch);
                 vi.spyOn(protocolProvider, "getAccountAddress").mockReturnValue(proposerAddress);

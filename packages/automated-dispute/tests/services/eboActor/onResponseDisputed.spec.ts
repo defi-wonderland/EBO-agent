@@ -23,8 +23,8 @@ describe("onResponseDisputed", () => {
             dispute: {
                 requestId: actorRequest.id,
                 responseId: response.id,
-                disputer: "0x11",
-                proposer: "0x12",
+                disputer: "0x1111111111111111111111111111111111111111",
+                proposer: "0x2222222222222222222222222222222222222222",
             },
         },
     };
