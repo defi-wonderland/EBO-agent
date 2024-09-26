@@ -1,7 +1,9 @@
+import { afterEach } from "node:test";
 import { beforeEach, describe, expect, it, Mock, vi } from "vitest";
 
 import { CommandAlreadyRun, CommandNotRun } from "../../../../src/exceptions/index.js";
 import { EboRegistry } from "../../../../src/interfaces/index.js";
+import { ProtocolProvider } from "../../../../src/providers/protocolProvider.js";
 import { AddRequest } from "../../../../src/services/index.js";
 import { EboEvent } from "../../../../src/types/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../../../services/eboActor/fixtures.js";
@@ -28,6 +30,18 @@ describe("AddRequest", () => {
             addRequest: vi.fn(),
             removeRequest: vi.fn(),
         } as unknown as EboRegistry;
+
+        vi.spyOn(ProtocolProvider, "decodeRequestDisputeModuleData").mockReturnValue(
+            request.decodedData.disputeModuleData,
+        );
+
+        vi.spyOn(ProtocolProvider, "decodeRequestResponseModuleData").mockReturnValue(
+            request.decodedData.responseModuleData,
+        );
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
     });
 
     describe("run", () => {

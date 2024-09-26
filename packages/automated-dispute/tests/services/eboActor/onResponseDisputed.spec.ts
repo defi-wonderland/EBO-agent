@@ -2,7 +2,7 @@ import { ILogger } from "@ebo-agent/shared";
 import { describe, expect, it, vi } from "vitest";
 
 import { EboEvent } from "../../../src/types/events.js";
-import { Response } from "../../../src/types/prophet.js";
+import { DisputeId, Response } from "../../../src/types/prophet.js";
 import mocks from "../../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
 
@@ -18,7 +18,7 @@ describe("onResponseDisputed", () => {
         blockNumber: 1n,
         logIndex: 1,
         metadata: {
-            disputeId: "0x03",
+            disputeId: "0x03" as DisputeId,
             responseId: response.id,
             dispute: {
                 requestId: actorRequest.id,
@@ -39,13 +39,13 @@ describe("onResponseDisputed", () => {
         vi.spyOn(registry, "getResponse").mockReturnValue(response);
 
         vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-            currentEpoch: actorRequest.epoch,
-            currentEpochBlockNumber: response.prophetData.response.block,
-            currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 1, 0, 0, 0)),
+            number: actorRequest.epoch,
+            firstBlockNumber: response.decodedData.response.block,
+            startTimestamp: BigInt(Date.UTC(2024, 1, 1, 1, 0, 0, 0)),
         });
 
         vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-            response.prophetData.response.block + 1n,
+            response.decodedData.response.block + 1n,
         );
 
         const mockPledgeForDispute = vi.spyOn(protocolProvider, "pledgeForDispute");
@@ -67,13 +67,13 @@ describe("onResponseDisputed", () => {
         vi.spyOn(registry, "getResponse").mockReturnValue(response);
 
         vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-            currentEpoch: actorRequest.epoch,
-            currentEpochBlockNumber: response.prophetData.response.block,
-            currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 1, 0, 0, 0)),
+            number: actorRequest.epoch,
+            firstBlockNumber: response.decodedData.response.block,
+            startTimestamp: BigInt(Date.UTC(2024, 1, 1, 1, 0, 0, 0)),
         });
 
         vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-            response.prophetData.response.block,
+            response.decodedData.response.block,
         );
 
         const mockPledgeAgainstDispute = vi.spyOn(protocolProvider, "pledgeAgainstDispute");
@@ -95,13 +95,13 @@ describe("onResponseDisputed", () => {
         vi.spyOn(registry, "getResponse").mockReturnValue(response);
 
         vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-            currentEpoch: actorRequest.epoch,
-            currentEpochBlockNumber: response.prophetData.response.block,
-            currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 1, 0, 0, 0)),
+            number: actorRequest.epoch,
+            firstBlockNumber: response.decodedData.response.block,
+            startTimestamp: BigInt(Date.UTC(2024, 1, 1, 1, 0, 0, 0)),
         });
 
         vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-            response.prophetData.response.block,
+            response.decodedData.response.block,
         );
 
         vi.spyOn(protocolProvider, "pledgeAgainstDispute").mockResolvedValue();

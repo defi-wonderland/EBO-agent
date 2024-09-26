@@ -80,6 +80,18 @@ importers:
             "@ebo-agent/shared":
                 specifier: workspace:*
                 version: link:../../packages/shared
+            dotenv:
+                specifier: 16.4.5
+                version: 16.4.5
+            viem:
+                specifier: 2.21.8
+                version: 2.21.8(typescript@5.5.3)(zod@3.23.8)
+            yaml:
+                specifier: 2.5.1
+                version: 2.5.1
+            zod:
+                specifier: 3.23.8
+                version: 3.23.8
 
     packages/automated-dispute:
         dependencies:
@@ -97,7 +109,7 @@ importers:
                 version: 2.5.0
             viem:
                 specifier: 2.17.11
-                version: 2.17.11(typescript@5.5.3)
+                version: 2.17.11(typescript@5.5.3)(zod@3.23.8)
 
     packages/blocknumber:
         dependencies:
@@ -112,7 +124,7 @@ importers:
                 version: 4.0.0
             viem:
                 specifier: 2.17.10
-                version: 2.17.10(typescript@5.5.3)
+                version: 2.17.10(typescript@5.5.3)(zod@3.23.8)
         devDependencies:
             "@types/jsonwebtoken":
                 specifier: 9.0.6
@@ -767,6 +779,13 @@ packages:
             }
         engines: { node: ">= 16" }
 
+    "@noble/hashes@1.5.0":
+        resolution:
+            {
+                integrity: sha512-1j6kQFb7QRru7eKN3ZDvRcP13rugwdxZqCjbiAVZfIJwgj2A65UmT4TgARXGlXgnRkORLTDTrO19ZErt7+QXgA==,
+            }
+        engines: { node: ^14.21.3 || >=16 }
+
     "@nodelib/fs.scandir@2.1.5":
         resolution:
             {
@@ -942,6 +961,12 @@ packages:
                 integrity: sha512-PPNYBslrLNNUQ/Yad37MHYsNQtK67EhWb6WtSvNLLPo7SdVZgkUjD6Dg+5On7zNwmskf8OX7I7Nx5oN+MIWE0g==,
             }
 
+    "@scure/base@1.1.8":
+        resolution:
+            {
+                integrity: sha512-6CyAclxj3Nb0XT7GHK6K4zK6k2xJm6E4Ft0Ohjt4WgegiFUHEtFb2CGzmPmGBwoIhrLsqNLYfLr04Y1GePrzZg==,
+            }
+
     "@scure/bip32@1.4.0":
         resolution:
             {
@@ -952,6 +977,12 @@ packages:
         resolution:
             {
                 integrity: sha512-disdg7gHuTDZtY+ZdkmLpPCk7fxZSu3gBiEGuoC1XYxv9cGx3Z6cpTggCgW6odSOOIXCiDjuGejW+aJKCY/pIQ==,
+            }
+
+    "@scure/bip39@1.4.0":
+        resolution:
+            {
+                integrity: sha512-BEEm6p8IueV/ZTfQLp/0vhw4NPnT9oWf5+28nvmeUICjP99f4vr2d+qc7AVGDDtwRep6ifR43Yed9ERVmiITzw==,
             }
 
     "@tsconfig/node10@1.0.11":
@@ -1628,6 +1659,13 @@ packages:
                 integrity: sha512-QM8q3zDe58hqUqjraQOmzZ1LIH9SWQJTlEKCH4kJ2oQvLZk7RbQXvtDM2XEq3fwkV9CCvvH4LA0AV+ogFsBM2Q==,
             }
         engines: { node: ">=8" }
+
+    dotenv@16.4.5:
+        resolution:
+            {
+                integrity: sha512-ZmdL2rui+eB2YwhsWzjInR8LldtZHGDoQ1ugH85ppHKwpUHL7j7rN0Ti9NCnGiQbhaZ11FpR+7ao1dNsmduNUg==,
+            }
+        engines: { node: ">=12" }
 
     eastasianwidth@0.2.0:
         resolution:
@@ -3466,6 +3504,17 @@ packages:
             typescript:
                 optional: true
 
+    viem@2.21.8:
+        resolution:
+            {
+                integrity: sha512-j85Z8pfgcAA7HLtLOd7k7mdyw1ogUjyCxrmwyxzlcAPE8+u8O8GySUMgOxNW/n9mazO2R8XpZ+9nUoXgesAn/g==,
+            }
+        peerDependencies:
+            typescript: ">=5.0.4"
+        peerDependenciesMeta:
+            typescript:
+                optional: true
+
     vite-node@2.0.3:
         resolution:
             {
@@ -3535,6 +3584,12 @@ packages:
                 optional: true
             jsdom:
                 optional: true
+
+    webauthn-p256@0.0.5:
+        resolution:
+            {
+                integrity: sha512-drMGNWKdaixZNobeORVIqq7k5DsRC9FnG201K2QjeOoQLmtSDaSsVZdkg6n5jUALJKcAG++zBPJXmv6hy0nWFg==,
+            }
 
     which@2.0.2:
         resolution:
@@ -3636,6 +3691,14 @@ packages:
         engines: { node: ">= 14" }
         hasBin: true
 
+    yaml@2.5.1:
+        resolution:
+            {
+                integrity: sha512-bLQOjaX/ADgQ20isPJRvF0iRUHIxVhYvr53Of7wGcWlO2jvtUlH5m87DsmulFVxRpNLOnI4tB6p/oh8D7kpn9Q==,
+            }
+        engines: { node: ">= 14" }
+        hasBin: true
+
     yargs-parser@21.1.1:
         resolution:
             {
@@ -3670,6 +3733,12 @@ packages:
                 integrity: sha512-b4JR1PFR10y1mKjhHY9LaGo6tmrgjit7hxVIeAmyMw3jegXR4dhYqLaQF5zMXZxY7tLpMyJeLjr1C4rLmkVe8g==,
             }
         engines: { node: ">=12.20" }
+
+    zod@3.23.8:
+        resolution:
+            {
+                integrity: sha512-XBx9AXhXktjUqnepgTiE5flcKIYWi/rme0Eaj+5Y0lftuGBq+jyRu/md4WnuxqgP1ubdpNCsYEYPxrzVHD8d6g==,
+            }
 
 snapshots:
     "@adraffy/ens-normalize@1.10.0": {}
@@ -4081,6 +4150,8 @@ snapshots:
 
     "@noble/hashes@1.4.0": {}
 
+    "@noble/hashes@1.5.0": {}
+
     "@nodelib/fs.scandir@2.1.5":
         dependencies:
             "@nodelib/fs.stat": 2.0.5
@@ -4150,6 +4221,8 @@ snapshots:
 
     "@scure/base@1.1.7": {}
 
+    "@scure/base@1.1.8": {}
+
     "@scure/bip32@1.4.0":
         dependencies:
             "@noble/curves": 1.4.0
@@ -4160,6 +4233,11 @@ snapshots:
         dependencies:
             "@noble/hashes": 1.4.0
             "@scure/base": 1.1.7
+
+    "@scure/bip39@1.4.0":
+        dependencies:
+            "@noble/hashes": 1.5.0
+            "@scure/base": 1.1.8
 
     "@tsconfig/node10@1.0.11": {}
 
@@ -4328,9 +4406,10 @@ snapshots:
             jsonparse: 1.3.1
             through: 2.3.8
 
-    abitype@1.0.5(typescript@5.5.3):
+    abitype@1.0.5(typescript@5.5.3)(zod@3.23.8):
         optionalDependencies:
             typescript: 5.5.3
+            zod: 3.23.8
 
     acorn-jsx@5.3.2(acorn@8.12.1):
         dependencies:
@@ -4582,6 +4661,8 @@ snapshots:
     dot-prop@5.3.0:
         dependencies:
             is-obj: 2.0.0
+
+    dotenv@16.4.5: {}
 
     eastasianwidth@0.2.0: {}
 
@@ -5545,14 +5626,14 @@ snapshots:
 
     v8-compile-cache-lib@3.0.1: {}
 
-    viem@2.17.10(typescript@5.5.3):
+    viem@2.17.10(typescript@5.5.3)(zod@3.23.8):
         dependencies:
             "@adraffy/ens-normalize": 1.10.0
             "@noble/curves": 1.4.0
             "@noble/hashes": 1.4.0
             "@scure/bip32": 1.4.0
             "@scure/bip39": 1.3.0
-            abitype: 1.0.5(typescript@5.5.3)
+            abitype: 1.0.5(typescript@5.5.3)(zod@3.23.8)
             isows: 1.0.4(ws@8.17.1)
             ws: 8.17.1
         optionalDependencies:
@@ -5562,15 +5643,33 @@ snapshots:
             - utf-8-validate
             - zod
 
-    viem@2.17.11(typescript@5.5.3):
+    viem@2.17.11(typescript@5.5.3)(zod@3.23.8):
         dependencies:
             "@adraffy/ens-normalize": 1.10.0
             "@noble/curves": 1.4.0
             "@noble/hashes": 1.4.0
             "@scure/bip32": 1.4.0
             "@scure/bip39": 1.3.0
-            abitype: 1.0.5(typescript@5.5.3)
+            abitype: 1.0.5(typescript@5.5.3)(zod@3.23.8)
             isows: 1.0.4(ws@8.17.1)
+            ws: 8.17.1
+        optionalDependencies:
+            typescript: 5.5.3
+        transitivePeerDependencies:
+            - bufferutil
+            - utf-8-validate
+            - zod
+
+    viem@2.21.8(typescript@5.5.3)(zod@3.23.8):
+        dependencies:
+            "@adraffy/ens-normalize": 1.10.0
+            "@noble/curves": 1.4.0
+            "@noble/hashes": 1.4.0
+            "@scure/bip32": 1.4.0
+            "@scure/bip39": 1.4.0
+            abitype: 1.0.5(typescript@5.5.3)(zod@3.23.8)
+            isows: 1.0.4(ws@8.17.1)
+            webauthn-p256: 0.0.5
             ws: 8.17.1
         optionalDependencies:
             typescript: 5.5.3
@@ -5639,6 +5738,11 @@ snapshots:
             - supports-color
             - terser
 
+    webauthn-p256@0.0.5:
+        dependencies:
+            "@noble/curves": 1.4.0
+            "@noble/hashes": 1.4.0
+
     which@2.0.2:
         dependencies:
             isexe: 2.0.0
@@ -5698,6 +5802,8 @@ snapshots:
 
     yaml@2.4.5: {}
 
+    yaml@2.5.1: {}
+
     yargs-parser@21.1.1: {}
 
     yargs@17.7.2:
@@ -5715,3 +5821,5 @@ snapshots:
     yocto-queue@0.1.0: {}
 
     yocto-queue@1.1.1: {}
+
+    zod@3.23.8: {}

@@ -1,15 +1,27 @@
-import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
+import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ProcessorAlreadyStarted } from "../../src/exceptions/index.js";
+import { PendingModulesApproval, ProcessorAlreadyStarted } from "../../src/exceptions/index.js";
 import { ProtocolProvider } from "../../src/providers/index.js";
-import { EboEvent, EboEventName, RequestId } from "../../src/types/index.js";
+import {
+    AccountingModules,
+    EboEvent,
+    EboEventName,
+    Epoch,
+    RequestId,
+} from "../../src/types/index.js";
 import mocks from "../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../services/eboActor/fixtures.js";
 
 const logger = mocks.mockLogger();
 const msBetweenChecks = 1;
+const accountingModules: AccountingModules = {
+    requestModule: "0x01",
+    responseModule: "0x02",
+    escalationModule: "0x03",
+};
+
+const allModulesApproved = Object.values(accountingModules);
 
 describe("EboProcessor", () => {
     describe("start", () => {
@@ -23,13 +35,29 @@ describe("EboProcessor", () => {
             vi.useRealTimers();
         });
 
-        it("bootstraps actors with onchain active requests when starting", async () => {
-            const { processor, actorsManager, protocolProvider } = mocks.buildEboProcessor(logger);
+        it("throws if at least one module is pending approval", async () => {
+            const { processor, protocolProvider } = mocks.buildEboProcessor(
+                logger,
+                accountingModules,
+            );
 
-            const currentEpoch = {
-                currentEpoch: 1n,
-                currentEpochBlockNumber: 1n,
-                currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+            vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue([]);
+
+            const result = processor.start();
+
+            expect(result).rejects.toThrow(PendingModulesApproval);
+        });
+
+        it("bootstraps actors with onchain active requests when starting", async () => {
+            const { processor, actorsManager, protocolProvider } = mocks.buildEboProcessor(
+                logger,
+                accountingModules,
+            );
+
+            const currentEpoch: Epoch = {
+                number: 1n,
+                firstBlockNumber: 1n,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
             };
 
             const requestCreatedEvent: EboEvent<"RequestCreated"> = {
@@ -45,9 +73,12 @@ describe("EboProcessor", () => {
                 },
             };
 
+            vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
+                allModulesApproved,
+            );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(
-                currentEpoch.currentEpochBlockNumber + 10n,
+                currentEpoch.firstBlockNumber + 10n,
             );
             vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([requestCreatedEvent]);
 
@@ -58,7 +89,8 @@ describe("EboProcessor", () => {
 
             const expectedActorRequest = expect.objectContaining({
                 id: requestCreatedEvent.requestId,
-                epoch: currentEpoch.currentEpoch,
+                epoch: currentEpoch.number,
+                chainId: request.chainId,
             });
 
             expect(mockCreateActor).toHaveBeenCalledWith(
@@ -69,18 +101,64 @@ describe("EboProcessor", () => {
             );
         });
 
+        it("does not create actors to handle unsupported chains", async () => {
+            const { processor, actorsManager, protocolProvider } = mocks.buildEboProcessor(logger);
+
+            const currentEpoch: Epoch = {
+                number: 1n,
+                firstBlockNumber: 1n,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+            };
+
+            const request = {
+                ...DEFAULT_MOCKED_REQUEST_CREATED_DATA,
+                chainId: "eip155:61" as const, // ETC
+            };
+
+            const requestCreatedEvent: EboEvent<"RequestCreated"> = {
+                name: "RequestCreated",
+                blockNumber: 1n,
+                logIndex: 1,
+                requestId: request.id,
+                metadata: {
+                    requestId: request.id,
+                    epoch: request.epoch,
+                    chainId: request.chainId,
+                    request: request.prophetData,
+                },
+            };
+
+            vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
+                allModulesApproved,
+            );
+            vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
+            vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(
+                currentEpoch.firstBlockNumber + 10n,
+            );
+            vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([requestCreatedEvent]);
+
+            const mockCreateActor = vi.spyOn(actorsManager, "createActor");
+
+            await processor.start(msBetweenChecks);
+
+            expect(mockCreateActor).not.toHaveBeenCalled();
+        });
+
         it("throws if called more than once", async () => {
             const { processor, protocolProvider } = mocks.buildEboProcessor(logger);
 
-            const currentEpoch = {
-                currentEpoch: 1n,
-                currentEpochBlockNumber: 1n,
-                currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+            const currentEpoch: Epoch = {
+                number: 1n,
+                firstBlockNumber: 1n,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
             };
 
+            vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
+                allModulesApproved,
+            );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(
-                currentEpoch.currentEpochBlockNumber + 10n,
+                currentEpoch.firstBlockNumber + 10n,
             );
             vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([]);
 
@@ -90,7 +168,10 @@ describe("EboProcessor", () => {
         });
 
         it("fetches events since epoch start when starting", async () => {
-            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
+            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
+                logger,
+                accountingModules,
+            );
             const { actor } = mocks.buildEboActor(request, logger);
 
             const currentEpoch = {
@@ -114,6 +195,9 @@ describe("EboProcessor", () => {
                 },
             };
 
+            vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
+                allModulesApproved,
+            );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(currentBlock);
             vi.spyOn(actorsManager, "createActor").mockReturnValue(actor);
@@ -132,7 +216,10 @@ describe("EboProcessor", () => {
         it("keeps the last block checked unaltered when something fails during sync", async () => {
             const initialCurrentBlock = 1n;
 
-            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
+            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
+                logger,
+                accountingModules,
+            );
             const { actor } = mocks.buildEboActor(request, logger);
 
             const currentEpoch = {
@@ -148,6 +235,10 @@ describe("EboProcessor", () => {
                     throw new Error();
                 })
                 .mockResolvedValueOnce([]);
+
+            vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
+                allModulesApproved,
+            );
 
             vi.spyOn(protocolProvider, "getLastFinalizedBlock")
                 .mockResolvedValueOnce(initialCurrentBlock + 10n)
@@ -180,7 +271,10 @@ describe("EboProcessor", () => {
         });
 
         it("fetches non-consumed events if event fetching fails", async () => {
-            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
+            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
+                logger,
+                accountingModules,
+            );
             const { actor } = mocks.buildEboActor(request, logger);
 
             const mockLastCheckedBlock = 5n;
@@ -207,6 +301,9 @@ describe("EboProcessor", () => {
                 },
             };
 
+            vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
+                allModulesApproved,
+            );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(currentBlock);
             vi.spyOn(actorsManager, "createActor").mockReturnValue(actor);
@@ -225,7 +322,10 @@ describe("EboProcessor", () => {
         });
 
         it("enqueues and process every new event into the actor", async () => {
-            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
+            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
+                logger,
+                accountingModules,
+            );
 
             const currentEpoch = {
                 number: 1n,
@@ -235,6 +335,9 @@ describe("EboProcessor", () => {
 
             const currentBlock = currentEpoch.firstBlockNumber + 10n;
 
+            vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
+                allModulesApproved,
+            );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(currentBlock);
 
@@ -288,7 +391,10 @@ describe("EboProcessor", () => {
         });
 
         it("enqueues events into corresponding actors", async () => {
-            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
+            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
+                logger,
+                accountingModules,
+            );
 
             const currentEpoch = {
                 number: 1n,
@@ -298,6 +404,9 @@ describe("EboProcessor", () => {
 
             const currentBlock = currentEpoch.firstBlockNumber + 10n;
 
+            vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
+                allModulesApproved,
+            );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(currentBlock);
 
@@ -379,7 +488,10 @@ describe("EboProcessor", () => {
         it.skip("notifies if an actor throws while handling events");
 
         it("creates a request when no actor is handling a chain's current epoch", async () => {
-            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
+            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
+                logger,
+                accountingModules,
+            );
 
             const currentEpoch = {
                 number: 1n,
@@ -387,6 +499,9 @@ describe("EboProcessor", () => {
                 startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
             };
 
+            vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
+                allModulesApproved,
+            );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(1n);
             vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([]);
@@ -411,7 +526,10 @@ describe("EboProcessor", () => {
         });
 
         it("does not create a new request if a corresponding actor already exist", async () => {
-            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
+            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
+                logger,
+                accountingModules,
+            );
 
             const currentEpoch = {
                 number: 1n,
@@ -419,6 +537,9 @@ describe("EboProcessor", () => {
                 startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
             };
 
+            vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
+                allModulesApproved,
+            );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(1n);
             vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([]);
@@ -442,7 +563,10 @@ describe("EboProcessor", () => {
         });
 
         it("handles errors during request creation", async () => {
-            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
+            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
+                logger,
+                accountingModules,
+            );
 
             const currentEpoch = {
                 epoch: 1n,
@@ -450,6 +574,9 @@ describe("EboProcessor", () => {
                 startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
             };
 
+            vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
+                allModulesApproved,
+            );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(1n);
             vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([]);
@@ -469,7 +596,10 @@ describe("EboProcessor", () => {
         it.skip("notifies if a request failed to be created");
 
         it("removes the actor from registry when terminating", async () => {
-            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(logger);
+            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
+                logger,
+                accountingModules,
+            );
 
             const currentEpoch = {
                 currentEpoch: 1n,
@@ -479,6 +609,9 @@ describe("EboProcessor", () => {
 
             const currentBlock = currentEpoch.currentEpochBlockNumber + 10n;
 
+            vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
+                allModulesApproved,
+            );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(currentBlock);
 

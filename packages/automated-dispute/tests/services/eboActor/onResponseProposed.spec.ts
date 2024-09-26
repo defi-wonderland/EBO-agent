@@ -1,7 +1,8 @@
 import { ILogger } from "@ebo-agent/shared";
 import { describe, expect, it, vi } from "vitest";
 
-import { EboEvent } from "../../../src/types/index.js";
+import { ProtocolProvider } from "../../../src/providers/index.js";
+import { EboEvent, ResponseBody } from "../../../src/types/index.js";
 import mocks from "../../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
 
@@ -11,6 +12,12 @@ describe("EboActor", () => {
     describe("processEvents", () => {
         describe("when ResponseProposed is enqueued", () => {
             const actorRequest = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
+
+            const proposedResponseBody: ResponseBody = {
+                block: 1n,
+                chainId: actorRequest.chainId,
+                epoch: 1n,
+            };
 
             const responseProposedEvent: EboEvent<"ResponseProposed"> = {
                 name: "ResponseProposed",
@@ -23,11 +30,7 @@ describe("EboActor", () => {
                     response: {
                         proposer: "0x0000000000000000000000000000000000000003",
                         requestId: actorRequest.id,
-                        response: {
-                            block: 1n,
-                            chainId: actorRequest.chainId,
-                            epoch: 1n,
-                        },
+                        response: ProtocolProvider.encodeResponse(proposedResponseBody),
                     },
                 },
             };
@@ -41,7 +44,7 @@ describe("EboActor", () => {
                 vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
 
                 vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-                    proposeData.block,
+                    proposedResponseBody.block,
                 );
 
                 vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
@@ -68,7 +71,7 @@ describe("EboActor", () => {
                 vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
 
                 vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-                    proposeData.block,
+                    proposedResponseBody.block,
                 );
 
                 vi.spyOn(protocolProvider, "disputeResponse").mockResolvedValue(undefined);
@@ -95,13 +98,13 @@ describe("EboActor", () => {
                 vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
 
                 vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-                    number: proposeData.epoch,
+                    number: proposedResponseBody.epoch,
                     firstBlockNumber: 1n,
                     startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
                 });
 
                 vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
-                    proposeData.block + 1n,
+                    proposedResponseBody.block + 1n,
                 );
 
                 vi.spyOn(protocolProvider, "disputeResponse").mockResolvedValue(

@@ -34,19 +34,25 @@ export interface IReadProvider {
     getEvents(fromBlock: bigint, toBlock: bigint): Promise<EboEvent<EboEventName>[]>;
 
     /**
-     * Checks whether the specified address has staked assets.
-     *
-     * @param address The address to check.
-     * @returns A promise that resolves with a boolean indicating whether the address has staked assets.
-     */
-    hasStakedAssets(address: Address): Promise<boolean>;
-
-    /**
      * Gets the list of available chains that the protocol supports.
      *
      * @returns A promise that resolves with an array of chain IDs.
      */
     getAvailableChains(): Promise<string[]>;
+
+    /**
+     * Gets the address of the accounting module.
+     *
+     * @returns An address that points to the deployed accounting module.
+     */
+    getAccountingModuleAddress(): Address;
+
+    /**
+     * Gets the list of approved modules' addresses based on the wallet's account address.
+     *
+     * @returns A promise that resolves with an array of approved modules.
+     */
+    getAccountingApprovedModules(): Promise<Address[]>;
 }
 
 /**
@@ -148,6 +154,13 @@ export interface IWriteProvider {
      * @returns A promise that resolves when the request is finalized.
      */
     finalize(request: Request["prophetData"], response: Response["prophetData"]): Promise<void>;
+
+    /**
+     * Approves modules needed by the accounting contract.
+     *
+     * @param modules an array of addresses for the modules to be approved
+     */
+    approveAccountingModules(modules: Address[]): Promise<void>;
 }
 
 /**
