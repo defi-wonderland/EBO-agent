@@ -323,7 +323,6 @@ export class ProtocolProvider implements IProtocolProvider {
      *
      * @param module The address of the module to approve.
      * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
-     * @throws {ContractFunctionRevertedError} Throws if the contract function reverts.
      * @returns {Promise<void>} A promise that resolves when the module is approved.
      */
     async approveModule(module: Address): Promise<void> {
