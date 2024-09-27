@@ -59,30 +59,29 @@ describe("EboActor", () => {
             });
 
             it("stores the new request", async () => {
-                const { actor, protocolProvider } = mocks.buildEboActor(request, logger);
-
-                vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-                    number: request.epoch,
-                    firstBlockNumber: 1n,
-                    startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
-                });
-
-                actor.enqueue(requestCreatedEvent);
-
-                await actor.processEvents();
-
-                const proposerAddress = "0x1234567890123456789012345678901234567890";
+                const { actor, protocolProvider, blockNumberService, registry } =
+                    mocks.buildEboActor(request, logger);
 
                 vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(protocolEpoch);
+
+                const proposerAddress = "0x1234567890123456789012345678901234567890";
                 vi.spyOn(protocolProvider, "getAccountAddress").mockReturnValue(proposerAddress);
 
-                const proposeResponseMock = vi.spyOn(protocolProvider, "proposeResponse");
+                const indexedEpochBlockNumber = 48n;
+                vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
+                    indexedEpochBlockNumber,
+                );
+
+                const proposeResponseMock = vi
+                    .spyOn(protocolProvider, "proposeResponse")
+                    .mockResolvedValue();
 
                 actor.enqueue(requestCreatedEvent);
 
                 await actor.processEvents();
 
-                const indexedEpochBlockNumber = 48n;
+                const storedRequest = registry.getRequest(request.id);
+                expect(storedRequest).toBeDefined();
 
                 expect(proposeResponseMock).toHaveBeenCalledWith(
                     expect.objectContaining(request.prophetData),
