@@ -1,12 +1,11 @@
-import { beforeEach } from "node:test";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
 import { ILogger } from "@ebo-agent/shared";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RequestAlreadyHandled } from "../../src/exceptions/index.js";
 import { ProtocolProvider } from "../../src/providers/index.js";
-import { EboActorsManager } from "../../src/services/index.js";
+import { EboActorsManager, NotificationService } from "../../src/services/index.js";
 import mocks from "../mocks/index.js";
 import {
     DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
@@ -15,17 +14,6 @@ import {
 } from "./eboActor/fixtures.js";
 
 const logger: ILogger = mocks.mockLogger();
-
-vi.mock("../../src/services/discordNotifier", () => {
-    return {
-        DiscordNotifier: vi.fn().mockImplementation(() => {
-            return {
-                initialize: vi.fn().mockResolvedValue(undefined),
-                notifyError: vi.fn().mockResolvedValue(undefined),
-            };
-        }),
-    };
-});
 
 describe("EboActorsManager", () => {
     const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
@@ -37,8 +25,15 @@ describe("EboActorsManager", () => {
 
     let protocolProvider: ProtocolProvider;
     let blockNumberService: BlockNumberService;
+    let notifier: NotificationService;
 
     beforeEach(() => {
+        vi.clearAllMocks();
+
+        notifier = {
+            notifyError: vi.fn().mockResolvedValue(undefined),
+        };
+
         const protocolProviderRpcUrls = ["http://localhost:8538"];
         protocolProvider = new ProtocolProvider(
             protocolProviderRpcUrls,
@@ -60,6 +55,7 @@ describe("EboActorsManager", () => {
                 protocolProvider,
                 blockNumberService,
                 logger,
+                notifier,
             );
 
             expect(actor).toMatchObject({
@@ -75,7 +71,13 @@ describe("EboActorsManager", () => {
 
             expect(actorsManager.getActor(request.id)).toBeUndefined();
 
-            actorsManager.createActor(actorRequest, protocolProvider, blockNumberService, logger);
+            actorsManager.createActor(
+                actorRequest,
+                protocolProvider,
+                blockNumberService,
+                logger,
+                notifier,
+            );
 
             const actor = actorsManager.getActor(request.id);
 
@@ -85,7 +87,13 @@ describe("EboActorsManager", () => {
         it("throws if the request has already an actor linked to it", () => {
             const actorsManager = new EboActorsManager();
 
-            actorsManager.createActor(actorRequest, protocolProvider, blockNumberService, logger);
+            actorsManager.createActor(
+                actorRequest,
+                protocolProvider,
+                blockNumberService,
+                logger,
+                notifier,
+            );
 
             expect(() => {
                 actorsManager.createActor(
@@ -93,6 +101,7 @@ describe("EboActorsManager", () => {
                     protocolProvider,
                     blockNumberService,
                     logger,
+                    notifier,
                 );
             }).toThrowError(RequestAlreadyHandled);
         });
@@ -108,7 +117,13 @@ describe("EboActorsManager", () => {
         it("returns the request's linked actor", () => {
             const actorsManager = new EboActorsManager();
 
-            actorsManager.createActor(actorRequest, protocolProvider, blockNumberService, logger);
+            actorsManager.createActor(
+                actorRequest,
+                protocolProvider,
+                blockNumberService,
+                logger,
+                notifier,
+            );
 
             const actor = actorsManager.getActor(request.id);
 
@@ -125,7 +140,13 @@ describe("EboActorsManager", () => {
         it("deletes the actor linked to the request", () => {
             const actorsManager = new EboActorsManager();
 
-            actorsManager.createActor(actorRequest, protocolProvider, blockNumberService, logger);
+            actorsManager.createActor(
+                actorRequest,
+                protocolProvider,
+                blockNumberService,
+                logger,
+                notifier,
+            );
 
             expect(actorsManager.getActor(request.id)).toBeDefined();
 

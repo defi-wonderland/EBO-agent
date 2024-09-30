@@ -8,6 +8,7 @@ import { ProtocolProvider } from "../providers/protocolProvider.js";
 import { alreadyDeletedActorWarning, droppingUnhandledEventsWarning } from "../templates/index.js";
 import { ActorRequest, EboEvent, EboEventName, Epoch, RequestId } from "../types/index.js";
 import { EboActorsManager } from "./eboActorsManager.js";
+import { NotificationService } from "./notificationService.js";
 
 const DEFAULT_MS_BETWEEN_CHECKS = 10 * 60 * 1000; // 10 minutes
 
@@ -22,6 +23,7 @@ export class EboProcessor {
         private readonly blockNumberService: BlockNumberService,
         private readonly actorsManager: EboActorsManager,
         private readonly logger: ILogger,
+        private readonly notifier: NotificationService,
     ) {}
 
     /**
@@ -249,6 +251,7 @@ export class EboProcessor {
             this.protocolProvider,
             this.blockNumberService,
             this.logger,
+            this.notifier,
         );
 
         return actor;

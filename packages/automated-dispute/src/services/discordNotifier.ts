@@ -12,33 +12,29 @@ interface DiscordNotifierConfig {
  */
 export class DiscordNotifier implements NotificationService {
     private client: Client;
-    private readyPromise: Promise<void>;
     private config: DiscordNotifierConfig;
+
+    private constructor(client: Client, config: DiscordNotifierConfig) {
+        this.client = client;
+        this.config = config;
+    }
 
     /**
      * Creates an instance of the DiscordNotifier.
      * @param {DiscordNotifierConfig} config - The configuration object for the DiscordNotifier.
+     * @returns {Promise<DiscordNotifier>} A promise that resolves to a DiscordNotifier instance.
      */
-    constructor(config: DiscordNotifierConfig) {
+    public static async create(config: DiscordNotifierConfig): Promise<DiscordNotifier> {
         const intents = new IntentsBitField().add(
             IntentsBitField.Flags.Guilds,
             IntentsBitField.Flags.GuildMessages,
         );
-        this.client = new Client({ intents });
-        this.config = config;
-        this.readyPromise = this.initialize();
-    }
+        const client = new Client({ intents });
 
-    /**
-     * Initializes the Discord notifier by logging in with the bot token and waiting for the "ready" event.
-     * @returns {Promise<void>} A promise that resolves when the Discord bot is ready.
-     * @throws {Error} If the initialization fails.
-     */
-    private async initialize(): Promise<void> {
         try {
-            await this.client.login(this.config.discordBotToken);
+            await client.login(config.discordBotToken);
             await new Promise<void>((resolve) => {
-                this.client.once("ready", () => {
+                client.once("ready", () => {
                     console.log("Discord bot is ready");
                     resolve();
                 });
@@ -47,6 +43,8 @@ export class DiscordNotifier implements NotificationService {
             console.error("Failed to initialize Discord notifier:", error);
             throw error;
         }
+
+        return new DiscordNotifier(client, config);
     }
 
     /**
@@ -55,9 +53,8 @@ export class DiscordNotifier implements NotificationService {
      * @param {any} context - Additional context information.
      * @returns {Promise<void>} A promise that resolves when the message is sent.
      */
-    async notifyError(error: Error, context: any): Promise<void> {
+    public async notifyError(error: Error, context: any): Promise<void> {
         try {
-            await this.readyPromise;
             const channel = await this.client.channels.fetch(this.config.discordChannelId);
             if (!channel || !channel.isTextBased()) {
                 throw new Error("Discord channel not found or is not text-based");
@@ -78,6 +75,10 @@ export class DiscordNotifier implements NotificationService {
      * @returns {string} The formatted error message.
      */
     private formatErrorMessage(error: Error, context: any): string {
-        return `**Error:** ${error.name} - ${error.message}\n**Context:**\n\`\`\`json\n${JSON.stringify(context, null, 2)}\n\`\`\``;
+        return `**Error:** ${error.name} - ${error.message}\n**Context:**\n\`\`\`json\n${JSON.stringify(
+            context,
+            null,
+            2,
+        )}\n\`\`\``;
     }
 }

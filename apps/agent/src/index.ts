@@ -1,6 +1,7 @@
 import { inspect } from "util";
 import { EboActorsManager, EboProcessor } from "@ebo-agent/automated-dispute";
 import { ProtocolProvider } from "@ebo-agent/automated-dispute/dist/providers/protocolProvider.js";
+import { DiscordNotifier } from "@ebo-agent/automated-dispute/src/services/index.js";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Logger } from "@ebo-agent/shared";
 
@@ -30,6 +31,8 @@ const config = {
     processor: {
         msBetweenChecks: 1,
     },
+    DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN || "",
+    DISCORD_CHANNEL_ID: process.env.DISCORD_CHANNEL_ID || "",
 };
 
 const logger = Logger.getInstance();
@@ -49,7 +52,18 @@ const main = async (): Promise<void> => {
 
     const actorsManager = new EboActorsManager();
 
-    const processor = new EboProcessor(protocolProvider, blockNumberService, actorsManager, logger);
+    const notifier = await DiscordNotifier.create({
+        discordBotToken: config.DISCORD_BOT_TOKEN,
+        discordChannelId: config.DISCORD_CHANNEL_ID,
+    });
+
+    const processor = new EboProcessor(
+        protocolProvider,
+        blockNumberService,
+        actorsManager,
+        logger,
+        notifier,
+    );
 
     await processor.start(config.processor.msBetweenChecks);
 };

@@ -43,9 +43,9 @@ describe("DiscordNotifier", () => {
 
     let notifier: DiscordNotifier;
 
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.clearAllMocks();
-        notifier = new DiscordNotifier(mockConfig);
+        notifier = await DiscordNotifier.create(mockConfig);
     });
 
     it("initializes the Discord client and login", async () => {
@@ -55,8 +55,6 @@ describe("DiscordNotifier", () => {
             intents: expect.any(IntentsBitField),
         });
 
-        await notifier["readyPromise"];
-
         const instance = ClientMock.mock.results[0].value;
         expect(instance.login).toHaveBeenCalledWith("mock-token");
         expect(instance.once).toHaveBeenCalledWith("ready", expect.any(Function));
@@ -65,8 +63,6 @@ describe("DiscordNotifier", () => {
     it("sends an error message to the Discord channel", async () => {
         const error = new Error("Test error");
         const context = { key: "value" };
-
-        await notifier["readyPromise"];
 
         await notifier.notifyError(error, context);
 
@@ -101,7 +97,7 @@ describe("DiscordNotifier", () => {
         error.name = "TestError";
         const context = { key: "value" };
 
-        const formattedMessage = notifier["formatErrorMessage"](error, context);
+        const formattedMessage = (notifier as any).formatErrorMessage(error, context);
 
         expect(formattedMessage).toContain("**Error:** TestError - Test error message");
         expect(formattedMessage).toContain("**Context:**");
