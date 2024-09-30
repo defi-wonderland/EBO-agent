@@ -326,27 +326,23 @@ export class ProtocolProvider implements IProtocolProvider {
      * @returns {Promise<void>} A promise that resolves when the module is approved.
      */
     async approveModule(module: Address): Promise<void> {
-        try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.horizonAccountingExtensionContract.address,
-                abi: horizonAccountingExtensionAbi,
-                functionName: "approveModule",
-                args: [module],
-                account: this.writeClient.account,
-            });
+        const { request: simulatedRequest } = await this.readClient.simulateContract({
+            address: this.horizonAccountingExtensionContract.address,
+            abi: horizonAccountingExtensionAbi,
+            functionName: "approveModule",
+            args: [module],
+            account: this.writeClient.account,
+        });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+        const hash = await this.writeClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
+        const receipt = await this.readClient.waitForTransactionReceipt({
+            hash,
+            confirmations: this.rpcConfig.transactionReceiptConfirmations,
+        });
 
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("approveModule transaction failed");
-            }
-        } catch (error) {
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("approveModule transaction failed");
         }
     }
 
@@ -357,13 +353,7 @@ export class ProtocolProvider implements IProtocolProvider {
      * @returns A promise that resolves with an array of approved modules for the user.
      */
     async getApprovedModules(user: Address): Promise<Address[]> {
-        try {
-            const approvedModules =
-                await this.horizonAccountingExtensionContract.read.approvedModules([user]);
-            return approvedModules.slice();
-        } catch (error) {
-            throw error;
-        }
+        return [...(await this.horizonAccountingExtensionContract.read.approvedModules([user]))];
     }
 
     async getAccountingApprovedModules(): Promise<Address[]> {
