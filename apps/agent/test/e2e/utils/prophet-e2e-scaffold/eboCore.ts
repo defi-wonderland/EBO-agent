@@ -1,3 +1,4 @@
+import assert from "assert";
 import { execa } from "execa";
 import {
     Account,
@@ -25,17 +26,18 @@ import { arbitrum } from "viem/chains";
  * @param address token receiver's address
  * @returns the abi encoded transfer function
  */
-function transferGrtToAccount(address: Address) {
+function transferGrtToAccount(address: Address, amount: bigint) {
     return encodeFunctionData({
         abi: parseAbi(["function transfer(address, uint256)"]),
-        args: [address, 10n],
+        args: [address, amount],
     });
 }
 
 /**
- * Fund `account` with 10 GRT tokens by transferring from a known holder.
+ * Fund `account` with `amount` GRT tokens by transferring from a known holder.
  *
  * @param account account to fund
+ * @param amount amount of GRT to fund `account` with
  * @param anvilClient wallet client for anvil to use to impersonate the GRT holder
  * @param grt.holderAddress address of the GRT tokens holder
  * @param grt.contractAddress address of the GRT contract address
@@ -44,6 +46,7 @@ async function fundAccount(
     account: Account,
     anvilClient: TestClient<"anvil", HttpTransport, typeof arbitrum>,
     grt: {
+        fundAmount: bigint;
         holderAddress: Address;
         contractAddress: Address;
     },
@@ -75,7 +78,7 @@ async function fundAccount(
     const hash = await extendedAnvilClient.sendTransaction({
         account: grt.holderAddress,
         to: grt.contractAddress,
-        data: transferGrtToAccount(account.address),
+        data: transferGrtToAccount(account.address, grt.fundAmount),
         chain: arbitrum,
     });
 
@@ -183,9 +186,12 @@ export async function setUpAccount(config: SetUpAccountConfig) {
         transport: localRpcTransport,
     });
 
+    const grtFundAmount = 10n;
+
     await fundAccount(account, anvilClient, {
         holderAddress: grtHolder,
         contractAddress: grtContractAddress,
+        fundAmount: grtFundAmount,
     });
 
     const balance = await publicClient.readContract({
@@ -196,6 +202,12 @@ export async function setUpAccount(config: SetUpAccountConfig) {
     });
 
     console.log(`GRT balance for ${account.address} is ${balance}.`);
+
+    assert.strictEqual(
+        balance,
+        grtFundAmount,
+        `Unexpected GRT balance in account ${account.address}`,
+    );
 
     await approveEboProphetModules(account, deployedContracts, {
         public: publicClient,
