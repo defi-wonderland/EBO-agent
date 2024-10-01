@@ -1,4 +1,5 @@
-import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
+import { BlockNumberService } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
 import { Address, ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
@@ -610,6 +611,7 @@ export class EboActor {
         const disputer = this.protocolProvider.getAccountAddress();
         const dispute: Dispute["prophetData"] = {
             disputer: disputer,
+            // TODO: populate proposer if does not exist on eventResponse
             proposer: eventResponse.proposer,
             responseId: Address.normalize(event.metadata.responseId) as ResponseId,
             requestId: request.id,

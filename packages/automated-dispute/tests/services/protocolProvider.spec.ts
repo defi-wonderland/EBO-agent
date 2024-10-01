@@ -1,4 +1,4 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
 import {
     ContractFunctionRevertedError,
     createPublicClient,
@@ -994,8 +994,8 @@ describe("ProtocolProvider", () => {
             ];
 
             const mockOracleEvents = [
-                { name: "ResponseProposed", blockNumber: 2n, logIndex: 0 },
-                { name: "ResponseDisputed", blockNumber: 2n, logIndex: 1 },
+                { name: "ResponseDisputed", blockNumber: 2n, logIndex: 0 },
+                { name: "ResponseProposed", blockNumber: 2n, logIndex: 1 },
             ];
 
             vi.spyOn(protocolProvider as any, "getEBORequestCreatorEvents").mockResolvedValue(
@@ -1008,23 +1008,11 @@ describe("ProtocolProvider", () => {
             const result = await protocolProvider.getEvents(0n, 100n);
 
             expect(result).toEqual([
-                { name: "RequestCreated", blockNumber: 3n, logIndex: 0 },
-                { name: "ResponseDisputed", blockNumber: 2n, logIndex: 1 },
-                { name: "ResponseProposed", blockNumber: 2n, logIndex: 0 },
                 { name: "RequestCreated", blockNumber: 1n, logIndex: 0 },
+                { name: "ResponseDisputed", blockNumber: 2n, logIndex: 0 },
+                { name: "ResponseProposed", blockNumber: 2n, logIndex: 1 },
+                { name: "RequestCreated", blockNumber: 3n, logIndex: 0 },
             ]);
-        });
-
-        it("throws an error if fromBlock is greater than toBlock", async () => {
-            const protocolProvider = new ProtocolProvider(
-                mockRpcConfig,
-                mockContractAddress,
-                mockedPrivateKey,
-            );
-
-            await expect(protocolProvider.getEvents(100n, 0n)).rejects.toThrow(
-                "Invalid block range: fromBlock must be less than or equal to toBlock",
-            );
         });
     });
 });

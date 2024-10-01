@@ -16,3 +16,4 @@ export * from "./transactionExecutionError.exception.js";
 export * from "./invalidAccountOnClient.exception.js";
 export * from "./unsupportedEvent.exception.js";
 export * from "./decodeLogDataFailure.js";
+export * from "./invalidBlockRangeError.exception.js";

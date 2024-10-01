@@ -1,15 +1,7 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber";
-import { Address, Hex, Log } from "viem";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
+import { Address, Log } from "viem";
 
-import {
-    Dispute,
-    DisputeId,
-    DisputeStatus,
-    Request,
-    RequestId,
-    Response,
-    ResponseId,
-} from "./prophet.js";
+import { DisputeId, DisputeStatus, RequestId, ResponseId } from "./prophet.js";
 
 export type EboEventName =
     | "RequestCreated"
@@ -19,34 +11,31 @@ export type EboEventName =
     | "DisputeEscalated"
     | "RequestFinalized";
 
-export interface ResponseProposed {
-    requestId: Hex;
-    responseId: Hex;
-    response: Response["prophetData"];
-    // TODO: block number?
-}
-
 export interface RequestCreated {
+    requestId: RequestId;
     epoch: bigint;
     chainId: Caip2ChainId;
-    //TODO: remove request?
-    request: Request["prophetData"];
+}
+
+export interface ResponseProposed {
     requestId: RequestId;
+    responseId: ResponseId;
+    response: string;
+    blockNumber: bigint;
 }
 
 export interface ResponseDisputed {
     responseId: ResponseId;
     disputeId: DisputeId;
-    dispute: Dispute["prophetData"];
-    //TODO: block number?
+    dispute: string;
+    blockNumber: bigint;
 }
 
 export interface DisputeStatusChanged {
     disputeId: DisputeId;
-    dispute: Dispute["prophetData"];
+    dispute: string;
     status: DisputeStatus;
     blockNumber: bigint;
-    //TODO: should be disputeId, request, response,dispute?
 }
 
 export interface DisputeEscalated {

@@ -1,4 +1,4 @@
-import { Caip2ChainId, Caip2Utils, InvalidChainId } from "@ebo-agent/blocknumber";
+import { Caip2ChainId, Caip2Utils, InvalidChainId } from "@ebo-agent/blocknumber/src/index.js";
 import {
     AbiEvent,
     Address,
@@ -41,6 +41,7 @@ import {
 import {
     DecodeLogDataFailure,
     InvalidAccountOnClient,
+    InvalidBlockRangeError,
     RpcUrlsEmpty,
     TransactionExecutionError,
     UnsupportedEvent,
@@ -284,7 +285,7 @@ export class ProtocolProvider implements IProtocolProvider {
                 data: log.data,
                 topics: log.topics,
                 eventName,
-                strict: false,
+                strict: true,
             });
 
             return decodedLog.args as DecodedLogArgsMap[TEventName];
@@ -301,87 +302,39 @@ export class ProtocolProvider implements IProtocolProvider {
      * @returns An EboEvent object.
      */
     private parseOracleEvent(eventName: EboEventName, log: Log) {
-        if (
-            ![
-                "ResponseProposed",
-                "ResponseDisputed",
-                "DisputeStatusChanged",
-                "DisputeEscalated",
-                "RequestFinalized",
-            ].includes(eventName)
-        ) {
-            throw new UnsupportedEvent(`Unsupported event name: ${eventName}`);
-        }
-
         const baseEvent = {
             name: eventName,
             blockNumber: log.blockNumber ?? BigInt(0),
             logIndex: log.logIndex ?? 0,
             rawLog: log,
-            requestId: log.topics[1] as RequestId,
         };
 
         const decodedLog = this.decodeLogData(eventName, log);
 
+        let requestId: RequestId;
         switch (eventName) {
             case "ResponseProposed":
-                const responseProposedArgs = decodedLog as DecodedLogArgsMap["ResponseProposed"];
-                return {
-                    ...baseEvent,
-                    metadata: {
-                        requestId: responseProposedArgs.requestId,
-                        responseId: responseProposedArgs.responseId,
-                        response: responseProposedArgs.response,
-                        blockNumber: responseProposedArgs.blockNumber,
-                    },
-                };
+                requestId = decodedLog.requestId;
+                break;
             case "ResponseDisputed":
-                const responseDisputedArgs = decodedLog as DecodedLogArgsMap["ResponseDisputed"];
-                return {
-                    ...baseEvent,
-                    metadata: {
-                        responseId: responseDisputedArgs.responseId,
-                        disputeId: responseDisputedArgs.disputeId,
-                        dispute: responseDisputedArgs.dispute,
-                        blockNumber: responseDisputedArgs.blockNumber,
-                    },
-                };
+                requestId = decodedLog.requestId;
+                break;
             case "DisputeStatusChanged":
-                const disputeStatusChangedArgs =
-                    decodedLog as DecodedLogArgsMap["DisputeStatusChanged"];
-                return {
-                    ...baseEvent,
-                    metadata: {
-                        disputeId: disputeStatusChangedArgs.disputeId,
-                        dispute: disputeStatusChangedArgs.dispute,
-                        status: disputeStatusChangedArgs.status,
-                        blockNumber: disputeStatusChangedArgs.blockNumber,
-                    },
-                };
             case "DisputeEscalated":
-                const disputeEscalatedArgs = decodedLog as DecodedLogArgsMap["DisputeEscalated"];
-                return {
-                    ...baseEvent,
-                    metadata: {
-                        caller: disputeEscalatedArgs.caller,
-                        disputeId: disputeEscalatedArgs.disputeId,
-                        blockNumber: disputeEscalatedArgs.blockNumber,
-                    },
-                };
+                requestId = decodedLog.requestId;
+                break;
             case "RequestFinalized":
-                const requestFinalizedArgs = decodedLog as DecodedLogArgsMap["RequestFinalized"];
-                return {
-                    ...baseEvent,
-                    metadata: {
-                        requestId: requestFinalizedArgs.requestId,
-                        responseId: requestFinalizedArgs.responseId,
-                        caller: requestFinalizedArgs.caller,
-                        blockNumber: requestFinalizedArgs.blockNumber,
-                    },
-                };
+                requestId = decodedLog.requestId;
+                break;
             default:
-                throw new UnsupportedEvent(`Unsupported event name: ${eventName}`);
+                throw new Error(`Unsupported event name: ${eventName}`);
         }
+
+        return {
+            ...baseEvent,
+            requestId,
+            metadata: decodedLog,
+        };
     }
 
     /**
@@ -399,23 +352,23 @@ export class ProtocolProvider implements IProtocolProvider {
             "DisputeEscalated",
             "RequestFinalized",
         ];
-        const eventPromises = eventNames.map((eventName) =>
-            this.readClient.getLogs({
-                address: this.oracleContract.address,
-                event: oracleAbi.find(
-                    (e) => e.name === eventName && e.type === "event",
-                ) as AbiEvent,
-                fromBlock,
-                toBlock,
-            }),
-        );
 
-        const allLogs = await Promise.all(eventPromises);
-        return allLogs.flatMap((logs: Log[], index: number) =>
-            logs.map((log) => this.parseOracleEvent(eventNames[index] as EboEventName, log)),
-        );
+        const logs = await this.readClient.getLogs({
+            address: this.oracleContract.address,
+            events: eventNames.map(
+                (eventName) =>
+                    oracleAbi.find((e) => e.name === eventName && e.type === "event") as AbiEvent,
+            ),
+            fromBlock,
+            toBlock,
+            strict: true,
+        });
+
+        return logs.map((log) => {
+            const eventName = log.eventName as EboEventName;
+            return this.parseOracleEvent(eventName, log);
+        });
     }
-
     /**
      * Fetches events from the EBORequestCreator contract.
      *
@@ -423,7 +376,6 @@ export class ProtocolProvider implements IProtocolProvider {
      * @param toBlock - The ending block number to fetch events to.
      * @returns A promise that resolves to an array of EboEvents.
      */
-
     private async getEBORequestCreatorEvents(fromBlock: bigint, toBlock: bigint) {
         const logs = await this.readClient.getLogs({
             address: this.eboRequestCreatorContract.address,
@@ -444,12 +396,8 @@ export class ProtocolProvider implements IProtocolProvider {
                 blockNumber: log.blockNumber ?? BigInt(0),
                 logIndex: log.logIndex ?? 0,
                 rawLog: log,
-                requestId: decodedLog.requestId,
-                metadata: {
-                    epoch: decodedLog.epoch,
-                    chainId: decodedLog.chainId,
-                    requestId: decodedLog.requestId,
-                },
+                requestId: decodedLog.requestId ?? "",
+                metadata: decodedLog,
             };
         });
     }
@@ -464,7 +412,7 @@ export class ProtocolProvider implements IProtocolProvider {
      */
     async getEvents(fromBlock: bigint, toBlock: bigint) {
         if (fromBlock > toBlock) {
-            throw new Error("Invalid block range: fromBlock must be less than or equal to toBlock");
+            throw new InvalidBlockRangeError(fromBlock, toBlock);
         }
 
         const [requestCreatorEvents, oracleEvents] = await Promise.all([
@@ -487,11 +435,11 @@ export class ProtocolProvider implements IProtocolProvider {
         return streams
             .reduce((acc, curr) => acc.concat(curr), [])
             .sort((a, b) => {
-                if (a.blockNumber < b.blockNumber) return 1;
-                if (a.blockNumber > b.blockNumber) return -1;
+                if (a.blockNumber > b.blockNumber) return 1;
+                if (a.blockNumber < b.blockNumber) return -1;
 
-                if (a.logIndex < b.logIndex) return 1;
-                if (a.logIndex > b.logIndex) return -1;
+                if (a.logIndex > b.logIndex) return 1;
+                if (a.logIndex < b.logIndex) return -1;
 
                 return 0;
             });
