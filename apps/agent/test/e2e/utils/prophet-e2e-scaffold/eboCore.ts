@@ -3,14 +3,19 @@ import {
     Account,
     Address,
     createPublicClient,
+    createTestClient,
     createWalletClient,
     encodeFunctionData,
     http,
     HttpTransport,
     parseAbi,
     parseEther,
+    PublicActions,
+    publicActions,
     PublicClient,
-    toHex,
+    TestClient,
+    WalletActions,
+    walletActions,
     WalletClient,
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
@@ -33,67 +38,58 @@ function transferGrtToAccount(address: Address) {
  * Fund `account` with 10 GRT tokens by transferring from a known holder.
  *
  * @param account account to fund
- * @param clients.anvil wallet client for anvil to use to impersonate the GRT holder
- * @param clients.publi public client to confirm transactions
+ * @param anvilClient wallet client for anvil to use to impersonate the GRT holder
  * @param grt.holderAddress address of the GRT tokens holder
  * @param grt.contractAddress address of the GRT contract address
  */
 async function fundAccount(
     account: Account,
-    clients: {
-        anvil: WalletClient<HttpTransport, typeof arbitrum>;
-        public: PublicClient;
-    },
+    anvilClient: TestClient<"anvil", HttpTransport, typeof arbitrum>,
     grt: {
         holderAddress: Address;
         contractAddress: Address;
     },
 ) {
-    await clients.anvil.request({
-        // @ts-expect-error: viem does not support anvil specific methods
-        method: "anvil_impersonateAccount",
-        params: [grt.holderAddress],
+    const extendedAnvilClient = anvilClient.extend(publicActions).extend(walletActions);
+
+    await extendedAnvilClient.impersonateAccount({
+        address: grt.holderAddress,
     });
 
     console.log(`Impersonating ${grt.holderAddress}...`);
 
-    await clients.anvil.request({
-        // @ts-expect-error: viem does not support anvil specific methods
-        method: "anvil_setBalance",
-        params: [grt.holderAddress, toHex(parseEther("1"))],
+    await extendedAnvilClient.setBalance({
+        address: grt.holderAddress,
+        value: parseEther("1"),
     });
 
     console.log(`Added 1 ETH to ${grt.holderAddress}.`);
 
-    await clients.anvil.request({
-        // @ts-expect-error: viem does not support anvil specific methods
-        method: "anvil_setBalance",
-        params: [account.address, toHex(parseEther("1"))],
+    await extendedAnvilClient.setBalance({
+        address: account.address,
+        value: parseEther("1"),
     });
 
     console.log(`Added 1 ETH to ${account.address}.`);
 
     console.log(`Sending GRT tokens from ${grt.holderAddress} to ${account.address}...`);
 
-    const hash = await clients.anvil.sendTransaction({
+    const hash = await extendedAnvilClient.sendTransaction({
         account: grt.holderAddress,
         to: grt.contractAddress,
         data: transferGrtToAccount(account.address),
+        chain: arbitrum,
     });
 
     console.log("Waiting for transaction receipt...");
 
-    await clients.public.waitForTransactionReceipt({
+    await extendedAnvilClient.waitForTransactionReceipt({
         hash: hash,
     });
 
     console.log(`GRT tokens sent.`);
 
-    await clients.anvil.request({
-        // @ts-expect-error: viem does not support anvil specific methods
-        method: "anvil_stopImpersonatingAccount",
-        params: [grt.holderAddress],
-    });
+    await extendedAnvilClient.stopImpersonatingAccount({ address: grt.holderAddress });
 }
 
 /**
@@ -182,17 +178,17 @@ export async function setUpAccount(config: SetUpAccountConfig) {
         transport: localRpcTransport,
     });
 
-    const anvilClient = createWalletClient({
+    const anvilClient = createTestClient({
+        mode: "anvil",
         account: grtHolder,
         chain: arbitrum,
         transport: localRpcTransport,
     });
 
-    await fundAccount(
-        account,
-        { anvil: anvilClient, public: publicClient },
-        { holderAddress: grtHolder, contractAddress: grtContractAddress },
-    );
+    await fundAccount(account, anvilClient, {
+        holderAddress: grtHolder,
+        contractAddress: grtContractAddress,
+    });
 
     const balance = await publicClient.readContract({
         address: grtContractAddress,

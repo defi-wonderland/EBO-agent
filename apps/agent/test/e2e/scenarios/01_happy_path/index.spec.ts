@@ -110,7 +110,7 @@ describe.sequential("single agent", () => {
 
         await processor.start(1);
 
-        // Most likely, wait for an event to be emitted
+        // TODO: Most likely, wait for an event to be emitted
 
         expect(true).toBe(true);
     });
