@@ -14,6 +14,11 @@ const YARN_CMD = "/path/to/yarn/executable/bin/yarn";
 // TODO: probably could be added as a submodule inside the e2e folder
 const EBO_CORE_PATH = "/path/toEBO-core/repo";
 
+const GRT_HOLDER = "0x00669A4CF01450B64E8A2A20E9b1FCB71E61eF03";
+const GRT_CONTRACT_ADDRESS = "0x9623063377ad1b27544c965ccd7342f7ea7e88c7";
+// Extracted from https://thegraph.com/docs/en/network/contracts/
+const EPOCH_MANAGER_ADDRESS = "0x5A843145c43d328B9bB7a4401d94918f131bB281";
+
 describe.sequential("single agent", () => {
     let protocolAnvil: CreateServerReturnType;
     let indexedChain: CreateServerReturnType;
@@ -48,8 +53,8 @@ describe.sequential("single agent", () => {
             await setUpAccount({
                 localRpcUrl: url,
                 deployedContracts: protocolContracts,
-                grtHolder: "0x00669A4CF01450B64E8A2A20E9b1FCB71E61eF03",
-                grtContractAddress: "0x9623063377ad1b27544c965ccd7342f7ea7e88c7",
+                grtHolder: GRT_HOLDER,
+                grtContractAddress: GRT_CONTRACT_ADDRESS,
             }),
         ];
 
@@ -76,8 +81,7 @@ describe.sequential("single agent", () => {
             {
                 bondEscalationModule: protocolContracts["BondEscalationModule"],
                 eboRequestCreator: protocolContracts["EBORequestCreator"],
-                // Extracted from https://thegraph.com/docs/en/network/contracts/
-                epochManager: "0x5A843145c43d328B9bB7a4401d94918f131bB281",
+                epochManager: EPOCH_MANAGER_ADDRESS,
                 oracle: protocolContracts["Oracle"],
             },
             accounts[0].privateKey,
