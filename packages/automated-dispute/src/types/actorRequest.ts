@@ -1,4 +1,4 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
 
 import { RequestId } from "./prophet.js";
 

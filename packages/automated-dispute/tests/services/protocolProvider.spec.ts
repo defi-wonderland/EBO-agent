@@ -1,3 +1,4 @@
+import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import {
     ContractFunctionRevertedError,
     createPublicClient,
@@ -5,22 +6,27 @@ import {
     fallback,
     getContract,
     http,
+    isHex,
     WaitForTransactionReceiptTimeoutError,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum } from "viem/chains";
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from "vitest";
 
-import { eboRequestCreatorAbi } from "../../src/abis/eboRequestCreator.js";
-import { epochManagerAbi } from "../../src/abis/epochManager.js";
-import { oracleAbi } from "../../src/abis/oracle.js";
+import {
+    bondEscalationModuleAbi,
+    eboRequestCreatorAbi,
+    epochManagerAbi,
+    oracleAbi,
+} from "../../src/abis/index.js";
 import {
     InvalidAccountOnClient,
     RpcUrlsEmpty,
     TransactionExecutionError,
 } from "../../src/exceptions/index.js";
+import { ProtocolContractsAddresses } from "../../src/interfaces/index.js";
 import { ProtocolProvider } from "../../src/providers/index.js";
-import { ProtocolContractsAddresses } from "../../src/types/index.js";
+import { Response } from "../../src/types/index.js";
 import {
     DEFAULT_MOCKED_DISPUTE_DATA,
     DEFAULT_MOCKED_REQUEST_CREATED_DATA,
@@ -41,11 +47,18 @@ vi.mock("viem", async () => {
 });
 
 describe("ProtocolProvider", () => {
-    const mockRpcUrls = ["http://localhost:8545"];
+    const mockRpcConfig = {
+        urls: ["http://localhost:8545"],
+        retryInterval: 1,
+        timeout: 100,
+        transactionReceiptConfirmations: 1,
+    };
+
     const mockContractAddress: ProtocolContractsAddresses = {
         oracle: "0x1234567890123456789012345678901234567890",
         epochManager: "0x1234567890123456789012345678901234567890",
         eboRequestCreator: "0x1234567890123456789012345678901234567890",
+        bondEscalationModule: "0x1234567890123456789012345678901234567890",
     };
 
     beforeEach(() => {
@@ -68,6 +81,18 @@ describe("ProtocolProvider", () => {
                     },
                     write: {
                         createRequests: vi.fn(),
+                    },
+                };
+            }
+            if (
+                abi === bondEscalationModuleAbi &&
+                address === mockContractAddress.bondEscalationModule
+            ) {
+                return {
+                    write: {
+                        pledgeForDispute: vi.fn(),
+                        pledgeAgainstDispute: vi.fn(),
+                        settleDispute: vi.fn(),
                     },
                 };
             }
@@ -103,7 +128,7 @@ describe("ProtocolProvider", () => {
     describe("constructor", () => {
         it("creates a new ProtocolProvider instance successfully", () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -111,7 +136,7 @@ describe("ProtocolProvider", () => {
             expect(createPublicClient).toHaveBeenCalledWith({
                 chain: arbitrum,
                 transport: fallback(
-                    mockRpcUrls.map((url) =>
+                    mockRpcConfig.urls.map((url) =>
                         http(url, {
                             timeout: protocolProvider["TIMEOUT"],
                             retryDelay: protocolProvider["RETRY_INTERVAL"],
@@ -123,7 +148,7 @@ describe("ProtocolProvider", () => {
             expect(createWalletClient).toHaveBeenCalledWith({
                 chain: arbitrum,
                 transport: fallback(
-                    mockRpcUrls.map((url) =>
+                    mockRpcConfig.urls.map((url) =>
                         http(url, {
                             timeout: protocolProvider["TIMEOUT"],
                             retryDelay: protocolProvider["RETRY_INTERVAL"],
@@ -155,10 +180,41 @@ describe("ProtocolProvider", () => {
         });
         it("throws if rpcUrls are empty", () => {
             expect(
-                () => new ProtocolProvider([], mockContractAddress, mockedPrivateKey),
+                () =>
+                    new ProtocolProvider(
+                        { ...mockRpcConfig, urls: [] },
+                        mockContractAddress,
+                        mockedPrivateKey,
+                    ),
             ).toThrowError(RpcUrlsEmpty);
         });
     });
+
+    describe("encodeResponse", () => {
+        const response: Response["decodedData"]["response"] = {
+            chainId: "eip155:1",
+            block: 1n,
+            epoch: 1n,
+        };
+
+        it("generates a hex string with the response encoded", () => {
+            const encodedResponse = ProtocolProvider.encodeResponse(response);
+
+            expect(encodedResponse).toSatisfy((bytes) => isHex(bytes));
+        });
+
+        it("is able to decode encoded data correctly", () => {
+            const encodedResponse = ProtocolProvider.encodeResponse(response);
+            const decodedResponse = ProtocolProvider.decodeResponse(encodedResponse);
+
+            expect(decodedResponse).toEqual(response);
+        });
+    });
+
+    // TODO: whenever we manage to create an actual Request on-chain we can use it
+    //  to feed an encoded Request here for testing
+    describe.todo("decodeRequestResponseModuleData");
+    describe.todo("decodeRequestDisputeModuleData");
 
     describe("getCurrentEpoch", () => {
         it("returns currentEpoch and currentEpochBlock successfully", async () => {
@@ -171,7 +227,7 @@ describe("ProtocolProvider", () => {
             });
 
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -192,7 +248,7 @@ describe("ProtocolProvider", () => {
         });
         it("throws when current epoch request fails", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -211,7 +267,7 @@ describe("ProtocolProvider", () => {
 
         it("throws when current epoch block request fails", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -237,11 +293,6 @@ describe("ProtocolProvider", () => {
         it("throws if the RPC client fails");
     });
 
-    describe.skip("hasStakedAssets", () => {
-        it("returns true if the address has more than 0 assets staked");
-        it("returns false if the address has 0 staked assets");
-    });
-
     describe.skip("getAvailableChains", () => {
         it("returns an array of available chains in CAIP-2 compliant format");
         it("throws if the RPC client fails");
@@ -250,7 +301,7 @@ describe("ProtocolProvider", () => {
     describe("proposeResponse", () => {
         it("successfully proposes a response", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -265,7 +316,7 @@ describe("ProtocolProvider", () => {
 
         it("throws TransactionExecutionError when transaction fails", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -284,7 +335,7 @@ describe("ProtocolProvider", () => {
 
         it("throws when transaction couldn't be confirmed", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -303,7 +354,7 @@ describe("ProtocolProvider", () => {
 
         it("throws ContractFunctionRevertedError when viem throws it", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -325,7 +376,7 @@ describe("ProtocolProvider", () => {
 
         it("throws WaitForTransactionReceiptTimeoutError when waitForTransactionReceipt times out", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -346,7 +397,7 @@ describe("ProtocolProvider", () => {
     describe("disputeResponse", () => {
         it("successfully disputes a response", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -366,7 +417,7 @@ describe("ProtocolProvider", () => {
 
         it("throws TransactionExecutionError when transaction fails", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -392,7 +443,7 @@ describe("ProtocolProvider", () => {
     describe("escalateDispute", () => {
         it("successfully escalates a dispute", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -412,7 +463,7 @@ describe("ProtocolProvider", () => {
 
         it("throws TransactionExecutionError when transaction fails", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -448,7 +499,7 @@ describe("ProtocolProvider", () => {
     describe("finalize", () => {
         it("successfully finalizes a request", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -463,7 +514,7 @@ describe("ProtocolProvider", () => {
 
         it("throws TransactionExecutionError when transaction fails", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -482,22 +533,22 @@ describe("ProtocolProvider", () => {
     });
 
     describe("createRequest", () => {
-        const mockRpcUrls = ["http://localhost:8545"];
         const mockContractAddress: ProtocolContractsAddresses = {
             oracle: "0x1234567890123456789012345678901234567890",
             epochManager: "0x1234567890123456789012345678901234567890",
             eboRequestCreator: "0x1234567890123456789012345678901234567890",
+            bondEscalationModule: "0x1234567890123456789012345678901234567890",
         };
 
         it("creates a request successfully", async () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
 
             const mockEpoch = 1n;
-            const mockChains = ["eip155:1", "eip155:42161"];
+            const mockChains: Caip2ChainId[] = ["eip155:1", "eip155:42161"];
 
             const mockWriteContractResponse = "0xmockedTransactionHash";
             (protocolProvider["writeClient"].writeContract as Mock).mockResolvedValue(
@@ -524,11 +575,12 @@ describe("ProtocolProvider", () => {
 
         it("throws if chains array is empty", async () => {
             const protocolProvider = new ProtocolProvider(
-                ["http://localhost:8545"],
+                mockRpcConfig,
                 {
                     oracle: "0x1234567890123456789012345678901234567890",
                     epochManager: "0x1234567890123456789012345678901234567890",
                     eboRequestCreator: "0x1234567890123456789012345678901234567890",
+                    bondEscalationModule: "0x1234567890123456789012345678901234567890",
                 },
                 mockedPrivateKey,
             );
@@ -542,7 +594,7 @@ describe("ProtocolProvider", () => {
     describe("getAccountAddress", () => {
         it("returns the correct account address", () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -553,7 +605,7 @@ describe("ProtocolProvider", () => {
 
         it("throws InvalidAccountOnClient when there's no account", () => {
             const protocolProvider = new ProtocolProvider(
-                mockRpcUrls,
+                mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
@@ -561,6 +613,130 @@ describe("ProtocolProvider", () => {
             (protocolProvider["writeClient"] as any).account = undefined;
 
             expect(() => protocolProvider.getAccountAddress()).toThrow(InvalidAccountOnClient);
+        });
+    });
+
+    describe("pledgeForDispute", () => {
+        it("successfully pledges for a dispute", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.pledgeForDispute(mockRequestProphetData, mockDisputeProphetData),
+            ).resolves.not.toThrow();
+        });
+
+        it("throws TransactionExecutionError when transaction fails", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+                status: "reverted",
+            });
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.pledgeForDispute(mockRequestProphetData, mockDisputeProphetData),
+            ).rejects.toThrow(TransactionExecutionError);
+        });
+    });
+
+    describe("pledgeAgainstDispute", () => {
+        it("successfully pledges against a dispute", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.pledgeAgainstDispute(
+                    mockRequestProphetData,
+                    mockDisputeProphetData,
+                ),
+            ).resolves.not.toThrow();
+        });
+
+        it("throws TransactionExecutionError when transaction fails", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+                status: "reverted",
+            });
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.pledgeAgainstDispute(
+                    mockRequestProphetData,
+                    mockDisputeProphetData,
+                ),
+            ).rejects.toThrow(TransactionExecutionError);
+        });
+    });
+
+    describe("settleDispute", () => {
+        it("successfully settles a dispute", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.settleDispute(
+                    mockRequestProphetData,
+                    mockResponseProphetData,
+                    mockDisputeProphetData,
+                ),
+            ).resolves.not.toThrow();
+        });
+
+        it("throws TransactionExecutionError when transaction fails", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+                status: "reverted",
+            });
+
+            const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
+            const mockResponseProphetData = DEFAULT_MOCKED_RESPONSE_DATA.prophetData;
+            const mockDisputeProphetData = DEFAULT_MOCKED_DISPUTE_DATA.prophetData;
+
+            await expect(
+                protocolProvider.settleDispute(
+                    mockRequestProphetData,
+                    mockResponseProphetData,
+                    mockDisputeProphetData,
+                ),
+            ).rejects.toThrow(TransactionExecutionError);
         });
     });
 });

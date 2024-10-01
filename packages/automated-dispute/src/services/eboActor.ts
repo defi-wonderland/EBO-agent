@@ -1,9 +1,9 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
-import { ILogger } from "@ebo-agent/shared";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
+import { Address, ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
-import { ContractFunctionRevertedError } from "viem";
+import { BlockNumber, ContractFunctionRevertedError } from "viem";
 
 import type {
     Dispute,
@@ -14,6 +14,7 @@ import type {
     Request,
     Response,
     ResponseBody,
+    ResponseId,
 } from "../types/index.js";
 import { ErrorHandler } from "../exceptions/errorHandler.js";
 import {
@@ -130,8 +131,7 @@ export class EboActor {
      *
      * @throws {RequestMismatch} when an event from another request was enqueued in this actor
      */
-    public async processEvents(): Promise<void> {
-        // TODO: check for actor expiration (ie if it makes no sense to still handle the request events)
+    public processEvents(): Promise<void> {
         return this.eventProcessingMutex.runExclusive(async () => {
             let event: EboEvent<EboEventName> | undefined;
 
@@ -267,18 +267,21 @@ export class EboActor {
     }
 
     /**
-     * Finalize the request if the proposal window is closed and there is an accepted response.
+     * Triggers time-based interactions with smart contracts. This handles window-based
+     * checks like proposal windows to close requests, or dispute windows to accept responses.
      *
-     * @param request The request to finalize
-     * @param blockNumber The current block number
+     * @param blockNumber block number to check open/closed windows
      */
-    private async finalizeRequest(request: Request, blockNumber: bigint): Promise<void> {
+    public async onLastBlockUpdated(blockNumber: bigint): Promise<void> {
         try {
-            const proposalDeadline = request.prophetData.responseModuleData.deadline;
+            await this.settleDisputes(blockNumber);
+            const request = this.getActorRequest();
+            const proposalDeadline = request.decodedData.responseModuleData.deadline;
             const isProposalWindowOpen = blockNumber <= proposalDeadline;
 
             if (isProposalWindowOpen) {
                 this.logger.debug(`Proposal window for request ${request.id} not closed yet.`);
+
                 return;
             }
 
@@ -292,46 +295,6 @@ export class EboActor {
                     acceptedResponse.prophetData,
                 );
             }
-            // TODO: check for responseModuleData.deadline, if no answer has been accepted after the deadline
-            //  notify and (TBD) finalize with no response
-        } catch (err) {
-            if (err instanceof ContractFunctionRevertedError) {
-                const customError = ErrorFactory.createError(err.name).setContext({
-                    request,
-                    response: this.getAcceptedResponse(blockNumber),
-                    blockNumber,
-                    registry: this.registry,
-                });
-                await ErrorHandler.handle(customError, {
-                    terminateActor: () => {
-                        throw customError;
-                    },
-                    notifyError: async () => {
-                        await this.notificationService.notifyError(customError, {
-                            request,
-                            response: this.getAcceptedResponse(blockNumber),
-                            blockNumber,
-                            registry: this.registry,
-                        });
-                    },
-                });
-            } else {
-                throw err;
-            }
-        }
-    }
-
-    /**
-     * Triggers time-based interactions with smart contracts. This handles window-based
-     * checks like proposal windows to close requests, or dispute windows to accept responses.
-     *
-     * @param blockNumber block number to check open/closed windows
-     */
-    public async onLastBlockUpdated(blockNumber: bigint): Promise<void> {
-        try {
-            await this.settleDisputes(blockNumber);
-            const request = this.getActorRequest();
-            await this.finalizeRequest(request, blockNumber);
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
                 const customError = ErrorFactory.createError(err.name).setContext({
@@ -397,7 +360,7 @@ export class EboActor {
     private canBeSettled(request: Request, dispute: Dispute, blockNumber: bigint): boolean {
         if (dispute.status !== "Active") return false;
 
-        const { bondEscalationDeadline, tyingBuffer } = request.prophetData.disputeModuleData;
+        const { bondEscalationDeadline, tyingBuffer } = request.decodedData.disputeModuleData;
         const deadline = bondEscalationDeadline + tyingBuffer;
 
         return blockNumber > deadline;
@@ -503,7 +466,7 @@ export class EboActor {
         const request = this.getActorRequest();
         const dispute = this.registry.getResponseDispute(response);
         const disputeWindow =
-            response.createdAt + request.prophetData.disputeModuleData.disputeWindow;
+            response.createdAt + request.decodedData.disputeModuleData.disputeWindow;
 
         // Response is still able to be disputed
         if (blockNumber <= disputeWindow) return false;
@@ -540,7 +503,7 @@ export class EboActor {
      * @param blockNumber block number to check proposals' status against
      * @returns an array of `Response` instances
      */
-    private activeProposals(blockNumber: bigint): Response[] {
+    private activeProposals(blockNumber: BlockNumber): Response[] {
         const responses = this.registry.getResponses();
 
         return responses.filter((response) => {
@@ -566,16 +529,6 @@ export class EboActor {
      * @param event `RequestCreated` event
      */
     private async onRequestCreated(event: EboEvent<"RequestCreated">): Promise<void> {
-        if (this.anyActiveProposal()) {
-            // Skipping new proposal until the actor receives a ResponseDisputed event;
-            // at that moment, it will be possible to re-propose again.
-            this.logger.info(
-                `There is an active proposal for request ${this.actorRequest.id}. Skipping...`,
-            );
-
-            return;
-        }
-
         const { chainId } = event.metadata;
 
         try {
@@ -604,16 +557,6 @@ export class EboActor {
     }
 
     /**
-     * Check if there's at least one proposal that has not received any dispute yet.
-     *
-     * @returns
-     */
-    private anyActiveProposal() {
-        // TODO: implement this function
-        return false;
-    }
-
-    /**
      * Check if the same proposal has already been made in the past.
      *
      * @param epoch epoch of the request
@@ -631,7 +574,7 @@ export class EboActor {
 
         for (const proposedResponse of responses) {
             const responseId = proposedResponse.id;
-            const proposedBody = proposedResponse.prophetData.response;
+            const proposedBody = proposedResponse.decodedData.response;
 
             if (this.equalResponses(proposedBody, newResponse)) {
                 this.logger.info(
@@ -687,7 +630,7 @@ export class EboActor {
         const response: Response["prophetData"] = {
             proposer: proposerAddress,
             requestId: request.id,
-            response: responseBody,
+            response: ProtocolProvider.encodeResponse(responseBody),
         };
 
         try {
@@ -716,21 +659,20 @@ export class EboActor {
      */
     private async onResponseProposed(event: EboEvent<"ResponseProposed">): Promise<void> {
         const eventResponse = event.metadata.response;
-        const actorResponse = await this.buildResponse(eventResponse.response.chainId);
+        const decodedResponse = ProtocolProvider.decodeResponse(eventResponse.response);
+        const actorResponse = await this.buildResponse(decodedResponse.chainId);
 
-        if (this.equalResponses(actorResponse, eventResponse.response)) {
+        if (this.equalResponses(actorResponse, decodedResponse)) {
             this.logger.info(`Response ${event.metadata.responseId} was validated. Skipping...`);
             return;
         }
 
         const request = this.getActorRequest();
-
         const disputer = this.protocolProvider.getAccountAddress();
-
         const dispute: Dispute["prophetData"] = {
             disputer: disputer,
             proposer: eventResponse.proposer,
-            responseId: event.metadata.responseId,
+            responseId: Address.normalize(event.metadata.responseId) as ResponseId,
             requestId: request.id,
         };
         try {
@@ -753,14 +695,6 @@ export class EboActor {
                 await ErrorHandler.handle(customError, {
                     reenqueueEvent: () => {
                         this.eventsQueue.push(event);
-                    },
-                    notifyError: async () => {
-                        await this.notificationService.notifyError(customError, {
-                            event,
-                            request,
-                            response: eventResponse,
-                            registry: this.registry,
-                        });
                     },
                 });
 
@@ -846,12 +780,12 @@ export class EboActor {
      */
     private async isValidDispute(proposedResponse: Response) {
         const actorResponse = await this.buildResponse(
-            proposedResponse.prophetData.response.chainId,
+            proposedResponse.decodedData.response.chainId,
         );
 
         const equalResponses = this.equalResponses(
             actorResponse,
-            proposedResponse.prophetData.response,
+            proposedResponse.decodedData.response,
         );
 
         return !equalResponses;
@@ -878,6 +812,26 @@ export class EboActor {
                     dispute,
                     registry: this.registry,
                 });
+
+                await ErrorHandler.handle(customError, {
+                    terminateActor: () => {
+                        throw customError;
+                    },
+                    // TODO: implement notificationService
+                    // notifyError: async () => {
+                    //     await this.notificationService.notifyError(customError, {
+                    //         request,
+                    //         response,
+                    //         dispute,
+                    //         registry: this.registry,
+                    //     });
+                    // },
+                });
+
+                if (customError.strategy.shouldTerminate) {
+                    // Rethrow for EboProcessor to handle
+                    throw customError;
+                }
 
                 await ErrorHandler.handle(customError, {
                     terminateActor: () => {

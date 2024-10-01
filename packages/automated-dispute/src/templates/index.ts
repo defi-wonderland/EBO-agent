@@ -1,4 +1,6 @@
-import { RequestId } from "../types/prophet.js";
+import { Address } from "viem";
+
+import { AccountingModules, RequestId } from "../types/prophet.js";
 
 export const alreadyDeletedActorWarning = (requestId: RequestId) => `
 Actor handling request ${requestId} was already deleted.
@@ -11,3 +13,32 @@ Dropping events for request ${requestId} because no actor is handling it and the
 
 The request likely started before the current epoch's first block, which will not be handled by the agent.
 `;
+
+export const pendingApprovedModulesError = (
+    horizonAddress: Address,
+    approvedModules: Partial<AccountingModules>,
+    notApprovedModules: Partial<AccountingModules>,
+) => {
+    const approvedModulesList = Object.entries(approvedModules).map(
+        ([key, value]) => `* ${key} at ${value}\n`,
+    );
+    const notApprovedModulesList = Object.entries(notApprovedModules).map(
+        ([key, value]) => `* ${key} at ${value}\n`,
+    );
+
+    return `
+The EBO agent cannot proceed until certain actions are resolved by the operator.
+
+The following modules already have approvals from HorizonAccountingExtension at ${horizonAddress}:
+${approvedModulesList}
+
+The following modules need approval from HorizonAccountingExtension at ${horizonAddress}:
+${notApprovedModulesList}
+
+To grant the necessary approvals, please run the script located at:
+
+apps/scripts/approveAccountingModules.ts
+
+Once approvals are completed, restart the EBO agent to continue.
+`;
+};

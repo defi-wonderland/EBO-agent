@@ -1,45 +1,17 @@
 import { inspect } from "util";
-import { EboActorsManager, EboProcessor } from "@ebo-agent/automated-dispute";
-import { ProtocolProvider } from "@ebo-agent/automated-dispute/dist/providers/protocolProvider.js";
+import { isNativeError } from "util/types";
+import { EboActorsManager, EboProcessor, ProtocolProvider } from "@ebo-agent/automated-dispute";
 import { DiscordNotifier } from "@ebo-agent/automated-dispute/src/services/index.js";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Logger } from "@ebo-agent/shared";
 
-// TODO: use env vars and validate config schema
-const config = {
-    protocolProvider: {
-        rpcUrls: ["localhost"],
-        contracts: {
-            oracle: "0x00",
-            epochManager: "0x00",
-            eboRequestCreator: "0x00",
-        } as const,
-        privateKey: "0xsecret" as const,
-    },
-    blockNumberService: {
-        chainRpcUrls: new Map([["eip155:1" as const, ["localhost"]]]),
-        blockmetaConfig: {
-            baseUrl: new URL("localhost:443"),
-            servicePaths: {
-                blockByTime: "/sf.blockmeta.v2.BlockByTime",
-                block: "/sf.blockmeta.v2.Block",
-            },
-            bearerToken: "secret-token",
-            bearerTokenExpirationWindow: 365 * 24 * 60 * 60 * 1000, // 1 year
-        },
-    },
-    processor: {
-        msBetweenChecks: 1,
-    },
-    DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN || "",
-    DISCORD_CHANNEL_ID: process.env.DISCORD_CHANNEL_ID || "",
-};
+import { config } from "./config/index.js";
 
 const logger = Logger.getInstance();
 
 const main = async (): Promise<void> => {
     const protocolProvider = new ProtocolProvider(
-        config.protocolProvider.rpcUrls,
+        config.protocolProvider.rpcsConfig,
         config.protocolProvider.contracts,
         config.protocolProvider.privateKey,
     );
@@ -58,6 +30,7 @@ const main = async (): Promise<void> => {
     });
 
     const processor = new EboProcessor(
+        config.processor.accountingModules,
         protocolProvider,
         blockNumberService,
         actorsManager,
@@ -81,7 +54,14 @@ process.on("uncaughtException", (error: Error) => {
 });
 
 main().catch((err) => {
-    logger.error(`Error in main handler: ${err}`);
+    logger.error(`Main handler failure.`);
+
+    if (isNativeError(err)) {
+        logger.error(`${err.stack}`);
+        logger.error(`${err.message}`);
+    } else {
+        logger.error(err);
+    }
 
     process.exit(1);
 });

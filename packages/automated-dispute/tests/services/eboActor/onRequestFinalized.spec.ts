@@ -2,7 +2,7 @@ import { ILogger } from "@ebo-agent/shared";
 import { describe, expect, it, vi } from "vitest";
 
 import { FinalizeRequest } from "../../../src/services/index.js";
-import { EboEvent } from "../../../src/types/index.js";
+import { EboEvent, ResponseId } from "../../../src/types/index.js";
 import mocks from "../../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
 
@@ -22,7 +22,7 @@ describe("EboActor", () => {
                     blockNumber: 1n,
                     caller: "0x01",
                     requestId: actorRequest.id,
-                    responseId: "0x02",
+                    responseId: "0x02" as ResponseId,
                 },
             };
 
