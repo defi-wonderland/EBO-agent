@@ -393,8 +393,8 @@ export class ProtocolProvider implements IProtocolProvider {
             ) as DecodedLogArgsMap["RequestCreated"];
             return {
                 name: "RequestCreated" as const,
-                blockNumber: log.blockNumber ?? BigInt(0),
-                logIndex: log.logIndex ?? 0,
+                blockNumber: log.blockNumber,
+                logIndex: log.logIndex,
                 rawLog: log,
                 requestId: decodedLog.requestId ?? "",
                 metadata: decodedLog,
