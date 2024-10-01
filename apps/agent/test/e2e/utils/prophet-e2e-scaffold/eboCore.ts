@@ -10,11 +10,9 @@ import {
     HttpTransport,
     parseAbi,
     parseEther,
-    PublicActions,
     publicActions,
     PublicClient,
     TestClient,
-    WalletActions,
     walletActions,
     WalletClient,
 } from "viem";
