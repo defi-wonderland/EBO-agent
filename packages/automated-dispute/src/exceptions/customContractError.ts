@@ -1,23 +1,24 @@
-import { ErrorHandlingStrategy } from "../types/index.js";
+import { ErrorContext, ErrorHandlingStrategy, ErrorName } from "../types/index.js";
 
 export class CustomContractError extends Error {
-    public override name: string;
+    public override name: ErrorName;
     public strategy: ErrorHandlingStrategy;
-    private context: any = {};
-    private customActions: Map<string, (context: any) => Promise<void> | void> = new Map();
+    private context!: ErrorContext;
+    private customActions: Map<ErrorName, (context: ErrorContext) => Promise<void> | void> =
+        new Map();
 
-    constructor(name: string, strategy: ErrorHandlingStrategy) {
+    constructor(name: ErrorName, strategy: ErrorHandlingStrategy) {
         super(`Contract reverted: ${name}`);
         this.name = name;
         this.strategy = strategy;
     }
 
-    public setContext(context: any): this {
+    public setContext(context: ErrorContext): this {
         this.context = context;
         return this;
     }
 
-    public on(errorName: string, action: (context: any) => Promise<void> | void): this {
+    public on(errorName: string, action: (context: ErrorContext) => Promise<void> | void): this {
         if (this.name === errorName) {
             this.customActions.set(errorName, action);
         }

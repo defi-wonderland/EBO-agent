@@ -1,4 +1,5 @@
-import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
+import { BlockNumberService } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
 import { Address, ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
@@ -10,6 +11,7 @@ import type {
     EboEvent,
     EboEventName,
     Epoch,
+    ErrorContext,
     Request,
     Response,
     ResponseBody,
@@ -149,6 +151,21 @@ export class EboActor {
                     this.logger.error(`Error processing event ${event.name}: ${err}`);
 
                     if (err instanceof CustomContractError) {
+                        const request = this.getActorRequest();
+                        const context: ErrorContext = {
+                            request,
+                            event,
+                            registry: this.registry,
+                            reenqueueEvent: () => {
+                                this.eventsQueue.push(event!);
+                            },
+                            terminateActor: () => {
+                                throw err;
+                            },
+                        };
+
+                        await ErrorHandler.handle(err, context);
+
                         if (err.strategy.shouldReenqueue) {
                             this.eventsQueue.push(event);
                             updateStateCommand.undo();
@@ -383,18 +400,19 @@ export class EboActor {
                         throw escalationError;
                     }
                 } else {
-                    const customError = ErrorFactory.createError(errorName).setContext({
+                    const customError = ErrorFactory.createError(errorName);
+                    const context: ErrorContext = {
                         request,
                         response,
                         dispute,
                         registry: this.registry,
-                    });
-
-                    await ErrorHandler.handle(customError, {
                         terminateActor: () => {
                             throw customError;
                         },
-                    });
+                    };
+                    customError.setContext(context);
+
+                    await ErrorHandler.handle(customError, context);
 
                     if (customError.strategy.shouldTerminate) {
                         // Rethrow for EboProcessor to handle
@@ -502,16 +520,19 @@ export class EboActor {
             await this.proposeResponse(chainId);
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
-                const customError = ErrorFactory.createError(err.name).setContext({
+                const request = this.getActorRequest();
+                const customError = ErrorFactory.createError(err.name);
+                const context: ErrorContext = {
+                    request,
                     event,
                     registry: this.registry,
-                });
-
-                await ErrorHandler.handle(customError, {
                     reenqueueEvent: () => {
                         this.eventsQueue.push(event);
                     },
-                });
+                };
+                customError.setContext(context);
+
+                await ErrorHandler.handle(customError, context);
 
                 if (customError.strategy.shouldTerminate) {
                     // Rethrow for EboProcessor to handle
@@ -604,6 +625,20 @@ export class EboActor {
             await this.protocolProvider.proposeResponse(request.prophetData, response);
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
+                const customError = ErrorFactory.createError(err.name);
+                const context: ErrorContext = {
+                    request,
+                    registry: this.registry,
+                };
+                customError.setContext(context);
+
+                await ErrorHandler.handle(customError, context);
+
+                if (customError.strategy.shouldTerminate) {
+                    // Rethrow for EboProcessor to handle
+                    throw customError;
+                }
+
                 this.logger.warn(
                     `Block ${responseBody.block} for epoch ${responseBody.epoch} and ` +
                         `chain ${responseBody.chainId} was not proposed. Skipping proposal...`,
@@ -650,20 +685,21 @@ export class EboActor {
             );
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
-                const customError = ErrorFactory.createError(err.name).setContext({
-                    event,
+                const customError = ErrorFactory.createError(err.name);
+                const response = this.registry.getResponse(event.metadata.responseId);
+                const context: ErrorContext = {
                     request,
-                    eventResponse,
+                    response,
                     dispute,
-                    response: eventResponse,
+                    event,
                     registry: this.registry,
-                });
-
-                await ErrorHandler.handle(customError, {
                     reenqueueEvent: () => {
                         this.eventsQueue.push(event);
                     },
-                });
+                };
+                customError.setContext(context);
+
+                await ErrorHandler.handle(customError, context);
 
                 if (customError.strategy.shouldTerminate) {
                     // Rethrow for EboProcessor to handle
@@ -774,26 +810,18 @@ export class EboActor {
                 const errorName = err.data?.errorName || err.name;
                 this.logger.warn(`Pledge for dispute ${dispute.id} reverted due to: ${errorName}`);
 
-                const customError = ErrorFactory.createError(errorName).setContext({
+                const customError = ErrorFactory.createError(errorName);
+                const context: ErrorContext = {
                     request,
                     dispute,
                     registry: this.registry,
-                });
-
-                await ErrorHandler.handle(customError, {
                     terminateActor: () => {
                         throw customError;
                     },
-                    // TODO: implement notificationService
-                    // notifyError: async () => {
-                    //     await this.notificationService.notifyError(customError, {
-                    //         request,
-                    //         response,
-                    //         dispute,
-                    //         registry: this.registry,
-                    //     });
-                    // },
-                });
+                };
+                customError.setContext(context);
+
+                await ErrorHandler.handle(customError, context);
 
                 if (customError.strategy.shouldTerminate) {
                     // Rethrow for EboProcessor to handle
@@ -825,26 +853,18 @@ export class EboActor {
                     `Pledge against dispute ${dispute.id} reverted due to: ${errorName}`,
                 );
 
-                const customError = ErrorFactory.createError(errorName).setContext({
+                const customError = ErrorFactory.createError(errorName);
+                const context: ErrorContext = {
                     request,
                     dispute,
                     registry: this.registry,
-                });
-
-                await ErrorHandler.handle(customError, {
                     terminateActor: () => {
                         throw customError;
                     },
-                    // TODO: implement notificationService
-                    // notifyError: async () => {
-                    //     await this.notificationService.notifyError(customError, {
-                    //         request,
-                    //         response,
-                    //         dispute,
-                    //         registry: this.registry,
-                    //     });
-                    // },
-                });
+                };
+                customError.setContext(context);
+
+                await ErrorHandler.handle(customError, context);
 
                 if (customError.strategy.shouldTerminate) {
                     // Rethrow for EboProcessor to handle

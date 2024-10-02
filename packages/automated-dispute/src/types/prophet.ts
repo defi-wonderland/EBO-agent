@@ -1,4 +1,4 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
 import { Branded, NormalizedAddress } from "@ebo-agent/shared";
 import { Address, Hex } from "viem";
 

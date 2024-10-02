@@ -1,4 +1,4 @@
-import { ContractFunctionRevertedError } from "viem";
+import { Abi, ContractFunctionRevertedError, encodeErrorResult } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ErrorHandler } from "../../src/exceptions/errorHandler.js";
@@ -138,7 +138,7 @@ describe("EboActor", () => {
             const firstEvent = { ...event };
             const secondEvent = { ...firstEvent, blockNumber: firstEvent.blockNumber + 1n };
 
-            const mockError = new CustomContractError("TestError", {
+            const mockError = new CustomContractError("UnknownError", {
                 shouldReenqueue: true,
                 shouldTerminate: false,
                 shouldNotify: false,
@@ -434,7 +434,7 @@ describe("EboActor", () => {
     });
 
     describe("onRequestCreated", () => {
-        it("should handle ContractFunctionRevertedError by creating CustomContractError via ErrorFactory and calling ErrorHandler", async () => {
+        it("handles ContractFunctionRevertedError by creating CustomContractError via ErrorFactory and calling ErrorHandler", async () => {
             const { actor } = mocks.buildEboActor(request, logger);
             const event: EboEvent<"RequestCreated"> = {
                 name: "RequestCreated",
@@ -448,6 +448,8 @@ describe("EboActor", () => {
                     request: request.prophetData,
                 },
             };
+
+            vi.spyOn(actor["registry"], "getRequest").mockReturnValue(request);
 
             const errorName = "ContractFunctionRevertedError";
             const contractError = new ContractFunctionRevertedError({
@@ -471,59 +473,111 @@ describe("EboActor", () => {
             await actor["onRequestCreated"](event);
 
             expect(errorFactorySpy).toHaveBeenCalledWith(errorName);
-            expect(customError["context"]).toEqual({
-                event,
-                registry: actor["registry"],
-            });
-            expect(errorHandlerSpy).toHaveBeenCalledWith(customError, {
-                reenqueueEvent: expect.any(Function),
-            });
+            expect(customError["context"]).toEqual(
+                expect.objectContaining({
+                    event,
+                    registry: actor["registry"],
+                }),
+            );
 
+            expect(errorHandlerSpy).toHaveBeenCalledWith(
+                customError,
+                expect.objectContaining({
+                    reenqueueEvent: expect.any(Function),
+                }),
+            );
             errorFactorySpy.mockRestore();
             errorHandlerSpy.mockRestore();
         });
     });
 
     describe("settleDispute", () => {
-        it("should handle ContractFunctionRevertedError and use ErrorFactory in settleDispute", async () => {
-            const { actor, registry } = mocks.buildEboActor(request, logger);
+        it("escalate dispute when BondEscalationModule_ShouldBeEscalated error occurs", async () => {
+            expect.assertions(3);
+
+            const { actor, protocolProvider } = mocks.buildEboActor(request, logger);
             const response = mocks.buildResponse(request);
             const dispute = mocks.buildDispute(request, response);
 
-            const errorName = "ContractFunctionRevertedError";
-            const contractError = new ContractFunctionRevertedError({
-                data: {
-                    errorName: errorName,
+            const abi: Abi = [
+                {
+                    type: "error",
+                    name: "BondEscalationModule_ShouldBeEscalated",
+                    inputs: [],
                 },
-            } as any);
+            ];
 
-            actor["protocolProvider"].settleDispute = vi.fn().mockRejectedValue(contractError);
-
-            const errorFactorySpy = vi.spyOn(ErrorFactory, "createError");
-            const customError = new CustomContractError(errorName, {
-                shouldNotify: true,
-                shouldTerminate: false,
-                shouldReenqueue: false,
+            const errorName = "BondEscalationModule_ShouldBeEscalated";
+            const data = encodeErrorResult({
+                abi,
+                errorName,
+                args: [],
             });
-            errorFactorySpy.mockReturnValue(customError);
 
-            const errorHandlerSpy = vi.spyOn(ErrorHandler, "handle").mockResolvedValue();
+            const contractError = new ContractFunctionRevertedError({
+                abi,
+                data,
+                functionName: "settleDispute",
+            });
+
+            const settleDisputeMock = vi
+                .spyOn(protocolProvider, "settleDispute")
+                .mockRejectedValue(contractError);
+
+            const escalateDisputeMock = vi
+                .spyOn(protocolProvider, "escalateDispute")
+                .mockResolvedValue();
 
             await actor["settleDispute"](request, response, dispute);
 
-            expect(errorFactorySpy).toHaveBeenCalledWith(errorName);
-            expect(customError["context"]).toEqual({
-                request,
-                response,
-                dispute,
-                registry,
-            });
-            expect(errorHandlerSpy).toHaveBeenCalledWith(customError, {
-                terminateActor: expect.any(Function),
+            expect(settleDisputeMock).toHaveBeenCalled();
+            expect(escalateDisputeMock).toHaveBeenCalled();
+            expect(logger.info).toHaveBeenCalledWith(`Dispute ${dispute.id} escalated.`);
+        });
+
+        it("should handle error when escalateDispute fails", async () => {
+            expect.assertions(3);
+
+            const { actor, protocolProvider } = mocks.buildEboActor(request, logger);
+            const response = mocks.buildResponse(request);
+            const dispute = mocks.buildDispute(request, response);
+
+            const abi: Abi = [
+                {
+                    type: "error",
+                    name: "BondEscalationModule_ShouldBeEscalated",
+                    inputs: [],
+                },
+            ];
+
+            const errorName = "BondEscalationModule_ShouldBeEscalated";
+            const data = encodeErrorResult({
+                abi,
+                errorName,
+                args: [],
             });
 
-            errorFactorySpy.mockRestore();
-            errorHandlerSpy.mockRestore();
+            const contractError = new ContractFunctionRevertedError({
+                abi,
+                data,
+                functionName: "settleDispute",
+            });
+
+            const settleDisputeMock = vi
+                .spyOn(protocolProvider, "settleDispute")
+                .mockRejectedValue(contractError);
+
+            const escalateError = new Error("Escalation failed");
+            const escalateDisputeMock = vi
+                .spyOn(protocolProvider, "escalateDispute")
+                .mockRejectedValue(escalateError);
+
+            await expect(actor["settleDispute"](request, response, dispute)).rejects.toThrow(
+                escalateError,
+            );
+
+            expect(settleDisputeMock).toHaveBeenCalled();
+            expect(escalateDisputeMock).toHaveBeenCalled();
         });
     });
 });

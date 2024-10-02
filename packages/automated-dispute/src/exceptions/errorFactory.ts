@@ -1,7 +1,8 @@
 import { CustomContractError } from "../exceptions/index.js";
-import { ErrorHandlingStrategy } from "../types/index.js";
+import { isDispute } from "../guards.js";
+import { ErrorContext, ErrorHandlingStrategy, ErrorName } from "../types/index.js";
 
-const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
+const errorStrategiesEntries: [ErrorName, ErrorHandlingStrategy][] = [
     [
         "ValidatorLib_InvalidResponseBody",
         {
@@ -32,8 +33,10 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
             shouldNotify: true,
             shouldTerminate: false,
             shouldReenqueue: true,
-            customAction: async (context) => {
-                context.registry.removeDispute(context.dispute.id);
+            customAction: async (context: ErrorContext) => {
+                if (isDispute(context.dispute)) {
+                    context.registry.removeDispute(context.dispute.id);
+                }
             },
         },
     ],
@@ -51,8 +54,10 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
             shouldNotify: true,
             shouldTerminate: false,
             shouldReenqueue: true,
-            customAction: async (context) => {
-                context.registry.removeDispute(context.dispute.id);
+            customAction: async (context: ErrorContext) => {
+                if (isDispute(context.dispute)) {
+                    context.registry.removeDispute(context.dispute.id);
+                }
             },
         },
     ],
@@ -62,8 +67,10 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
             shouldNotify: true,
             shouldTerminate: false,
             shouldReenqueue: true,
-            customAction: async (context) => {
-                context.registry.removeDispute(context.dispute.id);
+            customAction: async (context: ErrorContext) => {
+                if (isDispute(context.dispute)) {
+                    context.registry.removeDispute(context.dispute.id);
+                }
             },
         },
     ],
@@ -177,8 +184,10 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
             shouldNotify: true,
             shouldTerminate: false,
             shouldReenqueue: true,
-            customAction: async (context) => {
-                context.registry.removeDispute(context.dispute.id);
+            customAction: async (context: ErrorContext) => {
+                if (isDispute(context.dispute)) {
+                    context.registry.removeDispute(context.dispute.id);
+                }
             },
         },
     ],
@@ -188,8 +197,10 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
             shouldNotify: true,
             shouldTerminate: false,
             shouldReenqueue: true,
-            customAction: async (context) => {
-                context.registry.removeDispute(context.dispute.id);
+            customAction: async (context: ErrorContext) => {
+                if (isDispute(context.dispute)) {
+                    context.registry.removeDispute(context.dispute.id);
+                }
             },
         },
     ],
@@ -215,8 +226,10 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
             shouldNotify: true,
             shouldTerminate: false,
             shouldReenqueue: true,
-            customAction: async (context) => {
-                context.registry.removeResponse(context.response.id);
+            customAction: async (context: ErrorContext) => {
+                if (context.response) {
+                    context.registry.removeResponse(context.response.id);
+                }
             },
         },
     ],
@@ -234,8 +247,10 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
             shouldNotify: true,
             shouldTerminate: false,
             shouldReenqueue: true,
-            customAction: async (context) => {
-                context.registry.removeDispute(context.dispute.id);
+            customAction: async (context: ErrorContext) => {
+                if (isDispute(context.dispute)) {
+                    context.registry.removeDispute(context.dispute.id);
+                }
             },
         },
     ],
@@ -346,20 +361,27 @@ const errorStrategiesEntries: [string, ErrorHandlingStrategy][] = [
     ],
 ];
 
-const errorStrategies = new Map<string, ErrorHandlingStrategy>(errorStrategiesEntries);
+const errorStrategies = new Map<ErrorName, ErrorHandlingStrategy>(errorStrategiesEntries);
 
 export class ErrorFactory {
-    public static createError(errorName: string): CustomContractError {
-        const strategy = errorStrategies.get(errorName);
+    public static createError(errorName: ErrorName | string): CustomContractError {
+        if (!errorStrategies.has(errorName as ErrorName)) {
+            return new CustomContractError("UnknownError", {
+                shouldNotify: true,
+                shouldTerminate: false,
+                shouldReenqueue: true,
+            });
+        }
+        const strategy = errorStrategies.get(errorName as ErrorName);
 
         if (!strategy) {
-            return new CustomContractError(errorName, {
+            return new CustomContractError(errorName as ErrorName, {
                 shouldNotify: true,
                 shouldTerminate: false,
                 shouldReenqueue: true,
             });
         }
 
-        return new CustomContractError(errorName, strategy);
+        return new CustomContractError(errorName as ErrorName, strategy);
     }
 }

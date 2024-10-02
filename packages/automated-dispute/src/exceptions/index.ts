@@ -10,5 +10,6 @@ export * from "./responseAlreadyProposed.exception.js";
 export * from "./rpcUrlsEmpty.exception.js";
 export * from "./transactionExecutionError.exception.js";
 export * from "./invalidAccountOnClient.exception.js";
+export * from "./unknownCustomError.exception.js";
 export * from "./customContractError.js";
 export * from "./errorFactory.js";

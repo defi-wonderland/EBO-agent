@@ -1,4 +1,4 @@
-import { Caip2ChainId, Caip2Utils, InvalidChainId } from "@ebo-agent/blocknumber";
+import { Caip2ChainId, Caip2Utils, InvalidChainId } from "@ebo-agent/blocknumber/src/index.js";
 import {
     Address,
     BaseError,
@@ -421,27 +421,23 @@ export class ProtocolProvider implements IProtocolProvider {
             throw new Error("Chains array cannot be empty");
         }
 
-        try {
-            const { request } = await this.readClient.simulateContract({
-                address: this.eboRequestCreatorContract.address,
-                abi: eboRequestCreatorAbi,
-                functionName: "createRequests",
-                args: [epoch, chains],
-                account: this.writeClient.account,
-            });
+        const { request } = await this.readClient.simulateContract({
+            address: this.eboRequestCreatorContract.address,
+            abi: eboRequestCreatorAbi,
+            functionName: "createRequests",
+            args: [epoch, chains],
+            account: this.writeClient.account,
+        });
 
-            const hash = await this.writeClient.writeContract(request);
+        const hash = await this.writeClient.writeContract(request);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
+        const receipt = await this.readClient.waitForTransactionReceipt({
+            hash,
+            confirmations: this.rpcConfig.transactionReceiptConfirmations,
+        });
 
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("createRequest transaction failed");
-            }
-        } catch (error) {
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("createRequest transaction failed");
         }
     }
 
@@ -458,27 +454,23 @@ export class ProtocolProvider implements IProtocolProvider {
         request: Request["prophetData"],
         response: Response["prophetData"],
     ): Promise<void> {
-        try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.oracleContract.address,
-                abi: oracleAbi,
-                functionName: "proposeResponse",
-                args: [request, response],
-                account: this.writeClient.account,
-            });
+        const { request: simulatedRequest } = await this.readClient.simulateContract({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            functionName: "proposeResponse",
+            args: [request, response],
+            account: this.writeClient.account,
+        });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+        const hash = await this.writeClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
+        const receipt = await this.readClient.waitForTransactionReceipt({
+            hash,
+            confirmations: this.rpcConfig.transactionReceiptConfirmations,
+        });
 
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("proposeResponse transaction failed");
-            }
-        } catch (error) {
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("proposeResponse transaction failed");
         }
     }
 
@@ -497,27 +489,23 @@ export class ProtocolProvider implements IProtocolProvider {
         response: Response["prophetData"],
         dispute: Dispute["prophetData"],
     ): Promise<void> {
-        try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.oracleContract.address,
-                abi: oracleAbi,
-                functionName: "disputeResponse",
-                args: [request, response, dispute],
-                account: this.writeClient.account,
-            });
+        const { request: simulatedRequest } = await this.readClient.simulateContract({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            functionName: "disputeResponse",
+            args: [request, response, dispute],
+            account: this.writeClient.account,
+        });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+        const hash = await this.writeClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
+        const receipt = await this.readClient.waitForTransactionReceipt({
+            hash,
+            confirmations: this.rpcConfig.transactionReceiptConfirmations,
+        });
 
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("disputeResponse transaction failed");
-            }
-        } catch (error) {
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("disputeResponse transaction failed");
         }
     }
 
@@ -681,27 +669,23 @@ export class ProtocolProvider implements IProtocolProvider {
         response: Response["prophetData"],
         dispute: Dispute["prophetData"],
     ): Promise<void> {
-        try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.oracleContract.address,
-                abi: oracleAbi,
-                functionName: "escalateDispute",
-                args: [request, response, dispute],
-                account: this.writeClient.account,
-            });
+        const { request: simulatedRequest } = await this.readClient.simulateContract({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            functionName: "escalateDispute",
+            args: [request, response, dispute],
+            account: this.writeClient.account,
+        });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+        const hash = await this.writeClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
+        const receipt = await this.readClient.waitForTransactionReceipt({
+            hash,
+            confirmations: this.rpcConfig.transactionReceiptConfirmations,
+        });
 
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("escalateDispute transaction failed");
-            }
-        } catch (error) {
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("escalateDispute transaction failed");
         }
     }
 
@@ -724,27 +708,23 @@ export class ProtocolProvider implements IProtocolProvider {
         request: Request["prophetData"],
         response: Response["prophetData"],
     ): Promise<void> {
-        try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.oracleContract.address,
-                abi: oracleAbi,
-                functionName: "finalize",
-                args: [request, response],
-                account: this.writeClient.account,
-            });
+        const { request: simulatedRequest } = await this.readClient.simulateContract({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            functionName: "finalize",
+            args: [request, response],
+            account: this.writeClient.account,
+        });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+        const hash = await this.writeClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
+        const receipt = await this.readClient.waitForTransactionReceipt({
+            hash,
+            confirmations: this.rpcConfig.transactionReceiptConfirmations,
+        });
 
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("finalize transaction failed");
-            }
-        } catch (error) {
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("finalize transaction failed");
         }
     }
 }
