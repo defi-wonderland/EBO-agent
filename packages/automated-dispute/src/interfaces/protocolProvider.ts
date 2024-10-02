@@ -53,6 +53,14 @@ export interface IReadProvider {
      * @returns A promise that resolves with an array of approved modules.
      */
     getAccountingApprovedModules(): Promise<Address[]>;
+
+    /**
+     * Gets the list of approved modules' addresses for a given wallet address.
+     *
+     * @param user The address of the user.
+     * @returns A promise that resolves with an array of approved modules for the user.
+     */
+    getApprovedModules(user: Address): Promise<Address[]>;
 }
 
 /**
@@ -161,6 +169,14 @@ export interface IWriteProvider {
      * @param modules an array of addresses for the modules to be approved
      */
     approveAccountingModules(modules: Address[]): Promise<void>;
+
+    /**
+     * Approves a module in the accounting extension contract.
+     *
+     * @param module The address of the module to approve.
+     * @returns A promise that resolves when the module is approved.
+     */
+    approveModule(module: Address): Promise<void>;
 }
 
 /**
