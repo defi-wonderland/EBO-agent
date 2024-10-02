@@ -418,11 +418,6 @@ export class EboActor {
                     customError.setContext(context);
 
                     await ErrorHandler.handle(customError, context);
-
-                    if (customError.strategy.shouldTerminate) {
-                        // Rethrow for EboProcessor to handle
-                        throw customError;
-                    }
                 }
             } else {
                 this.logger.error(`Failed to escalate dispute ${dispute.id}.`);
@@ -538,11 +533,6 @@ export class EboActor {
                 customError.setContext(context);
 
                 await ErrorHandler.handle(customError, context);
-
-                if (customError.strategy.shouldTerminate) {
-                    // Rethrow for EboProcessor to handle
-                    throw customError;
-                }
             } else {
                 throw err;
             }
@@ -639,11 +629,6 @@ export class EboActor {
 
                 await ErrorHandler.handle(customError, context);
 
-                if (customError.strategy.shouldTerminate) {
-                    // Rethrow for EboProcessor to handle
-                    throw customError;
-                }
-
                 this.logger.warn(
                     `Block ${responseBody.block} for epoch ${responseBody.epoch} and ` +
                         `chain ${responseBody.chainId} was not proposed. Skipping proposal...`,
@@ -705,11 +690,6 @@ export class EboActor {
                 customError.setContext(context);
 
                 await ErrorHandler.handle(customError, context);
-
-                if (customError.strategy.shouldTerminate) {
-                    // Rethrow for EboProcessor to handle
-                    throw customError;
-                }
             } else {
                 throw err;
             }
@@ -827,11 +807,6 @@ export class EboActor {
                 customError.setContext(context);
 
                 await ErrorHandler.handle(customError, context);
-
-                if (customError.strategy.shouldTerminate) {
-                    // Rethrow for EboProcessor to handle
-                    throw customError;
-                }
             } else {
                 throw err;
             }
@@ -870,11 +845,6 @@ export class EboActor {
                 customError.setContext(context);
 
                 await ErrorHandler.handle(customError, context);
-
-                if (customError.strategy.shouldTerminate) {
-                    // Rethrow for EboProcessor to handle
-                    throw customError;
-                }
             } else {
                 throw err;
             }
