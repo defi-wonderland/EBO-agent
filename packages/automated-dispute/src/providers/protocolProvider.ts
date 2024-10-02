@@ -304,8 +304,8 @@ export class ProtocolProvider implements IProtocolProvider {
     private parseOracleEvent(eventName: EboEventName, log: Log) {
         const baseEvent = {
             name: eventName,
-            blockNumber: log.blockNumber ?? BigInt(0),
-            logIndex: log.logIndex ?? 0,
+            blockNumber: log.blockNumber,
+            logIndex: log.logIndex,
             rawLog: log,
         };
 
