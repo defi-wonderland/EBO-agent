@@ -177,6 +177,11 @@ export class EboActor {
                             // Rethrow for EboProcessor to handle
                             throw err;
                         }
+
+                        if (err.strategy.shouldNotify) {
+                            // TODO: add notification logic
+                            continue;
+                        }
                     } else {
                         throw err;
                     }
