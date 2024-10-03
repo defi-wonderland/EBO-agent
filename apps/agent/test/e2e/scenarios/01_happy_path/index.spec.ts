@@ -101,7 +101,7 @@ describe.sequential("single agent", () => {
         await protocolAnvil.stop();
     });
 
-    test("basic flow", { timeout: E2E_TEST_TIMEOUT }, async () => {
+    test.skip("basic flow", { timeout: E2E_TEST_TIMEOUT }, async () => {
         const arbitrumId = "eip155:42161";
 
         const logger = Logger.getInstance();

@@ -13,7 +13,6 @@ import {
     HttpTransport,
     parseAbi,
     parseEther,
-    parseGwei,
     PublicActions,
     publicActions,
     TestActions,
