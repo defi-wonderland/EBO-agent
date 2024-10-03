@@ -7,7 +7,7 @@ export async function createAnvilServer(
     anvilConfig: Parameters<typeof anvil>[0],
 ) {
     const anvilServer = createServer({
-        instance: anvil({ blockTime: 1, ...anvilConfig }),
+        instance: anvil(anvilConfig),
         host: host,
         port: port,
         limit: 1,

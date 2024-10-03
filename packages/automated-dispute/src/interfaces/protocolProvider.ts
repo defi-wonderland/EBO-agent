@@ -1,3 +1,4 @@
+import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import { Address } from "viem";
 
 import type { Dispute, EboEvent, EboEventName, Epoch, Request, Response } from "../types/index.js";
@@ -67,7 +68,7 @@ export interface IWriteProvider {
      * @throws Will throw an error if the chains array is empty or if the transaction fails.
      * @returns A promise that resolves when the request is successfully created.
      */
-    createRequest(epoch: bigint, chains: string[]): Promise<void>;
+    createRequest(epoch: bigint, chains: Caip2ChainId): Promise<void>;
 
     /**
      * Proposes a response to a request.

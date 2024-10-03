@@ -1,27 +1,53 @@
 import { EboActorsManager, EboProcessor, ProtocolProvider } from "@ebo-agent/automated-dispute";
-import { BlockNumberService } from "@ebo-agent/blocknumber";
+import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
 import { Logger } from "@ebo-agent/shared";
 import { CreateServerReturnType } from "prool";
-import { Account, Hex, WalletClient } from "viem";
+import {
+    Account,
+    Address,
+    createTestClient,
+    Hex,
+    http,
+    keccak256,
+    Log,
+    padHex,
+    parseAbiItem,
+    publicActions,
+    toHex,
+    WalletClient,
+} from "viem";
+import { arbitrum } from "viem/chains";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { DeployContractsOutput } from "../../utils/prophet-e2e-scaffold";
-import { createAnvilServer, deployContracts, setUpAccount } from "../../utils/prophet-e2e-scaffold";
+import type { DeployContractsOutput } from "../../utils/prophet-e2e-scaffold/index.js";
+import {
+    createAnvilServer,
+    deployContracts,
+    setUpAccount,
+    setUpProphet,
+    waitForEvent,
+} from "../../utils/prophet-e2e-scaffold/index.js";
+
+const E2E_SCENARIO_SETUP_TIMEOUT = 60_000;
+const E2E_TEST_TIMEOUT = 30_000;
 
 // TODO: use env vars here
-const FORK_URL = "https://arb-mainnet.g.alchemy.com/v2/REDACTED";
+const FORK_URL = "https://arb1.arbitrum.io/rpc";
 const YARN_CMD = "/path/to/yarn/executable/bin/yarn";
 // TODO: probably could be added as a submodule inside the e2e folder
-const EBO_CORE_PATH = "/path/toEBO-core/repo";
+const EBO_CORE_PATH = "../../../EBO-core/";
 
 const GRT_HOLDER = "0x00669A4CF01450B64E8A2A20E9b1FCB71E61eF03";
 const GRT_CONTRACT_ADDRESS = "0x9623063377ad1b27544c965ccd7342f7ea7e88c7";
+
 // Extracted from https://thegraph.com/docs/en/network/contracts/
 const EPOCH_MANAGER_ADDRESS = "0x5A843145c43d328B9bB7a4401d94918f131bB281";
 
+// TODO: this is currently hardcoded on the contract's Deploy script, change when defined
+const ARBITRATOR_ADDRESS: Address = padHex("0x100", { dir: "left", size: 20 });
+
 describe.sequential("single agent", () => {
     let protocolAnvil: CreateServerReturnType;
-    let indexedChain: CreateServerReturnType;
 
     let protocolContracts: DeployContractsOutput;
     let accounts: { privateKey: Hex; account: Account; walletClient: WalletClient }[];
@@ -32,6 +58,8 @@ describe.sequential("single agent", () => {
 
         protocolAnvil = await createAnvilServer(protocolHost, protocolPort, {
             forkUrl: FORK_URL,
+            blockTime: 0.1,
+            slotsInAnEpoch: 1, // To "finalize" blocks fast enough
         });
 
         const url = `http://${protocolHost}:${protocolPort}/1`;
@@ -46,8 +74,6 @@ describe.sequential("single agent", () => {
             },
         });
 
-        console.dir(protocolContracts);
-
         // TODO: generate N accounts for N agents
         accounts = [
             await setUpAccount({
@@ -58,25 +84,34 @@ describe.sequential("single agent", () => {
             }),
         ];
 
-        indexedChain = await createAnvilServer("127.0.0.1", 8546, {
-            forkUrl: FORK_URL,
+        await setUpProphet({
+            accounts: accounts.map((account) => account.account),
+            arbitratorAddress: ARBITRATOR_ADDRESS,
+            chainsToAdd: ["eip155:42161"],
+            anvilClient: createTestClient({
+                mode: "anvil",
+                transport: http(url),
+                chain: arbitrum,
+            }),
+            deployedContracts: protocolContracts,
         });
-    }, 120_000);
+    }, E2E_SCENARIO_SETUP_TIMEOUT);
 
     afterEach(async () => {
         await protocolAnvil.stop();
-        await indexedChain.stop();
     });
 
-    test.skip("basic flow", { timeout: 120_000 }, async () => {
+    test("basic flow", { timeout: E2E_TEST_TIMEOUT }, async () => {
+        const arbitrumId = "eip155:42161";
+
         const logger = Logger.getInstance();
 
         const protocolProvider = new ProtocolProvider(
             {
-                urls: ["http://localhost:8545/1"],
+                urls: ["http://127.0.0.1:8545/1"],
                 transactionReceiptConfirmations: 1,
-                timeout: 10_000,
-                retryInterval: 1,
+                timeout: 1_000,
+                retryInterval: 500,
             },
             {
                 bondEscalationModule: protocolContracts["BondEscalationModule"],
@@ -87,18 +122,27 @@ describe.sequential("single agent", () => {
             accounts[0].privateKey,
         );
 
-        // TODO: use local RPC of indexed chain if possible
-        const blockNumberService = {
-            getEpochBlockNumber: async () => 1n,
-        } as unknown as BlockNumberService;
-
-        const actorsManager = new EboActorsManager();
-
         vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue([
             protocolContracts["EBORequestModule"],
             protocolContracts["BondedResponseModule"],
             protocolContracts["BondEscalationModule"],
         ]);
+
+        const blockNumberService = new BlockNumberService(
+            new Map<Caip2ChainId, string[]>([[arbitrumId, ["http://127.0.0.1:8545/1"]]]),
+            {
+                baseUrl: new URL("http://not.needed/"),
+                bearerToken: "not.needed",
+                bearerTokenExpirationWindow: 1000,
+                servicePaths: {
+                    block: "/block",
+                    blockByTime: "/blockByTime",
+                },
+            },
+            logger,
+        );
+
+        const actorsManager = new EboActorsManager();
 
         const processor = new EboProcessor(
             {
@@ -112,10 +156,37 @@ describe.sequential("single agent", () => {
             logger,
         );
 
-        await processor.start(1);
+        const anvilClient = createTestClient({
+            mode: "anvil",
+            account: GRT_HOLDER,
+            chain: arbitrum,
+            transport: http("http://127.0.0.1:8545/1"),
+        }).extend(publicActions);
 
-        // TODO: Most likely, wait for an event to be emitted
+        const initBlock = await anvilClient.getBlockNumber();
 
-        expect(true).toBe(true);
+        processor.start(3000);
+
+        // TODO: replace by NewEpoch event
+        const requestCreatedAbi = parseAbiItem(
+            "event RequestCreated(bytes32 indexed _requestId, uint256 indexed _epoch, string indexed _chainId)",
+        );
+
+        const eventFound = await waitForEvent({
+            client: anvilClient.extend(publicActions) as any,
+            filter: {
+                address: protocolContracts["EBORequestCreator"],
+                fromBlock: initBlock,
+                event: requestCreatedAbi,
+                strict: true,
+            },
+            matcher: (log: Log<bigint, number, boolean, typeof requestCreatedAbi, true>) => {
+                return log.args._chainId === keccak256(toHex(arbitrumId));
+            },
+            pollingInterval: 100,
+            blockTimeout: initBlock + 1000n,
+        });
+
+        expect(eventFound).toBe(true);
     });
 });

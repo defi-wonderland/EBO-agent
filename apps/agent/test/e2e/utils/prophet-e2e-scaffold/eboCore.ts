@@ -1,8 +1,10 @@
 import assert from "assert";
+import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import { execa } from "execa";
 import {
     Account,
     Address,
+    Client,
     createPublicClient,
     createTestClient,
     createWalletClient,
@@ -11,11 +13,13 @@ import {
     HttpTransport,
     parseAbi,
     parseEther,
+    parseGwei,
+    PublicActions,
     publicActions,
-    PublicClient,
+    TestActions,
     TestClient,
+    WalletActions,
     walletActions,
-    WalletClient,
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { arbitrum } from "viem/chains";
@@ -93,60 +97,6 @@ async function fundAccount(
     await extendedAnvilClient.stopImpersonatingAccount({ address: grt.holderAddress });
 }
 
-/**
- * Approve EBO core accounting modules usage.
- *
- * @param account account to use to approve modules
- * @param deployedContracts addresses of deployed contracts
- * @param clients.public a public viem client
- * @param clients.wallet a wallet viem client
- */
-async function approveEboProphetModules(
-    account: Account,
-    deployedContracts: DeployContractsOutput,
-    clients: {
-        public: PublicClient;
-        wallet: WalletClient<HttpTransport, typeof arbitrum>;
-    },
-) {
-    console.log(`Approving accounting modules...`);
-
-    const modulesToBeApproved = [
-        deployedContracts["EBORequestModule"],
-        deployedContracts["BondedResponseModule"],
-        deployedContracts["BondEscalationModule"],
-    ];
-
-    for (const moduleAddress of modulesToBeApproved) {
-        console.log(
-            `Approving ${moduleAddress} through BondEscalationAccounting ${deployedContracts["BondEscalationAccounting"]}`,
-        );
-
-        const hash = await clients.wallet.sendTransaction({
-            account: account,
-            to: deployedContracts["BondEscalationAccounting"],
-            data: encodeFunctionData({
-                abi: parseAbi(["function approveModule(address) external"]),
-                args: [moduleAddress],
-            }),
-        });
-
-        await clients.public.waitForTransactionReceipt({
-            hash: hash,
-        });
-    }
-
-    const approvedModules = await clients.public.readContract({
-        address: deployedContracts["BondEscalationAccounting"],
-        abi: parseAbi(["function approvedModules(address) external view returns (address[])"]),
-        functionName: "approvedModules",
-        args: [account.address],
-    });
-
-    console.log("Modules approved:");
-    console.dir(approvedModules);
-}
-
 interface SetUpAccountConfig {
     localRpcUrl: string;
     deployedContracts: DeployContractsOutput;
@@ -162,7 +112,7 @@ interface SetUpAccountConfig {
  * @returns the private key, the account and a wallet client for the set up account
  */
 export async function setUpAccount(config: SetUpAccountConfig) {
-    const { localRpcUrl, deployedContracts, grtHolder, grtContractAddress } = config;
+    const { localRpcUrl, grtHolder, grtContractAddress } = config;
 
     const privateKey = generatePrivateKey();
     const account = privateKeyToAccount(privateKey);
@@ -208,11 +158,6 @@ export async function setUpAccount(config: SetUpAccountConfig) {
         grtFundAmount,
         `Unexpected GRT balance in account ${account.address}`,
     );
-
-    await approveEboProphetModules(account, deployedContracts, {
-        public: publicClient,
-        wallet: walletClient,
-    });
 
     return {
         privateKey,
@@ -272,4 +217,151 @@ export async function deployContracts(
 
         return { ...addresses, [name]: address as Address };
     }, {} as DeployContractsOutput);
+}
+
+interface SetUpProphetInput {
+    /** Chains to add to EBORequestCreator contract */
+    chainsToAdd: Caip2ChainId[];
+    /** Accounts to approve modules for */
+    accounts: Account[];
+    /** Map of deployed contracts */
+    deployedContracts: DeployContractsOutput;
+    /** Arbitrator address to use to add chains into EBORequestCreator  */
+    arbitratorAddress: Address;
+    /** Anvil client */
+    anvilClient: TestClient<"anvil", HttpTransport, typeof arbitrum>;
+}
+
+/**
+ * Set up Prophet and EBO contracts with basic data to start operating with them
+ *
+ * @param input {@link SetUpProphetInput}
+ */
+export async function setUpProphet(input: SetUpProphetInput) {
+    const { chainsToAdd, accounts, deployedContracts, arbitratorAddress, anvilClient } = input;
+    const extendedAnvilClient = anvilClient.extend(publicActions).extend(walletActions);
+
+    await approveEboProphetModules(accounts, deployedContracts, anvilClient);
+    await addEboRequestCreatorChains(
+        chainsToAdd,
+        deployedContracts,
+        extendedAnvilClient,
+        arbitratorAddress,
+    );
+}
+
+/**
+ * Approve EBO core accounting modules usage.
+ *
+ * @param accounts accounts to approve modules for
+ * @param deployedContracts addresses of deployed contracts
+ * @param clients.public a public viem client
+ * @param clients.wallet a wallet viem client
+ */
+async function approveEboProphetModules(
+    accounts: Account[],
+    deployedContracts: DeployContractsOutput,
+    anvilClient: TestClient<"anvil", HttpTransport, typeof arbitrum>,
+) {
+    console.log(`Approving accounting modules...`);
+
+    const extendedAnvilClient = anvilClient.extend(publicActions).extend(walletActions);
+
+    const modulesToBeApproved = [
+        deployedContracts["EBORequestModule"],
+        deployedContracts["BondedResponseModule"],
+        deployedContracts["BondEscalationModule"],
+    ];
+
+    for (const account of accounts) {
+        await Promise.all(
+            modulesToBeApproved.map(async (moduleAddress, index) => {
+                console.log(
+                    `Approving ${moduleAddress} through BondEscalationAccounting ${deployedContracts["BondEscalationAccounting"]}`,
+                );
+
+                const hash = await extendedAnvilClient.sendTransaction({
+                    account: account,
+                    to: deployedContracts["BondEscalationAccounting"],
+                    data: encodeFunctionData({
+                        abi: parseAbi(["function approveModule(address) external"]),
+                        args: [moduleAddress],
+                    }),
+                    nonce: index,
+                });
+
+                await extendedAnvilClient.waitForTransactionReceipt({
+                    hash: hash,
+                });
+            }),
+        );
+
+        const approvedModules = await extendedAnvilClient.readContract({
+            address: deployedContracts["BondEscalationAccounting"],
+            abi: parseAbi(["function approvedModules(address) external view returns (address[])"]),
+            functionName: "approvedModules",
+            args: [account.address],
+        });
+
+        console.log(`Modules approved for ${account.address}:`);
+        console.dir(approvedModules);
+    }
+}
+
+/**
+ * Add indexed chains to EBORequestCreator contract.
+ *
+ * @param chainsToAdd array of Caip2 compliant ids
+ * @param deployedContracts {@link DeployContractsOutput}
+ * @param client anvil client
+ * @param arbitratorAddress address to use for adding chains
+ */
+async function addEboRequestCreatorChains(
+    chainsToAdd: Caip2ChainId[],
+    deployedContracts: DeployContractsOutput,
+    client: Client<
+        HttpTransport,
+        typeof arbitrum,
+        Account | undefined,
+        undefined,
+        TestActions & PublicActions & WalletActions
+    >,
+    arbitratorAddress: Address,
+) {
+    await client.impersonateAccount({
+        address: arbitratorAddress,
+    });
+
+    await client.setBalance({
+        address: arbitratorAddress,
+        value: parseEther("1"),
+    });
+
+    await Promise.all(
+        chainsToAdd.map(async (chainId, index) => {
+            console.log(`Adding ${chainId} to EBORequestCreator...`);
+
+            const addChainTxHash = await client.sendTransaction({
+                account: arbitratorAddress,
+                from: arbitratorAddress,
+                to: deployedContracts["EBORequestCreator"],
+                data: encodeFunctionData({
+                    abi: parseAbi(["function addChain(string calldata _chainId)"]),
+                    args: [chainId],
+                    functionName: "addChain",
+                }),
+                chain: arbitrum,
+                nonce: index,
+            });
+
+            await client.waitForTransactionReceipt({
+                hash: addChainTxHash,
+                confirmations: 1,
+            });
+
+            console.log(`${chainId} added.`);
+        }),
+    );
+
+    await client.stopImpersonatingAccount({ address: arbitratorAddress });
 }
