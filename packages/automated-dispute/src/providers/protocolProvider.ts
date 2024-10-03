@@ -35,6 +35,7 @@ import {
     bondEscalationModuleAbi,
     eboRequestCreatorAbi,
     epochManagerAbi,
+    horizonAccountingExtensionAbi,
     oracleAbi,
 } from "../abis/index.js";
 import {
@@ -100,6 +101,12 @@ export class ProtocolProvider implements IProtocolProvider {
     >;
     private bondEscalationContract: GetContractReturnType<
         typeof bondEscalationModuleAbi,
+        typeof this.writeClient,
+        Address
+    >;
+
+    private horizonAccountingExtensionContract: GetContractReturnType<
+        typeof horizonAccountingExtensionAbi,
         typeof this.writeClient,
         Address
     >;
@@ -175,6 +182,14 @@ export class ProtocolProvider implements IProtocolProvider {
                 wallet: this.writeClient,
             },
         });
+        this.horizonAccountingExtensionContract = getContract({
+            address: contracts.horizonAccountingExtension,
+            abi: horizonAccountingExtensionAbi,
+            client: {
+                public: this.readClient,
+                wallet: this.writeClient,
+            },
+        });
     }
 
     public write: IWriteProvider = {
@@ -187,6 +202,7 @@ export class ProtocolProvider implements IProtocolProvider {
         escalateDispute: this.escalateDispute.bind(this),
         finalize: this.finalize.bind(this),
         approveAccountingModules: this.approveAccountingModules.bind(this),
+        approveModule: this.approveModule.bind(this),
     };
 
     public read: IReadProvider = {
@@ -196,6 +212,7 @@ export class ProtocolProvider implements IProtocolProvider {
         getAvailableChains: this.getAvailableChains.bind(this),
         getAccountingModuleAddress: this.getAccountingModuleAddress.bind(this),
         getAccountingApprovedModules: this.getAccountingApprovedModules.bind(this),
+        getApprovedModules: this.getApprovedModules.bind(this),
     };
 
     /**
@@ -299,6 +316,44 @@ export class ProtocolProvider implements IProtocolProvider {
     getAccountingModuleAddress(): Address {
         // TODO: implement actual method
         return "0x01";
+    }
+
+    /**
+     * Approves a module in the accounting extension contract.
+     *
+     * @param module The address of the module to approve.
+     * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
+     * @returns {Promise<void>} A promise that resolves when the module is approved.
+     */
+    async approveModule(module: Address): Promise<void> {
+        const { request: simulatedRequest } = await this.readClient.simulateContract({
+            address: this.horizonAccountingExtensionContract.address,
+            abi: horizonAccountingExtensionAbi,
+            functionName: "approveModule",
+            args: [module],
+            account: this.writeClient.account,
+        });
+
+        const hash = await this.writeClient.writeContract(simulatedRequest);
+
+        const receipt = await this.readClient.waitForTransactionReceipt({
+            hash,
+            confirmations: this.rpcConfig.transactionReceiptConfirmations,
+        });
+
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("approveModule transaction failed");
+        }
+    }
+
+    /**
+     * Gets the list of approved modules' addresses for a given user.
+     *
+     * @param user The address of the user.
+     * @returns A promise that resolves with an array of approved modules for the user.
+     */
+    async getApprovedModules(user: Address): Promise<Address[]> {
+        return [...(await this.horizonAccountingExtensionContract.read.approvedModules([user]))];
     }
 
     async getAccountingApprovedModules(): Promise<Address[]> {

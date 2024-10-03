@@ -3,4 +3,5 @@ export const ProtocolContractsNames = [
     "epochManager",
     "eboRequestCreator",
     "bondEscalationModule",
+    "horizonAccountingExtension",
 ] as const;

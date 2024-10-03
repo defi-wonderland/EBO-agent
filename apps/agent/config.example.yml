@@ -8,6 +8,7 @@ protocolProvider:
         epochManager: "0x1234567890123456789012345678901234567890"
         eboRequestCreator: "0x1234567890123456789012345678901234567890"
         bondEscalationModule: "0x1234567890123456789012345678901234567890"
+        horizonAccountingExtension: "0x1234567890123456789012345678901234567890"
 
 blockNumberService:
     blockmetaConfig:
