@@ -1,5 +1,27 @@
 import { createServer } from "prool";
 import { anvil } from "prool/instances";
+import {
+    Account,
+    Chain,
+    Client,
+    PublicActions,
+    TestActions,
+    TestRpcSchema,
+    Transport,
+    WalletActions,
+} from "viem";
+
+export type AnvilClient<
+    transport extends Transport = Transport,
+    chain extends Chain | undefined = Chain | undefined,
+    account extends Account | undefined = Account | undefined,
+> = Client<
+    transport,
+    chain,
+    account,
+    TestRpcSchema<"anvil">,
+    PublicActions<transport, chain, account> & WalletActions<chain, account> & TestActions
+>;
 
 export async function createAnvilServer(
     host: string,

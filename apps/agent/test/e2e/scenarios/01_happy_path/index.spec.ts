@@ -9,11 +9,11 @@ import {
     Hex,
     http,
     keccak256,
-    Log,
     padHex,
     parseAbiItem,
     publicActions,
     toHex,
+    walletActions,
     WalletClient,
 } from "viem";
 import { arbitrum } from "viem/chains";
@@ -101,7 +101,7 @@ describe.sequential("single agent", () => {
         await protocolAnvil.stop();
     });
 
-    test.skip("basic flow", { timeout: E2E_TEST_TIMEOUT }, async () => {
+    test("basic flow", { timeout: E2E_TEST_TIMEOUT }, async () => {
         const arbitrumId = "eip155:42161";
 
         const logger = Logger.getInstance();
@@ -161,7 +161,9 @@ describe.sequential("single agent", () => {
             account: GRT_HOLDER,
             chain: arbitrum,
             transport: http("http://127.0.0.1:8545/1"),
-        }).extend(publicActions);
+        })
+            .extend(publicActions)
+            .extend(walletActions);
 
         const initBlock = await anvilClient.getBlockNumber();
 
@@ -172,18 +174,18 @@ describe.sequential("single agent", () => {
             "event RequestCreated(bytes32 indexed _requestId, uint256 indexed _epoch, string indexed _chainId)",
         );
 
-        const eventFound = await waitForEvent({
-            client: anvilClient.extend(publicActions) as any,
+        const eventFound = await waitForEvent<typeof requestCreatedAbi, typeof anvilClient>({
+            client: anvilClient,
             filter: {
                 address: protocolContracts["EBORequestCreator"],
                 fromBlock: initBlock,
                 event: requestCreatedAbi,
                 strict: true,
             },
-            matcher: (log: Log<bigint, number, boolean, typeof requestCreatedAbi, true>) => {
+            matcher: (log) => {
                 return log.args._chainId === keccak256(toHex(arbitrumId));
             },
-            pollingInterval: 100,
+            pollingIntervalMs: 100,
             blockTimeout: initBlock + 1000n,
         });
 
