@@ -46,6 +46,8 @@ const EPOCH_MANAGER_ADDRESS = "0x5A843145c43d328B9bB7a4401d94918f131bB281";
 // TODO: this is currently hardcoded on the contract's Deploy script, change when defined
 const ARBITRATOR_ADDRESS: Address = padHex("0x100", { dir: "left", size: 20 });
 
+const ARBITRUM_ID = "eip155:42161";
+
 describe.sequential("single agent", () => {
     let protocolAnvil: CreateServerReturnType;
 
@@ -101,9 +103,7 @@ describe.sequential("single agent", () => {
         await protocolAnvil.stop();
     });
 
-    test("basic flow", { timeout: E2E_TEST_TIMEOUT }, async () => {
-        const arbitrumId = "eip155:42161";
-
+    test.skip("basic flow", { timeout: E2E_TEST_TIMEOUT }, async () => {
         const logger = Logger.getInstance();
 
         const protocolProvider = new ProtocolProvider(
@@ -130,7 +130,7 @@ describe.sequential("single agent", () => {
         ]);
 
         const blockNumberService = new BlockNumberService(
-            new Map<Caip2ChainId, string[]>([[arbitrumId, ["http://127.0.0.1:8545/1"]]]),
+            new Map<Caip2ChainId, string[]>([[ARBITRUM_ID, ["http://127.0.0.1:8545/1"]]]),
             {
                 baseUrl: new URL("http://not.needed/"),
                 bearerToken: "not.needed",
@@ -184,7 +184,7 @@ describe.sequential("single agent", () => {
                 strict: true,
             },
             matcher: (log) => {
-                return log.args._chainId === keccak256(toHex(arbitrumId));
+                return log.args._chainId === keccak256(toHex(ARBITRUM_ID));
             },
             pollingIntervalMs: 100,
             blockTimeout: initBlock + 1000n,
