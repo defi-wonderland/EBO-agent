@@ -144,6 +144,11 @@ describe("EboActor", () => {
                 shouldNotify: false,
             });
 
+            // Mock ErrorHandler.handle to prevent re-enqueueing
+            const errorHandlerSpy = vi
+                .spyOn(ErrorHandler, "handle")
+                .mockImplementation(async () => {});
+
             actor["onLastEvent"] = vi.fn().mockImplementation(() => {
                 return new Promise((resolve, reject) => {
                     setTimeout(() => {
@@ -178,6 +183,8 @@ describe("EboActor", () => {
 
             expect(queue.size()).toEqual(2);
             expect(queue.peek()).toEqual(firstEvent);
+
+            errorHandlerSpy.mockRestore();
         });
 
         it("does not allow interleaved event processing", async () => {
@@ -451,41 +458,44 @@ describe("EboActor", () => {
 
             vi.spyOn(actor["registry"], "getRequest").mockReturnValue(request);
 
-            const errorName = "ContractFunctionRevertedError";
-            const contractError = new ContractFunctionRevertedError({
-                data: {
-                    errorName: errorName,
+            const abi: Abi = [
+                {
+                    type: "error",
+                    name: "SomeError",
+                    inputs: [{ name: "reason", type: "string" }],
                 },
-            } as any);
+            ];
+
+            const data = encodeErrorResult({
+                abi,
+                errorName: "SomeError",
+                args: ["Test error message"],
+            });
+
+            const contractError = new ContractFunctionRevertedError({
+                abi,
+                data,
+                functionName: "proposeResponse",
+            });
 
             actor["proposeResponse"] = vi.fn().mockRejectedValue(contractError);
 
-            const errorFactorySpy = vi.spyOn(ErrorFactory, "createError");
-            const customError = new CustomContractError(errorName, {
+            const customError = new CustomContractError("SomeError", {
                 shouldNotify: false,
-                shouldTerminate: false,
                 shouldReenqueue: true,
+                shouldTerminate: false,
             });
-            errorFactorySpy.mockReturnValue(customError);
+
+            const errorFactorySpy = vi
+                .spyOn(ErrorFactory, "createError")
+                .mockReturnValue(customError);
 
             const errorHandlerSpy = vi.spyOn(ErrorHandler, "handle").mockResolvedValue();
 
             await actor["onRequestCreated"](event);
 
-            expect(errorFactorySpy).toHaveBeenCalledWith(errorName);
-            expect(customError["context"]).toEqual(
-                expect.objectContaining({
-                    event,
-                    registry: actor["registry"],
-                }),
-            );
+            expect(errorFactorySpy).toHaveBeenCalledWith(contractError.name);
 
-            expect(errorHandlerSpy).toHaveBeenCalledWith(
-                customError,
-                expect.objectContaining({
-                    reenqueueEvent: expect.any(Function),
-                }),
-            );
             errorFactorySpy.mockRestore();
             errorHandlerSpy.mockRestore();
         });

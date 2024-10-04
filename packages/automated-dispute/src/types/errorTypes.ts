@@ -19,7 +19,7 @@ export type ErrorHandlingStrategy = BaseErrorStrategy;
 export interface ErrorContext {
     request: Request;
     response?: Response;
-    dispute?: Dispute | Dispute["prophetData"];
+    dispute?: Dispute;
     event?: EboEvent<EboEventName>;
     registry: EboRegistry;
     reenqueueEvent?: () => void;

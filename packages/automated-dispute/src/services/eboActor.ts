@@ -130,8 +130,8 @@ export class EboActor {
      *
      * @throws {RequestMismatch} when an event from another request was enqueued in this actor
      */
-    public processEvents(): Promise<void> {
-        return this.eventProcessingMutex.runExclusive(async () => {
+    public async processEvents(): Promise<void> {
+        await this.eventProcessingMutex.runExclusive(async () => {
             let event: EboEvent<EboEventName> | undefined;
 
             while ((event = this.eventsQueue.pop())) {
@@ -151,20 +151,17 @@ export class EboActor {
                     this.logger.error(`Error processing event ${event.name}: ${err}`);
 
                     if (err instanceof CustomContractError) {
-                        const request = this.getActorRequest();
-                        const context: ErrorContext = {
-                            request,
+                        err.setProcessEventsContext(
                             event,
-                            registry: this.registry,
-                            reenqueueEvent: () => {
+                            () => {
                                 this.eventsQueue.push(event!);
                             },
-                            terminateActor: () => {
+                            () => {
                                 throw err;
                             },
-                        };
+                        );
 
-                        await ErrorHandler.handle(err, context);
+                        await ErrorHandler.handle(err);
 
                         if (err.strategy.shouldReenqueue) {
                             this.eventsQueue.push(event);
@@ -406,18 +403,15 @@ export class EboActor {
                     }
                 } else {
                     const customError = ErrorFactory.createError(errorName);
-                    const context: ErrorContext = {
+
+                    customError.setContext({
                         request,
                         response,
                         dispute,
                         registry: this.registry,
-                        terminateActor: () => {
-                            throw customError;
-                        },
-                    };
-                    customError.setContext(context);
+                    });
 
-                    await ErrorHandler.handle(customError, context);
+                    await ErrorHandler.handle(customError);
                 }
             } else {
                 this.logger.error(`Failed to escalate dispute ${dispute.id}.`);
@@ -522,17 +516,17 @@ export class EboActor {
             if (err instanceof ContractFunctionRevertedError) {
                 const request = this.getActorRequest();
                 const customError = ErrorFactory.createError(err.name);
-                const context: ErrorContext = {
+
+                customError.setContext({
                     request,
                     event,
                     registry: this.registry,
                     reenqueueEvent: () => {
                         this.eventsQueue.push(event);
                     },
-                };
-                customError.setContext(context);
+                });
 
-                await ErrorHandler.handle(customError, context);
+                await ErrorHandler.handle(customError);
             } else {
                 throw err;
             }
@@ -627,7 +621,7 @@ export class EboActor {
                 };
                 customError.setContext(context);
 
-                await ErrorHandler.handle(customError, context);
+                await ErrorHandler.handle(customError);
 
                 this.logger.warn(
                     `Block ${responseBody.block} for epoch ${responseBody.epoch} and ` +
@@ -677,19 +671,18 @@ export class EboActor {
             if (err instanceof ContractFunctionRevertedError) {
                 const customError = ErrorFactory.createError(err.name);
                 const response = this.registry.getResponse(event.metadata.responseId);
-                const context: ErrorContext = {
+
+                customError.setContext({
                     request,
                     response,
-                    dispute,
                     event,
                     registry: this.registry,
                     reenqueueEvent: () => {
                         this.eventsQueue.push(event);
                     },
-                };
-                customError.setContext(context);
+                });
 
-                await ErrorHandler.handle(customError, context);
+                await ErrorHandler.handle(customError);
             } else {
                 throw err;
             }
@@ -806,7 +799,7 @@ export class EboActor {
                 };
                 customError.setContext(context);
 
-                await ErrorHandler.handle(customError, context);
+                await ErrorHandler.handle(customError);
             } else {
                 throw err;
             }
@@ -844,7 +837,7 @@ export class EboActor {
                 };
                 customError.setContext(context);
 
-                await ErrorHandler.handle(customError, context);
+                await ErrorHandler.handle(customError);
             } else {
                 throw err;
             }

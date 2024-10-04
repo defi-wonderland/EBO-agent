@@ -372,15 +372,7 @@ export class ErrorFactory {
                 shouldReenqueue: true,
             });
         }
-        const strategy = errorStrategies.get(errorName as ErrorName);
-
-        if (!strategy) {
-            return new CustomContractError(errorName as ErrorName, {
-                shouldNotify: true,
-                shouldTerminate: false,
-                shouldReenqueue: true,
-            });
-        }
+        const strategy = errorStrategies.get(errorName as ErrorName)!;
 
         return new CustomContractError(errorName as ErrorName, strategy);
     }
