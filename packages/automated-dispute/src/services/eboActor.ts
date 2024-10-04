@@ -389,7 +389,15 @@ export class EboActor {
                 const errorName = err.data?.errorName || err.name;
                 this.logger.warn(`Call reverted for dispute ${dispute.id} due to: ${errorName}`);
 
-                if (errorName === "BondEscalationModule_ShouldBeEscalated") {
+                const customError = ErrorFactory.createError(errorName);
+                customError.setContext({
+                    request,
+                    response,
+                    dispute,
+                    registry: this.registry,
+                });
+
+                customError.on("BondEscalationModule_ShouldBeEscalated", async () => {
                     try {
                         await this.protocolProvider.escalateDispute(
                             request.prophetData,
@@ -397,24 +405,17 @@ export class EboActor {
                             dispute.prophetData,
                         );
                         this.logger.info(`Dispute ${dispute.id} escalated.`);
+
+                        await ErrorHandler.handle(customError);
                     } catch (escalationError) {
-                        this.logger.error(`Failed to escalate dispute ${dispute.id}.`);
+                        this.logger.error(
+                            `Failed to escalate dispute ${dispute.id}: ${escalationError}`,
+                        );
                         throw escalationError;
                     }
-                } else {
-                    const customError = ErrorFactory.createError(errorName);
-
-                    customError.setContext({
-                        request,
-                        response,
-                        dispute,
-                        registry: this.registry,
-                    });
-
-                    await ErrorHandler.handle(customError);
-                }
+                });
             } else {
-                this.logger.error(`Failed to escalate dispute ${dispute.id}.`);
+                this.logger.error(`Failed to escalate dispute ${dispute.id}: ${err}`);
                 throw err;
             }
         }
@@ -526,7 +527,7 @@ export class EboActor {
                     },
                 });
 
-                await ErrorHandler.handle(customError);
+                throw customError;
             } else {
                 throw err;
             }
@@ -682,7 +683,7 @@ export class EboActor {
                     },
                 });
 
-                await ErrorHandler.handle(customError);
+                throw customError;
             } else {
                 throw err;
             }

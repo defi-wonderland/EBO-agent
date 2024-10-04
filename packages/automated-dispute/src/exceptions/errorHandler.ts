@@ -1,12 +1,16 @@
+import { Logger } from "@ebo-agent/shared";
+
 import { CustomContractError } from "../exceptions/index.js";
 import { ErrorContext } from "../types/index.js";
 
 export class ErrorHandler {
+    private static logger = Logger.getInstance();
+
     public static async handle(error: CustomContractError): Promise<void> {
         const strategy = error.strategy;
         const context = error.getContext();
 
-        console.error(`Error occurred: ${error.message}`);
+        this.logger.error(`Error occurred: ${error.message}`);
 
         if (strategy.shouldNotify) {
             await this.notifyError(error, context);
@@ -15,7 +19,7 @@ export class ErrorHandler {
         try {
             await error.executeCustomAction();
         } catch (actionError) {
-            console.error(`Error executing custom action: ${actionError}`);
+            this.logger.error(`Error executing custom action: ${actionError}`);
             // Continue without rethrowing
         }
 
