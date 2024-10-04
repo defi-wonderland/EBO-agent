@@ -374,7 +374,7 @@ export class EboProcessor {
                 try {
                     this.logger.info(`Creating request for chain ${chain} and epoch ${epoch}...`);
 
-                    await this.protocolProvider.createRequest(epoch, [chain]);
+                    await this.protocolProvider.createRequest(epoch, chain);
 
                     this.logger.info(`Request created for chain ${chain} and epoch ${epoch}`);
                 } catch (err) {

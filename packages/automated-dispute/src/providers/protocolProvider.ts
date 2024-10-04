@@ -310,7 +310,7 @@ export class ProtocolProvider implements IProtocolProvider {
     // TODO: use Caip2 Chain ID instead of string in return type
     async getAvailableChains(): Promise<Caip2ChainId[]> {
         // TODO: implement actual method
-        return ["eip155:1", "eip155:42161"];
+        return ["eip155:42161"];
     }
 
     getAccountingModuleAddress(): Address {
@@ -463,7 +463,7 @@ export class ProtocolProvider implements IProtocolProvider {
      * and then executing it if the simulation is successful.
      *
      * @param {bigint} epoch - The epoch for which the request is being created.
-     * @param {Caip2ChainId[]} chains - An array of chain identifiers where the request should be created.
+     * @param {Caip2ChainId} chain - A chain identifier for which the request should be created.
      * @throws {Error} Throws an error if the chains array is empty or if the transaction fails.
      * @throws {EBORequestCreator_InvalidEpoch} Throws if the epoch is invalid.
      * @throws {Oracle_InvalidRequestBody} Throws if the request body is invalid.
@@ -471,17 +471,13 @@ export class ProtocolProvider implements IProtocolProvider {
      * @throws {EBORequestCreator_ChainNotAdded} Throws if the specified chain is not added.
      * @returns {Promise<void>} A promise that resolves when the request is successfully created.
      */
-    async createRequest(epoch: bigint, chains: Caip2ChainId[]): Promise<void> {
-        if (chains.length === 0) {
-            throw new Error("Chains array cannot be empty");
-        }
-
+    async createRequest(epoch: bigint, chain: Caip2ChainId): Promise<void> {
         try {
             const { request } = await this.readClient.simulateContract({
                 address: this.eboRequestCreatorContract.address,
                 abi: eboRequestCreatorAbi,
-                functionName: "createRequests",
-                args: [epoch, chains],
+                functionName: "createRequest",
+                args: [epoch, chain],
                 account: this.writeClient.account,
             });
 

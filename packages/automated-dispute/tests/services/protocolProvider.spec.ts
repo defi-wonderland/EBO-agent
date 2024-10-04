@@ -562,46 +562,28 @@ describe("ProtocolProvider", () => {
             );
 
             const mockEpoch = 1n;
-            const mockChains: Caip2ChainId[] = ["eip155:1", "eip155:42161"];
+            const mockChain: Caip2ChainId = "eip155:42161";
 
             const mockWriteContractResponse = "0xmockedTransactionHash";
             (protocolProvider["writeClient"].writeContract as Mock).mockResolvedValue(
                 mockWriteContractResponse,
             );
 
-            await protocolProvider.createRequest(mockEpoch, mockChains);
+            await protocolProvider.createRequest(mockEpoch, mockChain);
 
             expect(protocolProvider["readClient"].simulateContract).toHaveBeenCalledWith({
                 address: mockContractAddress.eboRequestCreator,
                 abi: eboRequestCreatorAbi,
-                functionName: "createRequests",
-                args: [mockEpoch, mockChains],
+                functionName: "createRequest",
+                args: [mockEpoch, mockChain],
                 account: expect.any(Object),
             });
 
             expect(protocolProvider["writeClient"].writeContract).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    functionName: "createRequests",
-                    args: [mockEpoch, mockChains],
+                    functionName: "createRequest",
+                    args: [mockEpoch, mockChain],
                 }),
-            );
-        });
-
-        it("throws if chains array is empty", async () => {
-            const protocolProvider = new ProtocolProvider(
-                mockRpcConfig,
-                {
-                    oracle: "0x1234567890123456789012345678901234567890",
-                    epochManager: "0x1234567890123456789012345678901234567890",
-                    eboRequestCreator: "0x1234567890123456789012345678901234567890",
-                    bondEscalationModule: "0x1234567890123456789012345678901234567890",
-                    horizonAccountingExtension: "0x1234567890123456789012345678901234567890",
-                },
-                mockedPrivateKey,
-            );
-
-            await expect(protocolProvider.createRequest(1n, [])).rejects.toThrow(
-                "Chains array cannot be empty",
             );
         });
     });
