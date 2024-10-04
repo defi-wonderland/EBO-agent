@@ -118,6 +118,7 @@ describe.sequential("single agent", () => {
                 eboRequestCreator: protocolContracts["EBORequestCreator"],
                 epochManager: EPOCH_MANAGER_ADDRESS,
                 oracle: protocolContracts["Oracle"],
+                horizonAccountingExtension: protocolContracts["BondEscalationAccounting"],
             },
             accounts[0].privateKey,
         );
