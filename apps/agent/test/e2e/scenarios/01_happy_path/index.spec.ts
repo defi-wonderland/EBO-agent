@@ -19,7 +19,7 @@ import {
 import { arbitrum } from "viem/chains";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { DeployContractsOutput } from "../../utils/prophet-e2e-scaffold/index.js";
+import type { AnvilClient, DeployContractsOutput } from "../../utils/prophet-e2e-scaffold/index.js";
 import {
     createAnvilServer,
     deployContracts,
@@ -175,7 +175,7 @@ describe.sequential("single agent", () => {
             "event RequestCreated(bytes32 indexed _requestId, uint256 indexed _epoch, string indexed _chainId)",
         );
 
-        const eventFound = await waitForEvent<typeof requestCreatedAbi, typeof anvilClient>({
+        const eventFound = await waitForEvent<typeof requestCreatedAbi, AnvilClient>({
             client: anvilClient,
             filter: {
                 address: protocolContracts["EBORequestCreator"],

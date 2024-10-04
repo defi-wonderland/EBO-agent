@@ -1,5 +1,7 @@
 import { AbiEvent, GetLogsParameters, Log } from "viem";
 
+import { AnvilClient } from "./anvil.js";
+
 interface WaitForEventInput<abi extends AbiEvent, client extends AnvilClient> {
     /** Client to use for event polling */
     client: client;
