@@ -92,9 +92,7 @@ export function buildEboActor(request: Request, logger: ILogger) {
  */
 export function buildResponse(request: Request, attributes: Partial<Response> = {}): Response {
     const responseBody: ResponseBody = {
-        chainId: request.chainId,
         block: 1n,
-        epoch: request.epoch,
     };
 
     const baseResponse: Response = {

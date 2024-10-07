@@ -42,6 +42,7 @@ const protocolProviderConfigSchema = z.object({
         epochManager: addressSchema,
         eboRequestCreator: addressSchema,
         bondEscalationModule: addressSchema,
+        horizonAccountingExtension: addressSchema,
     }),
 });
 

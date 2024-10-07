@@ -27,6 +27,7 @@ import {
     PastEventEnqueueError,
     RequestMismatch,
     ResponseAlreadyProposed,
+    ResponseNotFound,
     UnknownEvent,
 } from "../exceptions/index.js";
 import { EboRegistry, EboRegistryCommand } from "../interfaces/index.js";
@@ -53,6 +54,12 @@ const EBO_EVENT_COMPARATOR = (e1: EboEvent<EboEventName>, e2: EboEvent<EboEventN
     if (e1.blockNumber < e2.blockNumber) return -1;
 
     return e1.logIndex - e2.logIndex;
+};
+
+/** Response properties needed to check response equality */
+type EqualResponseParameters = {
+    prophetData: Pick<Response["prophetData"], "requestId">;
+    decodedData: Response["decodedData"];
 };
 
 /**
@@ -524,26 +531,31 @@ export class EboActor {
     /**
      * Check if the same proposal has already been made in the past.
      *
-     * @param epoch epoch of the request
-     * @param chainId  chain id of the request
      * @param blockNumber proposed block number
+     *
      * @returns true if there's a registry of a proposal with the same attributes, false otherwise
      */
-    private alreadyProposed(epoch: bigint, chainId: Caip2ChainId, blockNumber: bigint) {
+    private alreadyProposed(blockNumber: bigint) {
+        const request = this.getActorRequest();
         const responses = this.registry.getResponses();
-        const newResponse: ResponseBody = {
-            epoch,
-            chainId,
-            block: blockNumber,
+
+        const newResponse = {
+            prophetData: {
+                requestId: request.id,
+            },
+            decodedData: {
+                response: {
+                    block: blockNumber,
+                },
+            },
         };
 
         for (const proposedResponse of responses) {
             const responseId = proposedResponse.id;
-            const proposedBody = proposedResponse.decodedData.response;
 
-            if (this.equalResponses(proposedBody, newResponse)) {
+            if (this.equalResponses(newResponse, proposedResponse)) {
                 this.logger.info(
-                    `Block ${blockNumber} for epoch ${epoch} and chain ${chainId} already proposed on response ${responseId}. Skipping...`,
+                    `Block ${blockNumber} for epoch ${request.epoch} and chain ${request.chainId} already proposed on response ${responseId}. Skipping...`,
                 );
 
                 return true;
@@ -559,7 +571,7 @@ export class EboActor {
      * @param chainId chain ID to use in the response body
      * @returns a response body
      */
-    private async buildResponse(chainId: Caip2ChainId): Promise<ResponseBody> {
+    private async buildResponseBody(chainId: Caip2ChainId): Promise<ResponseBody> {
         // FIXME(non-current epochs): adapt this code to fetch timestamps corresponding
         //  to the first block of any epoch, not just the current epoch
         const { startTimestamp: epochStartTimestamp } =
@@ -571,8 +583,6 @@ export class EboActor {
         );
 
         return {
-            epoch: this.actorRequest.epoch,
-            chainId: chainId,
             block: epochBlockNumber,
         };
     }
@@ -583,11 +593,11 @@ export class EboActor {
      * @param chainId the CAIP-2 compliant chain ID
      */
     private async proposeResponse(chainId: Caip2ChainId): Promise<void> {
-        const responseBody = await this.buildResponse(chainId);
+        const responseBody = await this.buildResponseBody(chainId);
         const request = this.getActorRequest();
 
-        if (this.alreadyProposed(responseBody.epoch, responseBody.chainId, responseBody.block)) {
-            throw new ResponseAlreadyProposed(responseBody);
+        if (this.alreadyProposed(responseBody.block)) {
+            throw new ResponseAlreadyProposed(request, responseBody);
         }
 
         const proposerAddress = this.protocolProvider.getAccountAddress();
@@ -612,8 +622,8 @@ export class EboActor {
                 await ErrorHandler.handle(customError);
 
                 this.logger.warn(
-                    `Block ${responseBody.block} for epoch ${responseBody.epoch} and ` +
-                        `chain ${responseBody.chainId} was not proposed. Skipping proposal...`,
+                    `Block ${responseBody.block} for epoch ${request.epoch} and ` +
+                        `chain ${chainId} was not proposed. Skipping proposal...`,
                 );
             } else {
                 this.logger.error(
@@ -632,27 +642,37 @@ export class EboActor {
      * @returns void
      */
     private async onResponseProposed(event: EboEvent<"ResponseProposed">): Promise<void> {
-        const eventResponse = event.metadata.response;
-        const decodedResponse = ProtocolProvider.decodeResponse(eventResponse.response);
-        const actorResponse = await this.buildResponse(decodedResponse.chainId);
+        const proposedResponse = this.registry.getResponse(event.metadata.responseId);
 
-        if (this.equalResponses(actorResponse, decodedResponse)) {
+        const request = this.getActorRequest();
+
+        if (!proposedResponse) {
+            throw new ResponseNotFound(event.metadata.responseId);
+        }
+
+        const actorResponse = {
+            prophetData: { requestId: request.id },
+            decodedData: {
+                response: await this.buildResponseBody(request.chainId),
+            },
+        };
+
+        if (this.equalResponses(actorResponse, proposedResponse)) {
             this.logger.info(`Response ${event.metadata.responseId} was validated. Skipping...`);
             return;
         }
 
-        const request = this.getActorRequest();
         const disputer = this.protocolProvider.getAccountAddress();
         const dispute: Dispute["prophetData"] = {
             disputer: disputer,
-            proposer: eventResponse.proposer,
+            proposer: proposedResponse.prophetData.proposer,
             responseId: Address.normalize(event.metadata.responseId) as ResponseId,
             requestId: request.id,
         };
         try {
             await this.protocolProvider.disputeResponse(
                 request.prophetData,
-                eventResponse,
+                proposedResponse.prophetData,
                 dispute,
             );
         } catch (err) {
@@ -677,14 +697,14 @@ export class EboActor {
     /**
      * Check for deep equality between two responses
      *
-     * @param a response
-     * @param b response
+     * @param a {@link EqualResponseParameters} response a
+     * @param b {@link EqualResponseParameters} response b
+     *
      * @returns true if all attributes on `a` are equal to attributes on `b`, false otherwise
      */
-    private equalResponses(a: ResponseBody, b: ResponseBody) {
-        if (a.block != b.block) return false;
-        if (a.chainId != b.chainId) return false;
-        if (a.epoch != b.epoch) return false;
+    private equalResponses(a: EqualResponseParameters, b: EqualResponseParameters) {
+        if (a.prophetData.requestId != b.prophetData.requestId) return false;
+        if (a.decodedData.response.block != b.decodedData.response.block) return false;
 
         return true;
     }
@@ -731,7 +751,7 @@ export class EboActor {
 
         if (!proposedResponse) throw new InvalidActorState();
 
-        const isValidDispute = await this.isValidDispute(proposedResponse);
+        const isValidDispute = await this.isValidDispute(request, proposedResponse);
 
         if (isValidDispute) await this.pledgeFor(request, dispute);
         else await this.pledgeAgainst(request, dispute);
@@ -741,18 +761,21 @@ export class EboActor {
      * Check if a dispute is valid, comparing the already submitted and disputed proposal with
      * the response this actor would propose.
      *
+     * @param request the request of the proposed response
      * @param proposedResponse the already submitted response
      * @returns true if the hypothetical proposal is different that the submitted one, false otherwise
      */
-    private async isValidDispute(proposedResponse: Response) {
-        const actorResponse = await this.buildResponse(
-            proposedResponse.decodedData.response.chainId,
-        );
+    private async isValidDispute(request: Request, proposedResponse: Response) {
+        const actorResponse = {
+            prophetData: {
+                requestId: request.id,
+            },
+            decodedData: {
+                response: await this.buildResponseBody(request.chainId),
+            },
+        };
 
-        const equalResponses = this.equalResponses(
-            actorResponse,
-            proposedResponse.decodedData.response,
-        );
+        const equalResponses = this.equalResponses(actorResponse, proposedResponse);
 
         return !equalResponses;
     }

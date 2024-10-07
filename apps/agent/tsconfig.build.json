@@ -1,7 +1,9 @@
 {
     "extends": "../../tsconfig.build.json",
     "compilerOptions": {
-        "outDir": "dist"
+        "outDir": "dist",
+        "target": "ESNext",
+        "lib": ["ESNext.Promise"]
     },
     "include": ["src/**/*"],
     "exclude": ["node_modules", "dist", "tests"]

@@ -35,6 +35,7 @@ import {
     bondEscalationModuleAbi,
     eboRequestCreatorAbi,
     epochManagerAbi,
+    horizonAccountingExtensionAbi,
     oracleAbi,
 } from "../abis/index.js";
 import {
@@ -74,11 +75,7 @@ export const REQUEST_DISPUTE_MODULE_DATA_ABI_FIELDS = [
     { name: "disputeWindow", type: "uint256" },
 ] as const;
 
-export const RESPONSE_ABI_FIELDS = [
-    { name: "chainId", type: "string" },
-    { name: "epoch", type: "uint256" },
-    { name: "block", type: "uint256" },
-] as const;
+export const RESPONSE_ABI_FIELDS = [{ name: "block", type: "uint256" }] as const;
 
 export class ProtocolProvider implements IProtocolProvider {
     private readClient: PublicClient<FallbackTransport<HttpTransport[]>>;
@@ -100,6 +97,12 @@ export class ProtocolProvider implements IProtocolProvider {
     >;
     private bondEscalationContract: GetContractReturnType<
         typeof bondEscalationModuleAbi,
+        typeof this.writeClient,
+        Address
+    >;
+
+    private horizonAccountingExtensionContract: GetContractReturnType<
+        typeof horizonAccountingExtensionAbi,
         typeof this.writeClient,
         Address
     >;
@@ -175,6 +178,14 @@ export class ProtocolProvider implements IProtocolProvider {
                 wallet: this.writeClient,
             },
         });
+        this.horizonAccountingExtensionContract = getContract({
+            address: contracts.horizonAccountingExtension,
+            abi: horizonAccountingExtensionAbi,
+            client: {
+                public: this.readClient,
+                wallet: this.writeClient,
+            },
+        });
     }
 
     public write: IWriteProvider = {
@@ -187,6 +198,7 @@ export class ProtocolProvider implements IProtocolProvider {
         escalateDispute: this.escalateDispute.bind(this),
         finalize: this.finalize.bind(this),
         approveAccountingModules: this.approveAccountingModules.bind(this),
+        approveModule: this.approveModule.bind(this),
     };
 
     public read: IReadProvider = {
@@ -196,6 +208,7 @@ export class ProtocolProvider implements IProtocolProvider {
         getAvailableChains: this.getAvailableChains.bind(this),
         getAccountingModuleAddress: this.getAccountingModuleAddress.bind(this),
         getAccountingApprovedModules: this.getAccountingApprovedModules.bind(this),
+        getApprovedModules: this.getApprovedModules.bind(this),
     };
 
     /**
@@ -293,12 +306,50 @@ export class ProtocolProvider implements IProtocolProvider {
     // TODO: use Caip2 Chain ID instead of string in return type
     async getAvailableChains(): Promise<Caip2ChainId[]> {
         // TODO: implement actual method
-        return ["eip155:1", "eip155:42161"];
+        return ["eip155:42161"];
     }
 
     getAccountingModuleAddress(): Address {
         // TODO: implement actual method
         return "0x01";
+    }
+
+    /**
+     * Approves a module in the accounting extension contract.
+     *
+     * @param module The address of the module to approve.
+     * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
+     * @returns {Promise<void>} A promise that resolves when the module is approved.
+     */
+    async approveModule(module: Address): Promise<void> {
+        const { request: simulatedRequest } = await this.readClient.simulateContract({
+            address: this.horizonAccountingExtensionContract.address,
+            abi: horizonAccountingExtensionAbi,
+            functionName: "approveModule",
+            args: [module],
+            account: this.writeClient.account,
+        });
+
+        const hash = await this.writeClient.writeContract(simulatedRequest);
+
+        const receipt = await this.readClient.waitForTransactionReceipt({
+            hash,
+            confirmations: this.rpcConfig.transactionReceiptConfirmations,
+        });
+
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("approveModule transaction failed");
+        }
+    }
+
+    /**
+     * Gets the list of approved modules' addresses for a given user.
+     *
+     * @param user The address of the user.
+     * @returns A promise that resolves with an array of approved modules for the user.
+     */
+    async getApprovedModules(user: Address): Promise<Address[]> {
+        return [...(await this.horizonAccountingExtensionContract.read.approvedModules([user]))];
     }
 
     async getAccountingApprovedModules(): Promise<Address[]> {
@@ -369,11 +420,7 @@ export class ProtocolProvider implements IProtocolProvider {
     static encodeResponse(
         response: Response["decodedData"]["response"],
     ): Response["prophetData"]["response"] {
-        return encodeAbiParameters(RESPONSE_ABI_FIELDS, [
-            response.chainId,
-            response.epoch,
-            response.block,
-        ]);
+        return encodeAbiParameters(RESPONSE_ABI_FIELDS, [response.block]);
     }
 
     /**
@@ -387,19 +434,9 @@ export class ProtocolProvider implements IProtocolProvider {
     ): Response["decodedData"]["response"] {
         const decodedParameters = decodeAbiParameters(RESPONSE_ABI_FIELDS, response);
 
-        const chainId = decodedParameters[0];
-
-        if (Caip2Utils.isCaip2ChainId(chainId)) {
-            return {
-                chainId: chainId,
-                epoch: decodedParameters[1],
-                block: decodedParameters[2],
-            };
-        } else {
-            throw new InvalidChainId(
-                `Could not decode response chain ID while decoding:\n${response}`,
-            );
-        }
+        return {
+            block: decodedParameters[0],
+        };
     }
 
     // TODO: waiting for ChainId to be merged for _chains parameter
@@ -408,7 +445,7 @@ export class ProtocolProvider implements IProtocolProvider {
      * and then executing it if the simulation is successful.
      *
      * @param {bigint} epoch - The epoch for which the request is being created.
-     * @param {Caip2ChainId[]} chains - An array of chain identifiers where the request should be created.
+     * @param {Caip2ChainId} chain - A chain identifier for which the request should be created.
      * @throws {Error} Throws an error if the chains array is empty or if the transaction fails.
      * @throws {EBORequestCreator_InvalidEpoch} Throws if the epoch is invalid.
      * @throws {Oracle_InvalidRequestBody} Throws if the request body is invalid.
@@ -416,16 +453,12 @@ export class ProtocolProvider implements IProtocolProvider {
      * @throws {EBORequestCreator_ChainNotAdded} Throws if the specified chain is not added.
      * @returns {Promise<void>} A promise that resolves when the request is successfully created.
      */
-    async createRequest(epoch: bigint, chains: Caip2ChainId[]): Promise<void> {
-        if (chains.length === 0) {
-            throw new Error("Chains array cannot be empty");
-        }
-
+    async createRequest(epoch: bigint, chain: Caip2ChainId): Promise<void> {
         const { request } = await this.readClient.simulateContract({
             address: this.eboRequestCreatorContract.address,
             abi: eboRequestCreatorAbi,
-            functionName: "createRequests",
-            args: [epoch, chains],
+            functionName: "createRequest",
+            args: [epoch, chain],
             account: this.writeClient.account,
         });
 

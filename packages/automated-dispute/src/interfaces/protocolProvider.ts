@@ -1,3 +1,4 @@
+import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import { Address } from "viem";
 
 import type { Dispute, EboEvent, EboEventName, Epoch, Request, Response } from "../types/index.js";
@@ -53,6 +54,14 @@ export interface IReadProvider {
      * @returns A promise that resolves with an array of approved modules.
      */
     getAccountingApprovedModules(): Promise<Address[]>;
+
+    /**
+     * Gets the list of approved modules' addresses for a given wallet address.
+     *
+     * @param user The address of the user.
+     * @returns A promise that resolves with an array of approved modules for the user.
+     */
+    getApprovedModules(user: Address): Promise<Address[]>;
 }
 
 /**
@@ -67,7 +76,7 @@ export interface IWriteProvider {
      * @throws Will throw an error if the chains array is empty or if the transaction fails.
      * @returns A promise that resolves when the request is successfully created.
      */
-    createRequest(epoch: bigint, chains: string[]): Promise<void>;
+    createRequest(epoch: bigint, chains: Caip2ChainId): Promise<void>;
 
     /**
      * Proposes a response to a request.
@@ -161,6 +170,14 @@ export interface IWriteProvider {
      * @param modules an array of addresses for the modules to be approved
      */
     approveAccountingModules(modules: Address[]): Promise<void>;
+
+    /**
+     * Approves a module in the accounting extension contract.
+     *
+     * @param module The address of the module to approve.
+     * @returns A promise that resolves when the module is approved.
+     */
+    approveModule(module: Address): Promise<void>;
 }
 
 /**

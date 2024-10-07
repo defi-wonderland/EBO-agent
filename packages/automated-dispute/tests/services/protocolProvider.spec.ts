@@ -17,6 +17,7 @@ import {
     bondEscalationModuleAbi,
     eboRequestCreatorAbi,
     epochManagerAbi,
+    horizonAccountingExtensionAbi,
     oracleAbi,
 } from "../../src/abis/index.js";
 import {
@@ -59,15 +60,17 @@ describe("ProtocolProvider", () => {
         epochManager: "0x1234567890123456789012345678901234567890",
         eboRequestCreator: "0x1234567890123456789012345678901234567890",
         bondEscalationModule: "0x1234567890123456789012345678901234567890",
+        horizonAccountingExtension: "0x1234567890123456789012345678901234567890",
     };
 
     beforeEach(() => {
         (getContract as Mock).mockImplementation(({ address, abi }) => {
             if (abi === oracleAbi && address === mockContractAddress.oracle) {
-                return {};
+                return { address };
             }
             if (abi === epochManagerAbi && address === mockContractAddress.epochManager) {
                 return {
+                    address,
                     read: {
                         currentEpoch: vi.fn(),
                         currentEpochBlock: vi.fn(),
@@ -76,6 +79,7 @@ describe("ProtocolProvider", () => {
             }
             if (abi === eboRequestCreatorAbi && address === mockContractAddress.eboRequestCreator) {
                 return {
+                    address,
                     simulate: {
                         createRequests: vi.fn(),
                     },
@@ -89,6 +93,7 @@ describe("ProtocolProvider", () => {
                 address === mockContractAddress.bondEscalationModule
             ) {
                 return {
+                    address,
                     write: {
                         pledgeForDispute: vi.fn(),
                         pledgeAgainstDispute: vi.fn(),
@@ -96,15 +101,31 @@ describe("ProtocolProvider", () => {
                     },
                 };
             }
+            if (
+                abi === horizonAccountingExtensionAbi &&
+                address === mockContractAddress.horizonAccountingExtension
+            ) {
+                return {
+                    address,
+                    read: {
+                        approvedModules: vi.fn(),
+                    },
+                    write: {
+                        approveModule: vi.fn(),
+                    },
+                };
+            }
             throw new Error("Invalid contract address or ABI");
         });
 
         (createPublicClient as Mock).mockImplementation(() => ({
-            simulateContract: vi.fn().mockResolvedValue({
-                request: {
-                    functionName: "createRequests",
-                    args: [],
-                },
+            simulateContract: vi.fn().mockImplementation(({ functionName, args }) => {
+                return Promise.resolve({
+                    request: {
+                        functionName,
+                        args,
+                    },
+                });
             }),
             getBlock: vi.fn(),
             waitForTransactionReceipt: vi.fn().mockResolvedValue({ status: "success" }),
@@ -192,9 +213,7 @@ describe("ProtocolProvider", () => {
 
     describe("encodeResponse", () => {
         const response: Response["decodedData"]["response"] = {
-            chainId: "eip155:1",
             block: 1n,
-            epoch: 1n,
         };
 
         it("generates a hex string with the response encoded", () => {
@@ -533,13 +552,6 @@ describe("ProtocolProvider", () => {
     });
 
     describe("createRequest", () => {
-        const mockContractAddress: ProtocolContractsAddresses = {
-            oracle: "0x1234567890123456789012345678901234567890",
-            epochManager: "0x1234567890123456789012345678901234567890",
-            eboRequestCreator: "0x1234567890123456789012345678901234567890",
-            bondEscalationModule: "0x1234567890123456789012345678901234567890",
-        };
-
         it("creates a request successfully", async () => {
             const protocolProvider = new ProtocolProvider(
                 mockRpcConfig,
@@ -548,45 +560,28 @@ describe("ProtocolProvider", () => {
             );
 
             const mockEpoch = 1n;
-            const mockChains: Caip2ChainId[] = ["eip155:1", "eip155:42161"];
+            const mockChain: Caip2ChainId = "eip155:42161";
 
             const mockWriteContractResponse = "0xmockedTransactionHash";
             (protocolProvider["writeClient"].writeContract as Mock).mockResolvedValue(
                 mockWriteContractResponse,
             );
 
-            await protocolProvider.createRequest(mockEpoch, mockChains);
+            await protocolProvider.createRequest(mockEpoch, mockChain);
 
             expect(protocolProvider["readClient"].simulateContract).toHaveBeenCalledWith({
-                address: undefined,
+                address: mockContractAddress.eboRequestCreator,
                 abi: eboRequestCreatorAbi,
-                functionName: "createRequests",
-                args: [mockEpoch, mockChains],
+                functionName: "createRequest",
+                args: [mockEpoch, mockChain],
                 account: expect.any(Object),
             });
 
             expect(protocolProvider["writeClient"].writeContract).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    functionName: "createRequests",
-                    args: [],
+                    functionName: "createRequest",
+                    args: [mockEpoch, mockChain],
                 }),
-            );
-        });
-
-        it("throws if chains array is empty", async () => {
-            const protocolProvider = new ProtocolProvider(
-                mockRpcConfig,
-                {
-                    oracle: "0x1234567890123456789012345678901234567890",
-                    epochManager: "0x1234567890123456789012345678901234567890",
-                    eboRequestCreator: "0x1234567890123456789012345678901234567890",
-                    bondEscalationModule: "0x1234567890123456789012345678901234567890",
-                },
-                mockedPrivateKey,
-            );
-
-            await expect(protocolProvider.createRequest(1n, [])).rejects.toThrow(
-                "Chains array cannot be empty",
             );
         });
     });
@@ -737,6 +732,99 @@ describe("ProtocolProvider", () => {
                     mockDisputeProphetData,
                 ),
             ).rejects.toThrow(TransactionExecutionError);
+        });
+    });
+
+    describe("approveModule", () => {
+        it("successfully approves a module", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockModuleAddress = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd";
+
+            await expect(protocolProvider.approveModule(mockModuleAddress)).resolves.not.toThrow();
+
+            expect(protocolProvider["readClient"].simulateContract).toHaveBeenCalledWith({
+                address: mockContractAddress.horizonAccountingExtension,
+                abi: horizonAccountingExtensionAbi,
+                functionName: "approveModule",
+                args: [mockModuleAddress],
+                account: expect.any(Object),
+            });
+
+            expect(protocolProvider["writeClient"].writeContract).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    functionName: "approveModule",
+                    args: [mockModuleAddress],
+                }),
+            );
+        });
+
+        it("throws TransactionExecutionError when transaction fails", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+                status: "reverted",
+            });
+
+            const mockModuleAddress = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd";
+
+            await expect(protocolProvider.approveModule(mockModuleAddress)).rejects.toThrow(
+                TransactionExecutionError,
+            );
+        });
+    });
+
+    describe("approvedModules", () => {
+        it("successfully retrieves approved modules for a user", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockUserAddress = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd";
+            const mockApprovedModules = [
+                "0x1111111111111111111111111111111111111111",
+                "0x2222222222222222222222222222222222222222",
+            ];
+
+            (
+                protocolProvider["horizonAccountingExtensionContract"].read.approvedModules as Mock
+            ).mockResolvedValue(mockApprovedModules);
+
+            const result = await protocolProvider.getApprovedModules(mockUserAddress);
+
+            expect(result).toEqual(mockApprovedModules);
+            expect(
+                protocolProvider["horizonAccountingExtensionContract"].read.approvedModules,
+            ).toHaveBeenCalledWith([mockUserAddress]);
+        });
+
+        it("throws error when RPC client fails", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockUserAddress = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd";
+            const error = new Error("RPC client failed");
+
+            (
+                protocolProvider["horizonAccountingExtensionContract"].read.approvedModules as Mock
+            ).mockRejectedValue(error);
+
+            await expect(protocolProvider.getApprovedModules(mockUserAddress)).rejects.toThrow(
+                error,
+            );
         });
     });
 });
