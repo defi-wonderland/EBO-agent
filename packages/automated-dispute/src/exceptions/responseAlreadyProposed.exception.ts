@@ -1,9 +1,9 @@
-import { ResponseBody } from "../types/prophet.js";
+import { Request, ResponseBody } from "../types/prophet.js";
 
 export class ResponseAlreadyProposed extends Error {
-    constructor(response: ResponseBody) {
+    constructor(request: Request, response: ResponseBody) {
         super(
-            `Block ${response.block} was already proposed for epoch ${response.epoch} on chain ${response.chainId}`,
+            `Block ${response.block} was already proposed for epoch ${request.epoch} on chain ${request.chainId}`,
         );
 
         this.name = "ResponseAlreadyProposed";
