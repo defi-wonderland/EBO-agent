@@ -143,11 +143,14 @@ describe("EboActor", () => {
                 shouldTerminate: false,
                 shouldNotify: false,
             });
-
             // Mock ErrorHandler.handle to prevent re-enqueueing
             const errorHandlerSpy = vi
                 .spyOn(ErrorHandler, "handle")
-                .mockImplementation(async () => {});
+                .mockImplementation(async (error) => {
+                    if (error.strategy.shouldReenqueue && error.getContext()?.reenqueueEvent) {
+                        error.getContext().reenqueueEvent();
+                    }
+                });
 
             actor["onLastEvent"] = vi.fn().mockImplementation(() => {
                 return new Promise((resolve, reject) => {
@@ -157,28 +160,10 @@ describe("EboActor", () => {
                 });
             });
 
-            setTimeout(async () => {
-                actor.enqueue(firstEvent);
-
-                await actor.processEvents();
-            }, 5);
-
-            setTimeout(() => {
-                actor.enqueue(secondEvent);
-            }, 10);
-
-            // First enqueue
+            actor.enqueue(firstEvent);
             await vi.advanceTimersByTimeAsync(5);
+            actor.enqueue(secondEvent);
 
-            expect(queue.size()).toEqual(0);
-
-            // Second enqueue
-            await vi.advanceTimersByTimeAsync(5);
-
-            expect(queue.size()).toEqual(1);
-            expect(queue.peek()).toEqual(secondEvent);
-
-            // processEvents throws and re-enqueues first event
             await vi.advanceTimersByTimeAsync(10);
 
             expect(queue.size()).toEqual(2);

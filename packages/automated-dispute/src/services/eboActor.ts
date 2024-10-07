@@ -130,8 +130,8 @@ export class EboActor {
      *
      * @throws {RequestMismatch} when an event from another request was enqueued in this actor
      */
-    public async processEvents(): Promise<void> {
-        await this.eventProcessingMutex.runExclusive(async () => {
+    public processEvents(): Promise<void> {
+        return this.eventProcessingMutex.runExclusive(async () => {
             let event: EboEvent<EboEventName> | undefined;
 
             while ((event = this.eventsQueue.pop())) {
@@ -155,6 +155,7 @@ export class EboActor {
                             event,
                             () => {
                                 this.eventsQueue.push(event!);
+                                updateStateCommand.undo();
                             },
                             () => {
                                 throw err;
@@ -163,22 +164,11 @@ export class EboActor {
 
                         await ErrorHandler.handle(err);
 
-                        if (err.strategy.shouldReenqueue) {
-                            this.eventsQueue.push(event);
-                            updateStateCommand.undo();
-                            // Break to prevent immediate re-processing
-                            break;
-                        }
-
-                        if (err.strategy.shouldTerminate) {
-                            // Rethrow for EboProcessor to handle
-                            throw err;
-                        }
-
                         if (err.strategy.shouldNotify) {
                             // TODO: add notification logic
                             continue;
                         }
+                        return;
                     } else {
                         throw err;
                     }
@@ -522,9 +512,6 @@ export class EboActor {
                     request,
                     event,
                     registry: this.registry,
-                    reenqueueEvent: () => {
-                        this.eventsQueue.push(event);
-                    },
                 });
 
                 throw customError;
@@ -678,9 +665,6 @@ export class EboActor {
                     response,
                     event,
                     registry: this.registry,
-                    reenqueueEvent: () => {
-                        this.eventsQueue.push(event);
-                    },
                 });
 
                 throw customError;
