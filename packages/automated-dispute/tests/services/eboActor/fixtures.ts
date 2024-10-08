@@ -14,9 +14,9 @@ export const mockedPrivateKey =
     "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
 export const DEFAULT_MOCKED_PROTOCOL_CONTRACTS: ProtocolContractsAddresses = {
-    oracle: "0x123456" as Address,
-    epochManager: "0x654321" as Address,
-    eboRequestCreator: "0xabcdef" as Address,
+    oracle: "0x1234560000000000000000000000000000000000" as Address,
+    epochManager: "0x6543210000000000000000000000000000000000" as Address,
+    eboRequestCreator: "0x9999990000000000000000000000000000000000" as Address,
     bondEscalationModule: "0x1a2b3c" as Address,
 };
 
@@ -63,17 +63,17 @@ export const DEFAULT_MOCKED_REQUEST_CREATED_DATA: Request = {
     },
     prophetData: {
         nonce: 1n,
-        disputeModule: "0x01" as Address,
-        finalityModule: "0x02" as Address,
-        requestModule: "0x03" as Address,
-        resolutionModule: "0x04" as Address,
-        responseModule: "0x05" as Address,
-        requester: "0x10" as Address,
-        responseModuleData: "0x11" as Hex, // TODO: use the corresponding encoded data
-        disputeModuleData: "0x12" as Hex, // TODO: use the corresponding encoded data
-        finalityModuleData: "0x13" as Hex,
-        requestModuleData: "0x14" as Hex,
-        resolutionModuleData: "0x15" as Hex,
+        disputeModule: "0x0111111111111111111111111111111111111111" as Address,
+        finalityModule: "0x0211111111111111111111111111111111111111" as Address,
+        requestModule: "0x0311111111111111111111111111111111111111" as Address,
+        resolutionModule: "0x0411111111111111111111111111111111111111" as Address,
+        responseModule: "0x0511111111111111111111111111111111111111" as Address,
+        requester: "0x1011111111111111111111111111111111111111" as Address,
+        responseModuleData: "0x1111111111111111111111111111111111111111" as Hex, // TODO: use the corresponding encoded data
+        disputeModuleData: "0x1211111111111111111111111111111111111111" as Hex, // TODO: use the corresponding encoded data
+        finalityModuleData: "0x1311111111111111111111111111111111111111" as Hex,
+        requestModuleData: "0x1411111111111111111111111111111111111111" as Hex,
+        resolutionModuleData: "0x1511111111111111111111111111111111111111" as Hex,
     },
 };
 

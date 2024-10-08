@@ -1,4 +1,4 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
 import {
     ContractFunctionRevertedError,
     createPublicClient,
@@ -390,7 +390,7 @@ describe("ProtocolProvider", () => {
 
             await expect(
                 protocolProvider.proposeResponse(mockRequestProphetData, mockResponseProphetData),
-            ).rejects.toThrow("Unknown error: ");
+            ).rejects.toThrow('The contract function "proposeResponse" reverted.');
         });
 
         it("throws WaitForTransactionReceiptTimeoutError when waitForTransactionReceipt times out", async () => {

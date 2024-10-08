@@ -1,4 +1,4 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
 import {
     Address,
     BaseError,
@@ -39,6 +39,7 @@ import {
     oracleAbi,
 } from "../abis/index.js";
 import {
+    ErrorFactory,
     InvalidAccountOnClient,
     RpcUrlsEmpty,
     TransactionExecutionError,
@@ -49,7 +50,6 @@ import {
     IWriteProvider,
     ProtocolContractsAddresses,
 } from "../interfaces/index.js";
-import { ErrorFactory } from "../services/errorFactory.js";
 
 type ProtocolRpcConfig = {
     urls: string[];
@@ -109,7 +109,7 @@ export class ProtocolProvider implements IProtocolProvider {
 
     /**
      * Creates a new ProtocolProvider instance
-     * @param rpcUrls The RPC URLs to connect to the Arbitrum chain
+     * @param rpcConfig The configuration for RPC connections including URLs, timeout, retry interval, and transaction receipt confirmations
      * @param contracts The addresses of the protocol contracts that will be instantiated
      * @param privateKey The private key of the account that will be used to interact with the contracts
      */
@@ -215,6 +215,7 @@ export class ProtocolProvider implements IProtocolProvider {
      * Returns the address of the account used for transactions.
      *
      * @returns {Address} The account address.
+     * @throws {InvalidAccountOnClient} Throws if the write client does not have an assigned account.
      */
     public getAccountAddress(): Address {
         if (!this.writeClient.account) {
@@ -224,9 +225,9 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Gets the current epoch, the block number and its timestamp of the current epoch
+     * Gets the current epoch, including the block number and its timestamp.
      *
-     * @returns The current epoch, its block number and its timestamp
+     * @returns {Promise<Epoch>} The current epoch, its block number, and its timestamp.
      */
     async getCurrentEpoch(): Promise<Epoch> {
         const [epoch, epochFirstBlockNumber] = await Promise.all([
@@ -245,12 +246,24 @@ export class ProtocolProvider implements IProtocolProvider {
         };
     }
 
+    /**
+     * Gets the number of the last finalized block.
+     *
+     * @returns {Promise<bigint>} The block number of the last finalized block.
+     */
     async getLastFinalizedBlock(): Promise<bigint> {
         const { number } = await this.readClient.getBlock({ blockTag: "finalized" });
 
         return number;
     }
 
+    /**
+     * Gets a list of events between two blocks.
+     *
+     * @param {bigint} _fromBlock - The starting block number.
+     * @param {bigint} _toBlock - The ending block number.
+     * @returns {Promise<EboEvent<EboEventName>[]>} A list of EBO events.
+     */
     async getEvents(_fromBlock: bigint, _toBlock: bigint): Promise<EboEvent<EboEventName>[]> {
         // TODO: implement actual method.
         //
@@ -285,9 +298,8 @@ export class ProtocolProvider implements IProtocolProvider {
      * Merge multiple streams of events considering the chain order, based on their block numbers
      * and log indexes.
      *
-     * @param streams a collection of EboEvent[] arrays.
-     * @returns the EboEvent[] arrays merged in a single array and sorted by ascending blockNumber
-     *  and logIndex
+     * @param {EboEvent<EboEventName>[][]} streams - A collection of EboEvent[] arrays.
+     * @returns {EboEvent<EboEventName>[]} The merged and sorted event array.
      */
     private mergeEventStreams(...streams: EboEvent<EboEventName>[][]) {
         return streams
@@ -317,7 +329,7 @@ export class ProtocolProvider implements IProtocolProvider {
     /**
      * Approves a module in the accounting extension contract.
      *
-     * @param module The address of the module to approve.
+     * @param {Address} module - The address of the module to approve.
      * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
      * @returns {Promise<void>} A promise that resolves when the module is approved.
      */
@@ -345,8 +357,8 @@ export class ProtocolProvider implements IProtocolProvider {
     /**
      * Gets the list of approved modules' addresses for a given user.
      *
-     * @param user The address of the user.
-     * @returns A promise that resolves with an array of approved modules for the user.
+     * @param {Address} user - The address of the user.
+     * @returns {Promise<Address[]>} A promise that resolves with an array of approved modules for the user.
      */
     async getApprovedModules(user: Address): Promise<Address[]> {
         return [...(await this.horizonAccountingExtensionContract.read.approvedModules([user]))];
@@ -362,11 +374,10 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Decodes the Prophet's request responseModuleData bytes into an object.
+     * Decodes the request's response module data bytes into an object.
      *
-     * @param responseModuleData responseModuleData bytes
-     * @throws {BaseErrorType} when the responseModuleData decoding fails
-     * @returns a decoded object with responseModuleData properties
+     * @param {Request["prophetData"]["responseModuleData"]} responseModuleData - The response module data bytes.
+     * @returns {Request["decodedData"]["responseModuleData"]} A decoded object with responseModuleData properties.
      */
     static decodeRequestResponseModuleData(
         responseModuleData: Request["prophetData"]["responseModuleData"],
@@ -386,11 +397,10 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Decodes the Prophet's request disputeModuelData bytes into an object.
+     * Decodes the request's dispute module data bytes into an object.
      *
-     * @param disputeModuelData disputeModuelData bytes
-     * @throws {BaseErrorType} when the disputeModuelData decoding fails
-     * @returns a decoded object with disputeModuelData properties
+     * @param {Request["prophetData"]["disputeModuleData"]} disputeModuleData - The dispute module data bytes.
+     * @returns {Request["decodedData"]["disputeModuleData"]} A decoded object with disputeModuleData properties.
      */
     static decodeRequestDisputeModuleData(
         disputeModuleData: Request["prophetData"]["disputeModuleData"],
@@ -412,10 +422,10 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Encodes a Prophet's response body object into bytes.
+     * Encodes a response object into bytes.
      *
-     * @param response response body object
-     * @returns byte-encode response body
+     * @param {Response["decodedData"]["response"]} response - The response object to encode.
+     * @returns {Response["prophetData"]["response"]} Byte-encoded response body.
      */
     static encodeResponse(
         response: Response["decodedData"]["response"],
@@ -424,10 +434,10 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Decodes a Prophet's response body bytes into an object.
+     * Decodes a response body bytes into an object.
      *
-     * @param response response body bytes
-     * @returns decoded response body object
+     * @param {Response["prophetData"]["response"]} response - The response body bytes.
+     * @returns {Response["decodedData"]["response"]} Decoded response body object.
      */
     static decodeResponse(
         response: Response["prophetData"]["response"],
@@ -447,43 +457,26 @@ export class ProtocolProvider implements IProtocolProvider {
      * @param {bigint} epoch - The epoch for which the request is being created.
      * @param {Caip2ChainId} chain - A chain identifier for which the request should be created.
      * @throws {Error} Throws an error if the chains array is empty or if the transaction fails.
-     * @throws {EBORequestCreator_InvalidEpoch} Throws if the epoch is invalid.
-     * @throws {Oracle_InvalidRequestBody} Throws if the request body is invalid.
-     * @throws {EBORequestModule_InvalidRequester} Throws if the requester is invalid.
-     * @throws {EBORequestCreator_ChainNotAdded} Throws if the specified chain is not added.
      * @returns {Promise<void>} A promise that resolves when the request is successfully created.
      */
     async createRequest(epoch: bigint, chain: Caip2ChainId): Promise<void> {
-        try {
-            const { request } = await this.readClient.simulateContract({
-                address: this.eboRequestCreatorContract.address,
-                abi: eboRequestCreatorAbi,
-                functionName: "createRequest",
-                args: [epoch, chain],
-                account: this.writeClient.account,
-            });
+        const { request } = await this.readClient.simulateContract({
+            address: this.eboRequestCreatorContract.address,
+            abi: eboRequestCreatorAbi,
+            functionName: "createRequest",
+            args: [epoch, chain],
+            account: this.writeClient.account,
+        });
 
-            const hash = await this.writeClient.writeContract(request);
+        const hash = await this.writeClient.writeContract(request);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
+        const receipt = await this.readClient.waitForTransactionReceipt({
+            hash,
+            confirmations: this.rpcConfig.transactionReceiptConfirmations,
+        });
 
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("createRequest transaction failed");
-            }
-        } catch (error) {
-            if (error instanceof BaseError) {
-                const revertError = error.walk(
-                    (err) => err instanceof ContractFunctionRevertedError,
-                );
-                if (revertError instanceof ContractFunctionRevertedError) {
-                    const errorName = revertError.data?.errorName ?? "";
-                    throw ErrorFactory.createError(errorName);
-                }
-            }
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("createRequest transaction failed");
         }
     }
 
@@ -500,36 +493,23 @@ export class ProtocolProvider implements IProtocolProvider {
         request: Request["prophetData"],
         response: Response["prophetData"],
     ): Promise<void> {
-        try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.oracleContract.address,
-                abi: oracleAbi,
-                functionName: "proposeResponse",
-                args: [request, response],
-                account: this.writeClient.account,
-            });
+        const { request: simulatedRequest } = await this.readClient.simulateContract({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            functionName: "proposeResponse",
+            args: [request, response],
+            account: this.writeClient.account,
+        });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+        const hash = await this.writeClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
+        const receipt = await this.readClient.waitForTransactionReceipt({
+            hash,
+            confirmations: this.rpcConfig.transactionReceiptConfirmations,
+        });
 
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("proposeResponse transaction failed");
-            }
-        } catch (error) {
-            if (error instanceof BaseError) {
-                const revertError = error.walk(
-                    (err) => err instanceof ContractFunctionRevertedError,
-                );
-                if (revertError instanceof ContractFunctionRevertedError) {
-                    const errorName = revertError.data?.errorName ?? "";
-                    throw ErrorFactory.createError(errorName);
-                }
-            }
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("proposeResponse transaction failed");
         }
     }
 
@@ -548,36 +528,23 @@ export class ProtocolProvider implements IProtocolProvider {
         response: Response["prophetData"],
         dispute: Dispute["prophetData"],
     ): Promise<void> {
-        try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.oracleContract.address,
-                abi: oracleAbi,
-                functionName: "disputeResponse",
-                args: [request, response, dispute],
-                account: this.writeClient.account,
-            });
+        const { request: simulatedRequest } = await this.readClient.simulateContract({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            functionName: "disputeResponse",
+            args: [request, response, dispute],
+            account: this.writeClient.account,
+        });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+        const hash = await this.writeClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
+        const receipt = await this.readClient.waitForTransactionReceipt({
+            hash,
+            confirmations: this.rpcConfig.transactionReceiptConfirmations,
+        });
 
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("disputeResponse transaction failed");
-            }
-        } catch (error) {
-            if (error instanceof BaseError) {
-                const revertError = error.walk(
-                    (err) => err instanceof ContractFunctionRevertedError,
-                );
-                if (revertError instanceof ContractFunctionRevertedError) {
-                    const errorName = revertError.data?.errorName ?? "";
-                    throw ErrorFactory.createError(errorName);
-                }
-            }
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("disputeResponse transaction failed");
         }
     }
 
@@ -741,36 +708,23 @@ export class ProtocolProvider implements IProtocolProvider {
         response: Response["prophetData"],
         dispute: Dispute["prophetData"],
     ): Promise<void> {
-        try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.oracleContract.address,
-                abi: oracleAbi,
-                functionName: "escalateDispute",
-                args: [request, response, dispute],
-                account: this.writeClient.account,
-            });
+        const { request: simulatedRequest } = await this.readClient.simulateContract({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            functionName: "escalateDispute",
+            args: [request, response, dispute],
+            account: this.writeClient.account,
+        });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+        const hash = await this.writeClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
+        const receipt = await this.readClient.waitForTransactionReceipt({
+            hash,
+            confirmations: this.rpcConfig.transactionReceiptConfirmations,
+        });
 
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("escalateDispute transaction failed");
-            }
-        } catch (error) {
-            if (error instanceof BaseError) {
-                const revertError = error.walk(
-                    (err) => err instanceof ContractFunctionRevertedError,
-                );
-                if (revertError instanceof ContractFunctionRevertedError) {
-                    const errorName = revertError.data?.errorName ?? "";
-                    throw ErrorFactory.createError(errorName);
-                }
-            }
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("escalateDispute transaction failed");
         }
     }
 
@@ -793,36 +747,23 @@ export class ProtocolProvider implements IProtocolProvider {
         request: Request["prophetData"],
         response: Response["prophetData"],
     ): Promise<void> {
-        try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.oracleContract.address,
-                abi: oracleAbi,
-                functionName: "finalize",
-                args: [request, response],
-                account: this.writeClient.account,
-            });
+        const { request: simulatedRequest } = await this.readClient.simulateContract({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            functionName: "finalize",
+            args: [request, response],
+            account: this.writeClient.account,
+        });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+        const hash = await this.writeClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
+        const receipt = await this.readClient.waitForTransactionReceipt({
+            hash,
+            confirmations: this.rpcConfig.transactionReceiptConfirmations,
+        });
 
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("finalize transaction failed");
-            }
-        } catch (error) {
-            if (error instanceof BaseError) {
-                const revertError = error.walk(
-                    (err) => err instanceof ContractFunctionRevertedError,
-                );
-                if (revertError instanceof ContractFunctionRevertedError) {
-                    const errorName = revertError.data?.errorName ?? "";
-                    throw ErrorFactory.createError(errorName);
-                }
-            }
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("finalize transaction failed");
         }
     }
 }

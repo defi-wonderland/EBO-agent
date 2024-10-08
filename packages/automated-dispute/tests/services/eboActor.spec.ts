@@ -1,6 +1,13 @@
+import { Abi, ContractFunctionRevertedError, encodeErrorResult } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { PastEventEnqueueError, RequestMismatch } from "../../src/exceptions/index.js";
+import { ErrorHandler } from "../../src/exceptions/errorHandler.js";
+import {
+    CustomContractError,
+    ErrorFactory,
+    PastEventEnqueueError,
+    RequestMismatch,
+} from "../../src/exceptions/index.js";
 import { ProtocolProvider } from "../../src/providers/index.js";
 import { EboEvent, Request, RequestId } from "../../src/types/index.js";
 import mocks from "../mocks/index.js";
@@ -110,14 +117,18 @@ describe("EboActor", () => {
 
             const mockEventsQueuePush = vi.spyOn(queue, "push");
 
-            actor["onLastEvent"] = vi.fn().mockImplementation(() => Promise.reject());
+            actor["onLastEvent"] = vi
+                .fn()
+                .mockImplementation(() => Promise.reject(new Error("Test Error")));
 
             actor.enqueue(event);
 
-            await actor.processEvents();
+            // Expect processEvents to throw and handle the rejection
+            await expect(actor.processEvents()).rejects.toThrow("Test Error");
 
-            expect(mockEventsQueuePush).toHaveBeenNthCalledWith(1, event);
-            expect(mockEventsQueuePush).toHaveBeenNthCalledWith(2, event);
+            // The event should not be re-enqueued because it was the only event in the queue
+            expect(mockEventsQueuePush).toHaveBeenCalledTimes(1);
+            expect(queue.size()).toBe(0);
         });
 
         it("enqueues again an event at the top if its processing throws", async () => {
@@ -127,40 +138,38 @@ describe("EboActor", () => {
             const firstEvent = { ...event };
             const secondEvent = { ...firstEvent, blockNumber: firstEvent.blockNumber + 1n };
 
+            const mockError = new CustomContractError("UnknownError", {
+                shouldReenqueue: true,
+                shouldTerminate: false,
+                shouldNotify: false,
+            });
+            // Mock ErrorHandler.handle to prevent re-enqueueing
+            const errorHandlerSpy = vi
+                .spyOn(ErrorHandler, "handle")
+                .mockImplementation(async (error) => {
+                    if (error.strategy.shouldReenqueue && error.getContext()?.reenqueueEvent) {
+                        error.getContext().reenqueueEvent();
+                    }
+                });
+
             actor["onLastEvent"] = vi.fn().mockImplementation(() => {
                 return new Promise((resolve, reject) => {
                     setTimeout(() => {
-                        reject();
+                        reject(mockError);
                     }, 10);
                 });
             });
 
-            setTimeout(async () => {
-                actor.enqueue(firstEvent);
-
-                await actor.processEvents();
-            }, 5);
-
-            setTimeout(() => {
-                actor.enqueue(secondEvent);
-            }, 10);
-
-            // First enqueue
+            actor.enqueue(firstEvent);
             await vi.advanceTimersByTimeAsync(5);
+            actor.enqueue(secondEvent);
 
-            expect(queue.size()).toEqual(0);
-
-            // Second enqueue
-            await vi.advanceTimersByTimeAsync(5);
-
-            expect(queue.size()).toEqual(1);
-            expect(queue.peek()).toEqual(secondEvent);
-
-            // processEvents throws and re-enqueues first event
-            await vi.advanceTimersByTime(10);
+            await vi.advanceTimersByTimeAsync(10);
 
             expect(queue.size()).toEqual(2);
             expect(queue.peek()).toEqual(firstEvent);
+
+            errorHandlerSpy.mockRestore();
         });
 
         it("does not allow interleaved event processing", async () => {
@@ -413,6 +422,138 @@ describe("EboActor", () => {
             );
 
             expect(canBeTerminated).toBe(true);
+        });
+    });
+
+    describe("onRequestCreated", () => {
+        it("throws a CustomContractError when proposeResponse fails with ContractFunctionRevertedError", async () => {
+            const { actor } = mocks.buildEboActor(request, logger);
+            const event: EboEvent<"RequestCreated"> = {
+                name: "RequestCreated",
+                blockNumber: 1n,
+                logIndex: 0,
+                requestId: request.id,
+                metadata: {
+                    chainId: request.chainId,
+                    epoch: request.epoch,
+                    requestId: request.id,
+                    request: request.prophetData,
+                },
+            };
+
+            vi.spyOn(actor["registry"], "getRequest").mockReturnValue(request);
+
+            const abi: Abi = [
+                {
+                    type: "error",
+                    name: "SomeError",
+                    inputs: [{ name: "reason", type: "string" }],
+                },
+            ];
+
+            const data = encodeErrorResult({
+                abi,
+                errorName: "SomeError",
+                args: ["Test error message"],
+            });
+
+            const contractError = new ContractFunctionRevertedError({
+                abi,
+                data,
+                functionName: "proposeResponse",
+            });
+
+            actor["proposeResponse"] = vi.fn().mockRejectedValue(contractError);
+
+            const customError = new CustomContractError("SomeError", {
+                shouldNotify: false,
+                shouldReenqueue: true,
+                shouldTerminate: false,
+            });
+
+            const errorFactorySpy = vi
+                .spyOn(ErrorFactory, "createError")
+                .mockReturnValue(customError);
+
+            await expect(actor["onRequestCreated"](event)).rejects.toThrow(customError);
+
+            expect(errorFactorySpy).toHaveBeenCalledWith(contractError.name);
+
+            errorFactorySpy.mockRestore();
+        });
+    });
+
+    describe("settleDispute", () => {
+        it("escalates dispute when BondEscalationModule_ShouldBeEscalated error occurs", async () => {
+            const { actor, protocolProvider } = mocks.buildEboActor(request, logger);
+            const response = mocks.buildResponse(request);
+            const dispute = mocks.buildDispute(request, response);
+
+            const abi: Abi = [
+                {
+                    type: "error",
+                    name: "BondEscalationModule_ShouldBeEscalated",
+                    inputs: [],
+                },
+            ];
+
+            const errorName = "BondEscalationModule_ShouldBeEscalated";
+            const data = encodeErrorResult({
+                abi,
+                errorName,
+                args: [],
+            });
+
+            const contractError = new ContractFunctionRevertedError({
+                abi,
+                data,
+                functionName: "settleDispute",
+            });
+
+            vi.spyOn(protocolProvider, "settleDispute").mockRejectedValue(contractError);
+            const escalateDisputeMock = vi
+                .spyOn(protocolProvider, "escalateDispute")
+                .mockResolvedValue();
+
+            const customError = new CustomContractError(errorName, {
+                shouldNotify: false,
+                shouldReenqueue: false,
+                shouldTerminate: false,
+            });
+
+            const onSpy = vi.spyOn(customError, "on").mockImplementation((eventName, handler) => {
+                if (eventName === errorName) {
+                    handler();
+                }
+                return customError;
+            });
+
+            vi.spyOn(ErrorFactory, "createError").mockReturnValue(customError);
+
+            await actor["settleDispute"](request, response, dispute);
+
+            expect(onSpy).toHaveBeenCalledWith(errorName, expect.any(Function));
+
+            expect(escalateDisputeMock).toHaveBeenCalledWith(
+                request.prophetData,
+                response.prophetData,
+                dispute.prophetData,
+            );
+            expect(logger.info).toHaveBeenCalledWith(`Dispute ${dispute.id} escalated.`);
+        });
+
+        it("rethrows error when settleDispute fails", async () => {
+            const { actor, protocolProvider } = mocks.buildEboActor(request, logger);
+            const response = mocks.buildResponse(request);
+            const dispute = mocks.buildDispute(request, response);
+
+            const settleError = new Error("SettleDispute failed");
+
+            vi.spyOn(protocolProvider, "settleDispute").mockRejectedValue(settleError);
+
+            await expect(actor["settleDispute"](request, response, dispute)).rejects.toThrow(
+                settleError,
+            );
         });
     });
 });

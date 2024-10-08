@@ -1,4 +1,5 @@
-import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
+import { BlockNumberService } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
 import { Address, ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
@@ -10,19 +11,19 @@ import type {
     EboEvent,
     EboEventName,
     Epoch,
+    ErrorContext,
     Request,
     Response,
     ResponseBody,
     ResponseId,
 } from "../types/index.js";
+import { ErrorHandler } from "../exceptions/errorHandler.js";
 import {
+    CustomContractError,
     DisputeWithoutResponse,
-    EBORequestCreator_ChainNotAdded,
-    EBORequestCreator_InvalidEpoch,
-    EBORequestModule_InvalidRequester,
+    ErrorFactory,
     InvalidActorState,
     InvalidDisputeStatus,
-    Oracle_InvalidRequestBody,
     PastEventEnqueueError,
     RequestMismatch,
     ResponseAlreadyProposed,
@@ -156,13 +157,28 @@ export class EboActor {
                 } catch (err) {
                     this.logger.error(`Error processing event ${event.name}: ${err}`);
 
-                    // Enqueue the event again as it's supposed to be reprocessed
-                    this.eventsQueue.push(event);
+                    if (err instanceof CustomContractError) {
+                        err.setProcessEventsContext(
+                            event,
+                            () => {
+                                this.eventsQueue.push(event!);
+                                updateStateCommand.undo();
+                            },
+                            () => {
+                                throw err;
+                            },
+                        );
 
-                    // Undo last state update
-                    updateStateCommand.undo();
+                        await ErrorHandler.handle(err);
 
-                    return;
+                        if (err.strategy.shouldNotify) {
+                            // TODO: add notification logic
+                            continue;
+                        }
+                        return;
+                    } else {
+                        throw err;
+                    }
                 }
             }
         });
@@ -309,7 +325,7 @@ export class EboActor {
 
             if (!response) {
                 this.logger.error(
-                    `While trying to settle dispute ${dispute.id} its response with` +
+                    `While trying to settle dispute ${dispute.id}, its response with ` +
                         `id ${dispute.prophetData.responseId} was not found in the registry.`,
                 );
 
@@ -348,50 +364,58 @@ export class EboActor {
      * @param response the dispute's response
      * @param dispute the dispute
      */
-    private settleDispute(request: Request, response: Response, dispute: Dispute): Promise<void> {
-        return Promise.resolve()
-            .then(async () => {
-                this.logger.info(`Settling dispute ${dispute.id}...`);
+    private async settleDispute(
+        request: Request,
+        response: Response,
+        dispute: Dispute,
+    ): Promise<void> {
+        try {
+            this.logger.info(`Settling dispute ${dispute.id}...`);
 
-                // OPTIMIZE: check for pledges to potentially save the ShouldBeEscalated error
+            // OPTIMIZE: check for pledges to potentially save the ShouldBeEscalated error
 
-                await this.protocolProvider.settleDispute(
-                    request.prophetData,
-                    response.prophetData,
-                    dispute.prophetData,
-                );
+            await this.protocolProvider.settleDispute(
+                request.prophetData,
+                response.prophetData,
+                dispute.prophetData,
+            );
 
-                this.logger.info(`Dispute ${dispute.id} settled.`);
-            })
-            .catch(async (err) => {
-                this.logger.warn(`Dispute ${dispute.id} was not settled.`);
+            this.logger.info(`Dispute ${dispute.id} settled.`);
+        } catch (err) {
+            if (err instanceof ContractFunctionRevertedError) {
+                const errorName = err.data?.errorName || err.name;
+                this.logger.warn(`Call reverted for dispute ${dispute.id} due to: ${errorName}`);
 
-                // TODO: use custom errors to be developed while implementing ProtocolProvider
-                if (!(err instanceof ContractFunctionRevertedError)) throw err;
+                const customError = ErrorFactory.createError(errorName);
+                customError.setContext({
+                    request,
+                    response,
+                    dispute,
+                    registry: this.registry,
+                });
 
-                this.logger.warn(`Call reverted for ${dispute.id} due to: ${err.data?.errorName}`);
+                customError.on("BondEscalationModule_ShouldBeEscalated", async () => {
+                    try {
+                        await this.protocolProvider.escalateDispute(
+                            request.prophetData,
+                            response.prophetData,
+                            dispute.prophetData,
+                        );
+                        this.logger.info(`Dispute ${dispute.id} escalated.`);
 
-                if (err.data?.errorName === "BondEscalationModule_ShouldBeEscalated") {
-                    this.logger.warn(`Escalating dispute ${dispute.id}...`);
-
-                    await this.protocolProvider.escalateDispute(
-                        request.prophetData,
-                        response.prophetData,
-                        dispute.prophetData,
-                    );
-
-                    // TODO: notify
-
-                    this.logger.warn(`Dispute ${dispute.id} was escalated.`);
-                }
-            })
-            .catch((err) => {
-                this.logger.error(`Failed to escalate dispute ${dispute.id}.`);
-
-                // TODO: notify
-
+                        await ErrorHandler.handle(customError);
+                    } catch (escalationError) {
+                        this.logger.error(
+                            `Failed to escalate dispute ${dispute.id}: ${escalationError}`,
+                        );
+                        throw escalationError;
+                    }
+                });
+            } else {
+                this.logger.error(`Failed to escalate dispute ${dispute.id}: ${err}`);
                 throw err;
-            });
+            }
+        }
     }
 
     /**
@@ -487,15 +511,17 @@ export class EboActor {
         try {
             await this.proposeResponse(chainId);
         } catch (err) {
-            if (err instanceof ResponseAlreadyProposed) this.logger.info(err.message);
-            else if (err instanceof EBORequestCreator_InvalidEpoch) {
-                // TODO: Handle error
-            } else if (err instanceof Oracle_InvalidRequestBody) {
-                // TODO: Handle error
-            } else if (err instanceof EBORequestModule_InvalidRequester) {
-                // TODO: Handle error
-            } else if (err instanceof EBORequestCreator_ChainNotAdded) {
-                // TODO: Handle error
+            if (err instanceof ContractFunctionRevertedError) {
+                const request = this.getActorRequest();
+                const customError = ErrorFactory.createError(err.name);
+
+                customError.setContext({
+                    request,
+                    event,
+                    registry: this.registry,
+                });
+
+                throw customError;
             } else {
                 throw err;
             }
@@ -586,6 +612,15 @@ export class EboActor {
             await this.protocolProvider.proposeResponse(request.prophetData, response);
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
+                const customError = ErrorFactory.createError(err.name);
+                const context: ErrorContext = {
+                    request,
+                    registry: this.registry,
+                };
+                customError.setContext(context);
+
+                await ErrorHandler.handle(customError);
+
                 this.logger.warn(
                     `Block ${responseBody.block} for epoch ${request.epoch} and ` +
                         `chain ${chainId} was not proposed. Skipping proposal...`,
@@ -634,12 +669,29 @@ export class EboActor {
             responseId: Address.normalize(event.metadata.responseId) as ResponseId,
             requestId: request.id,
         };
+        try {
+            await this.protocolProvider.disputeResponse(
+                request.prophetData,
+                proposedResponse.prophetData,
+                dispute,
+            );
+        } catch (err) {
+            if (err instanceof ContractFunctionRevertedError) {
+                const customError = ErrorFactory.createError(err.name);
+                const response = this.registry.getResponse(event.metadata.responseId);
 
-        await this.protocolProvider.disputeResponse(
-            request.prophetData,
-            proposedResponse.prophetData,
-            dispute,
-        );
+                customError.setContext({
+                    request,
+                    response,
+                    event,
+                    registry: this.registry,
+                });
+
+                throw customError;
+            } else {
+                throw err;
+            }
+        }
     }
 
     /**
@@ -736,24 +788,31 @@ export class EboActor {
      */
     private async pledgeFor(request: Request, dispute: Dispute) {
         try {
-            this.logger.info(`Pledging against dispute ${dispute.id}`);
+            this.logger.info(`Pledging for dispute ${dispute.id}`);
 
             await this.protocolProvider.pledgeForDispute(request.prophetData, dispute.prophetData);
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
-                // TODO: handle each error appropriately
-                this.logger.warn(`Pledging for dispute ${dispute.id} was reverted. Skipping...`);
-            } else {
-                // TODO: handle each error appropriately
-                this.logger.error(
-                    `Actor handling request ${this.actorRequest.id} is not able to continue.`,
-                );
+                const errorName = err.data?.errorName || err.name;
+                this.logger.warn(`Pledge for dispute ${dispute.id} reverted due to: ${errorName}`);
 
+                const customError = ErrorFactory.createError(errorName);
+                const context: ErrorContext = {
+                    request,
+                    dispute,
+                    registry: this.registry,
+                    terminateActor: () => {
+                        throw customError;
+                    },
+                };
+                customError.setContext(context);
+
+                await ErrorHandler.handle(customError);
+            } else {
                 throw err;
             }
         }
     }
-
     /**
      * Pledge against the dispute.
      *
@@ -762,7 +821,7 @@ export class EboActor {
      */
     private async pledgeAgainst(request: Request, dispute: Dispute) {
         try {
-            this.logger.info(`Pledging for dispute ${dispute.id}`);
+            this.logger.info(`Pledging against dispute ${dispute.id}`);
 
             await this.protocolProvider.pledgeAgainstDispute(
                 request.prophetData,
@@ -770,14 +829,24 @@ export class EboActor {
             );
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
-                // TODO: handle each error appropriately
-                this.logger.warn(`Pledging on dispute ${dispute.id} was reverted. Skipping...`);
-            } else {
-                // TODO: handle each error appropriately
-                this.logger.error(
-                    `Actor handling request ${this.actorRequest.id} is not able to continue.`,
+                const errorName = err.data?.errorName || err.name;
+                this.logger.warn(
+                    `Pledge against dispute ${dispute.id} reverted due to: ${errorName}`,
                 );
 
+                const customError = ErrorFactory.createError(errorName);
+                const context: ErrorContext = {
+                    request,
+                    dispute,
+                    registry: this.registry,
+                    terminateActor: () => {
+                        throw customError;
+                    },
+                };
+                customError.setContext(context);
+
+                await ErrorHandler.handle(customError);
+            } else {
                 throw err;
             }
         }

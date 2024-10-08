@@ -1,6 +1,7 @@
 import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
 import { ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
+import { vi } from "vitest";
 
 import { ProtocolProvider } from "../../src/providers/index.js";
 import { EboActor, EboMemoryRegistry } from "../../src/services/index.js";
@@ -31,6 +32,15 @@ export function buildEboActor(request: Request, logger: ILogger) {
         mockedPrivateKey,
     );
 
+    vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
+        number: BigInt(1),
+        firstBlockNumber: BigInt(100),
+        startTimestamp: BigInt(Date.now()),
+    });
+    vi.spyOn(protocolProvider, "proposeResponse").mockResolvedValue(undefined);
+    vi.spyOn(protocolProvider, "disputeResponse").mockResolvedValue(undefined);
+    vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(BigInt(1000));
+
     const blockNumberRpcUrls = new Map<Caip2ChainId, string[]>([
         [chainId, ["http://localhost:8539"]],
     ]);
@@ -47,6 +57,8 @@ export function buildEboActor(request: Request, logger: ILogger) {
         },
         logger,
     );
+
+    vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(BigInt(12345));
 
     const registry = new EboMemoryRegistry();
 
@@ -84,13 +96,13 @@ export function buildResponse(request: Request, attributes: Partial<Response> = 
     };
 
     const baseResponse: Response = {
-        id: "0x01",
+        id: "0x0111111111111111111111111111111111111111",
         createdAt: request.createdAt + 1n,
         decodedData: {
             response: responseBody,
         },
         prophetData: {
-            proposer: "0x01",
+            proposer: "0x0111111111111111111111111111111111111111",
             requestId: request.id,
             response: ProtocolProvider.encodeResponse(responseBody),
         },
