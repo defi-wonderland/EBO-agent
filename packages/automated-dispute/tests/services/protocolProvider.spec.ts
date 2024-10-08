@@ -213,9 +213,7 @@ describe("ProtocolProvider", () => {
 
     describe("encodeResponse", () => {
         const response: Response["decodedData"]["response"] = {
-            chainId: "eip155:1",
             block: 1n,
-            epoch: 1n,
         };
 
         it("generates a hex string with the response encoded", () => {

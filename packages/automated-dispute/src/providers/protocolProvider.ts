@@ -1,4 +1,4 @@
-import { Caip2ChainId, Caip2Utils, InvalidChainId } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import {
     Address,
     BaseError,
@@ -75,11 +75,7 @@ export const REQUEST_DISPUTE_MODULE_DATA_ABI_FIELDS = [
     { name: "disputeWindow", type: "uint256" },
 ] as const;
 
-export const RESPONSE_ABI_FIELDS = [
-    { name: "chainId", type: "string" },
-    { name: "epoch", type: "uint256" },
-    { name: "block", type: "uint256" },
-] as const;
+export const RESPONSE_ABI_FIELDS = [{ name: "block", type: "uint256" }] as const;
 
 export class ProtocolProvider implements IProtocolProvider {
     private readClient: PublicClient<FallbackTransport<HttpTransport[]>>;
@@ -424,11 +420,7 @@ export class ProtocolProvider implements IProtocolProvider {
     static encodeResponse(
         response: Response["decodedData"]["response"],
     ): Response["prophetData"]["response"] {
-        return encodeAbiParameters(RESPONSE_ABI_FIELDS, [
-            response.chainId,
-            response.epoch,
-            response.block,
-        ]);
+        return encodeAbiParameters(RESPONSE_ABI_FIELDS, [response.block]);
     }
 
     /**
@@ -442,19 +434,9 @@ export class ProtocolProvider implements IProtocolProvider {
     ): Response["decodedData"]["response"] {
         const decodedParameters = decodeAbiParameters(RESPONSE_ABI_FIELDS, response);
 
-        const chainId = decodedParameters[0];
-
-        if (Caip2Utils.isCaip2ChainId(chainId)) {
-            return {
-                chainId: chainId,
-                epoch: decodedParameters[1],
-                block: decodedParameters[2],
-            };
-        } else {
-            throw new InvalidChainId(
-                `Could not decode response chain ID while decoding:\n${response}`,
-            );
-        }
+        return {
+            block: decodedParameters[0],
+        };
     }
 
     // TODO: waiting for ChainId to be merged for _chains parameter
