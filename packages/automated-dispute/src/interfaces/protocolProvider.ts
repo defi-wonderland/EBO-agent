@@ -1,4 +1,4 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
+import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import { Address } from "viem";
 
 import type {
@@ -62,6 +62,14 @@ export interface IReadProvider {
      * @returns A promise that resolves with an array of approved modules.
      */
     getAccountingApprovedModules(): Promise<Address[]>;
+
+    /**
+     * Gets the list of approved modules' addresses for a given wallet address.
+     *
+     * @param user The address of the user.
+     * @returns A promise that resolves with an array of approved modules for the user.
+     */
+    getApprovedModules(user: Address): Promise<Address[]>;
 }
 
 /**
@@ -76,7 +84,7 @@ export interface IWriteProvider {
      * @throws Will throw an error if the chains array is empty or if the transaction fails.
      * @returns A promise that resolves when the request is successfully created.
      */
-    createRequest(epoch: bigint, chains: string[]): Promise<void>;
+    createRequest(epoch: bigint, chains: Caip2ChainId): Promise<void>;
 
     /**
      * Proposes a response to a request.
@@ -170,6 +178,14 @@ export interface IWriteProvider {
      * @param modules an array of addresses for the modules to be approved
      */
     approveAccountingModules(modules: Address[]): Promise<void>;
+
+    /**
+     * Approves a module in the accounting extension contract.
+     *
+     * @param module The address of the module to approve.
+     * @returns A promise that resolves when the module is approved.
+     */
+    approveModule(module: Address): Promise<void>;
 }
 
 /**
@@ -209,13 +225,11 @@ export interface DecodedLogArgsMap {
      * @property {RequestId} requestId - The ID of the request.
      * @property {string} responseId - The ID of the response.
      * @property {string} response - The response content.
-     * @property {bigint} blockNumber - The block number when the response was proposed.
      */
     ResponseProposed: {
         requestId: RequestId;
         responseId: string;
         response: string;
-        blockNumber: bigint;
     };
 
     /**
@@ -223,52 +237,44 @@ export interface DecodedLogArgsMap {
      * @property {string} responseId - The ID of the response.
      * @property {string} disputeId - The ID of the dispute.
      * @property {string} dispute - The dispute content.
-     * @property {bigint} blockNumber - The block number when the dispute was raised.
      */
     ResponseDisputed: {
         responseId: string;
         disputeId: string;
         dispute: string;
-        blockNumber: bigint;
     };
 
     /**
-     * Event arguments for the DisputeStatusChanged event.
+     * Event arguments for the DisputeStatusUpdated event.
      * @property {string} disputeId - The ID of the dispute.
      * @property {string} dispute - The dispute content.
      * @property {number} status - The new status of the dispute.
-     * @property {bigint} blockNumber - The block number when the dispute status changed.
      */
-    DisputeStatusChanged: {
+    DisputeStatusUpdated: {
         disputeId: string;
         dispute: string;
         status: number;
-        blockNumber: bigint;
     };
 
     /**
      * Event arguments for the DisputeEscalated event.
      * @property {string} caller - The address of the caller who escalated the dispute.
      * @property {string} disputeId - The ID of the dispute.
-     * @property {bigint} blockNumber - The block number when the dispute was escalated.
      */
     DisputeEscalated: {
         caller: string;
         disputeId: string;
-        blockNumber: bigint;
     };
 
     /**
-     * Event arguments for the RequestFinalized event.
+     * Event arguments for the OracleRequestFinalized event.
      * @property {RequestId} requestId - The ID of the request.
      * @property {string} responseId - The ID of the response.
      * @property {string} caller - The address of the caller who finalized the request.
-     * @property {bigint} blockNumber - The block number when the request was finalized.
      */
-    RequestFinalized: {
+    OracleRequestFinalized: {
         requestId: RequestId;
         responseId: string;
         caller: string;
-        blockNumber: bigint;
     };
 }

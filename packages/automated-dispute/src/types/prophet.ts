@@ -1,4 +1,4 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
+import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import { Branded, NormalizedAddress } from "@ebo-agent/shared";
 import { Address, Hex } from "viem";
 
@@ -53,9 +53,7 @@ export interface Request {
 }
 
 export type ResponseBody = {
-    chainId: Caip2ChainId;
     block: bigint;
-    epoch: bigint;
 };
 
 export interface Response {

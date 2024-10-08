@@ -1,6 +1,5 @@
 import { isNativeError } from "util/types";
-import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
+import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
 import { Address, EBO_SUPPORTED_CHAIN_IDS, ILogger } from "@ebo-agent/shared";
 
 import { PendingModulesApproval, ProcessorAlreadyStarted } from "../exceptions/index.js";
@@ -375,7 +374,7 @@ export class EboProcessor {
                 try {
                     this.logger.info(`Creating request for chain ${chain} and epoch ${epoch}...`);
 
-                    await this.protocolProvider.createRequest(epoch, [chain]);
+                    await this.protocolProvider.createRequest(epoch, chain);
 
                     this.logger.info(`Request created for chain ${chain} and epoch ${epoch}`);
                 } catch (err) {

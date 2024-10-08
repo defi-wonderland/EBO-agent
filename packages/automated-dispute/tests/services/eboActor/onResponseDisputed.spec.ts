@@ -23,8 +23,8 @@ describe("onResponseDisputed", () => {
             dispute: {
                 requestId: actorRequest.id,
                 responseId: response.id,
-                disputer: "0x11",
-                proposer: "0x12",
+                disputer: "0x1111111111111111111111111111111111111111",
+                proposer: "0x2222222222222222222222222222222222222222",
             },
         },
     };
@@ -48,13 +48,13 @@ describe("onResponseDisputed", () => {
             response.decodedData.response.block + 1n,
         );
 
-        const mockPledgeForDispute = vi.spyOn(protocolProvider, "pledgeForDispute");
+        vi.spyOn(protocolProvider, "pledgeForDispute").mockResolvedValue();
 
         actor.enqueue(event);
 
         await actor.processEvents();
 
-        expect(mockPledgeForDispute).toHaveBeenCalled();
+        expect(protocolProvider.pledgeForDispute).toHaveBeenCalled();
     });
 
     it("pledges against dispute if proposal is ok", async () => {
@@ -76,13 +76,13 @@ describe("onResponseDisputed", () => {
             response.decodedData.response.block,
         );
 
-        const mockPledgeAgainstDispute = vi.spyOn(protocolProvider, "pledgeAgainstDispute");
+        vi.spyOn(protocolProvider, "pledgeAgainstDispute").mockResolvedValue();
 
         actor.enqueue(event);
 
         await actor.processEvents();
 
-        expect(mockPledgeAgainstDispute).toHaveBeenCalled();
+        expect(protocolProvider.pledgeAgainstDispute).toHaveBeenCalled();
     });
 
     it("adds dispute to registry", async () => {

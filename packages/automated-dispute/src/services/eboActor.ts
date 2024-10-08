@@ -1,5 +1,4 @@
-import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
+import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
 import { Address, ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
@@ -11,22 +10,23 @@ import type {
     EboEvent,
     EboEventName,
     Epoch,
+    ErrorContext,
     Request,
     Response,
     ResponseBody,
     ResponseId,
 } from "../types/index.js";
+import { ErrorHandler } from "../exceptions/errorHandler.js";
 import {
+    CustomContractError,
     DisputeWithoutResponse,
-    EBORequestCreator_ChainNotAdded,
-    EBORequestCreator_InvalidEpoch,
-    EBORequestModule_InvalidRequester,
+    ErrorFactory,
     InvalidActorState,
     InvalidDisputeStatus,
-    Oracle_InvalidRequestBody,
     PastEventEnqueueError,
     RequestMismatch,
     ResponseAlreadyProposed,
+    ResponseNotFound,
     UnknownEvent,
 } from "../exceptions/index.js";
 import { EboRegistry, EboRegistryCommand } from "../interfaces/index.js";
@@ -53,6 +53,12 @@ const EBO_EVENT_COMPARATOR = (e1: EboEvent<EboEventName>, e2: EboEvent<EboEventN
     if (e1.blockNumber < e2.blockNumber) return -1;
 
     return e1.logIndex - e2.logIndex;
+};
+
+/** Response properties needed to check response equality */
+type EqualResponseParameters = {
+    prophetData: Pick<Response["prophetData"], "requestId">;
+    decodedData: Response["decodedData"];
 };
 
 /**
@@ -150,13 +156,28 @@ export class EboActor {
                 } catch (err) {
                     this.logger.error(`Error processing event ${event.name}: ${err}`);
 
-                    // Enqueue the event again as it's supposed to be reprocessed
-                    this.eventsQueue.push(event);
+                    if (err instanceof CustomContractError) {
+                        err.setProcessEventsContext(
+                            event,
+                            () => {
+                                this.eventsQueue.push(event!);
+                                updateStateCommand.undo();
+                            },
+                            () => {
+                                throw err;
+                            },
+                        );
 
-                    // Undo last state update
-                    updateStateCommand.undo();
+                        await ErrorHandler.handle(err);
 
-                    return;
+                        if (err.strategy.shouldNotify) {
+                            // TODO: add notification logic
+                            continue;
+                        }
+                        return;
+                    } else {
+                        throw err;
+                    }
                 }
             }
         });
@@ -190,9 +211,9 @@ export class EboActor {
                     this.registry,
                 );
 
-            case "DisputeStatusChanged":
+            case "DisputeStatusUpdated":
                 return UpdateDisputeStatus.buildFromEvent(
-                    event as EboEvent<"DisputeStatusChanged">,
+                    event as EboEvent<"DisputeStatusUpdated">,
                     this.registry,
                 );
 
@@ -202,9 +223,9 @@ export class EboActor {
                     this.registry,
                 );
 
-            case "RequestFinalized":
+            case "OracleRequestFinalized":
                 return FinalizeRequest.buildFromEvent(
-                    event as EboEvent<"RequestFinalized">,
+                    event as EboEvent<"OracleRequestFinalized">,
                     this.registry,
                 );
 
@@ -237,8 +258,8 @@ export class EboActor {
 
                 break;
 
-            case "DisputeStatusChanged":
-                await this.onDisputeStatusChanged(event as EboEvent<"DisputeStatusChanged">);
+            case "DisputeStatusUpdated":
+                await this.onDisputeStatusChanged(event as EboEvent<"DisputeStatusUpdated">);
 
                 break;
 
@@ -247,8 +268,8 @@ export class EboActor {
 
                 break;
 
-            case "RequestFinalized":
-                await this.onRequestFinalized(event as EboEvent<"RequestFinalized">);
+            case "OracleRequestFinalized":
+                await this.onRequestFinalized(event as EboEvent<"OracleRequestFinalized">);
 
                 break;
 
@@ -303,7 +324,7 @@ export class EboActor {
 
             if (!response) {
                 this.logger.error(
-                    `While trying to settle dispute ${dispute.id} its response with` +
+                    `While trying to settle dispute ${dispute.id}, its response with ` +
                         `id ${dispute.prophetData.responseId} was not found in the registry.`,
                 );
 
@@ -342,50 +363,58 @@ export class EboActor {
      * @param response the dispute's response
      * @param dispute the dispute
      */
-    private settleDispute(request: Request, response: Response, dispute: Dispute): Promise<void> {
-        return Promise.resolve()
-            .then(async () => {
-                this.logger.info(`Settling dispute ${dispute.id}...`);
+    private async settleDispute(
+        request: Request,
+        response: Response,
+        dispute: Dispute,
+    ): Promise<void> {
+        try {
+            this.logger.info(`Settling dispute ${dispute.id}...`);
 
-                // OPTIMIZE: check for pledges to potentially save the ShouldBeEscalated error
+            // OPTIMIZE: check for pledges to potentially save the ShouldBeEscalated error
 
-                await this.protocolProvider.settleDispute(
-                    request.prophetData,
-                    response.prophetData,
-                    dispute.prophetData,
-                );
+            await this.protocolProvider.settleDispute(
+                request.prophetData,
+                response.prophetData,
+                dispute.prophetData,
+            );
 
-                this.logger.info(`Dispute ${dispute.id} settled.`);
-            })
-            .catch(async (err) => {
-                this.logger.warn(`Dispute ${dispute.id} was not settled.`);
+            this.logger.info(`Dispute ${dispute.id} settled.`);
+        } catch (err) {
+            if (err instanceof ContractFunctionRevertedError) {
+                const errorName = err.data?.errorName || err.name;
+                this.logger.warn(`Call reverted for dispute ${dispute.id} due to: ${errorName}`);
 
-                // TODO: use custom errors to be developed while implementing ProtocolProvider
-                if (!(err instanceof ContractFunctionRevertedError)) throw err;
+                const customError = ErrorFactory.createError(errorName);
+                customError.setContext({
+                    request,
+                    response,
+                    dispute,
+                    registry: this.registry,
+                });
 
-                this.logger.warn(`Call reverted for ${dispute.id} due to: ${err.data?.errorName}`);
+                customError.on("BondEscalationModule_ShouldBeEscalated", async () => {
+                    try {
+                        await this.protocolProvider.escalateDispute(
+                            request.prophetData,
+                            response.prophetData,
+                            dispute.prophetData,
+                        );
+                        this.logger.info(`Dispute ${dispute.id} escalated.`);
 
-                if (err.data?.errorName === "BondEscalationModule_ShouldBeEscalated") {
-                    this.logger.warn(`Escalating dispute ${dispute.id}...`);
-
-                    await this.protocolProvider.escalateDispute(
-                        request.prophetData,
-                        response.prophetData,
-                        dispute.prophetData,
-                    );
-
-                    // TODO: notify
-
-                    this.logger.warn(`Dispute ${dispute.id} was escalated.`);
-                }
-            })
-            .catch((err) => {
-                this.logger.error(`Failed to escalate dispute ${dispute.id}.`);
-
-                // TODO: notify
-
+                        await ErrorHandler.handle(customError);
+                    } catch (escalationError) {
+                        this.logger.error(
+                            `Failed to escalate dispute ${dispute.id}: ${escalationError}`,
+                        );
+                        throw escalationError;
+                    }
+                });
+            } else {
+                this.logger.error(`Failed to escalate dispute ${dispute.id}: ${err}`);
                 throw err;
-            });
+            }
+        }
     }
 
     /**
@@ -481,15 +510,17 @@ export class EboActor {
         try {
             await this.proposeResponse(chainId);
         } catch (err) {
-            if (err instanceof ResponseAlreadyProposed) this.logger.info(err.message);
-            else if (err instanceof EBORequestCreator_InvalidEpoch) {
-                // TODO: Handle error
-            } else if (err instanceof Oracle_InvalidRequestBody) {
-                // TODO: Handle error
-            } else if (err instanceof EBORequestModule_InvalidRequester) {
-                // TODO: Handle error
-            } else if (err instanceof EBORequestCreator_ChainNotAdded) {
-                // TODO: Handle error
+            if (err instanceof ContractFunctionRevertedError) {
+                const request = this.getActorRequest();
+                const customError = ErrorFactory.createError(err.name);
+
+                customError.setContext({
+                    request,
+                    event,
+                    registry: this.registry,
+                });
+
+                throw customError;
             } else {
                 throw err;
             }
@@ -499,26 +530,31 @@ export class EboActor {
     /**
      * Check if the same proposal has already been made in the past.
      *
-     * @param epoch epoch of the request
-     * @param chainId  chain id of the request
      * @param blockNumber proposed block number
+     *
      * @returns true if there's a registry of a proposal with the same attributes, false otherwise
      */
-    private alreadyProposed(epoch: bigint, chainId: Caip2ChainId, blockNumber: bigint) {
+    private alreadyProposed(blockNumber: bigint) {
+        const request = this.getActorRequest();
         const responses = this.registry.getResponses();
-        const newResponse: ResponseBody = {
-            epoch,
-            chainId,
-            block: blockNumber,
+
+        const newResponse = {
+            prophetData: {
+                requestId: request.id,
+            },
+            decodedData: {
+                response: {
+                    block: blockNumber,
+                },
+            },
         };
 
         for (const proposedResponse of responses) {
             const responseId = proposedResponse.id;
-            const proposedBody = proposedResponse.decodedData.response;
 
-            if (this.equalResponses(proposedBody, newResponse)) {
+            if (this.equalResponses(newResponse, proposedResponse)) {
                 this.logger.info(
-                    `Block ${blockNumber} for epoch ${epoch} and chain ${chainId} already proposed on response ${responseId}. Skipping...`,
+                    `Block ${blockNumber} for epoch ${request.epoch} and chain ${request.chainId} already proposed on response ${responseId}. Skipping...`,
                 );
 
                 return true;
@@ -534,7 +570,7 @@ export class EboActor {
      * @param chainId chain ID to use in the response body
      * @returns a response body
      */
-    private async buildResponse(chainId: Caip2ChainId): Promise<ResponseBody> {
+    private async buildResponseBody(chainId: Caip2ChainId): Promise<ResponseBody> {
         // FIXME(non-current epochs): adapt this code to fetch timestamps corresponding
         //  to the first block of any epoch, not just the current epoch
         const { startTimestamp: epochStartTimestamp } =
@@ -546,8 +582,6 @@ export class EboActor {
         );
 
         return {
-            epoch: this.actorRequest.epoch,
-            chainId: chainId,
             block: epochBlockNumber,
         };
     }
@@ -558,11 +592,11 @@ export class EboActor {
      * @param chainId the CAIP-2 compliant chain ID
      */
     private async proposeResponse(chainId: Caip2ChainId): Promise<void> {
-        const responseBody = await this.buildResponse(chainId);
+        const responseBody = await this.buildResponseBody(chainId);
         const request = this.getActorRequest();
 
-        if (this.alreadyProposed(responseBody.epoch, responseBody.chainId, responseBody.block)) {
-            throw new ResponseAlreadyProposed(responseBody);
+        if (this.alreadyProposed(responseBody.block)) {
+            throw new ResponseAlreadyProposed(request, responseBody);
         }
 
         const proposerAddress = this.protocolProvider.getAccountAddress();
@@ -577,9 +611,18 @@ export class EboActor {
             await this.protocolProvider.proposeResponse(request.prophetData, response);
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
+                const customError = ErrorFactory.createError(err.name);
+                const context: ErrorContext = {
+                    request,
+                    registry: this.registry,
+                };
+                customError.setContext(context);
+
+                await ErrorHandler.handle(customError);
+
                 this.logger.warn(
-                    `Block ${responseBody.block} for epoch ${responseBody.epoch} and ` +
-                        `chain ${responseBody.chainId} was not proposed. Skipping proposal...`,
+                    `Block ${responseBody.block} for epoch ${request.epoch} and ` +
+                        `chain ${chainId} was not proposed. Skipping proposal...`,
                 );
             } else {
                 this.logger.error(
@@ -598,39 +641,69 @@ export class EboActor {
      * @returns void
      */
     private async onResponseProposed(event: EboEvent<"ResponseProposed">): Promise<void> {
-        const eventResponse = event.metadata.response;
-        const decodedResponse = ProtocolProvider.decodeResponse(eventResponse.response);
-        const actorResponse = await this.buildResponse(decodedResponse.chainId);
+        const proposedResponse = this.registry.getResponse(event.metadata.responseId);
 
-        if (this.equalResponses(actorResponse, decodedResponse)) {
+        const request = this.getActorRequest();
+
+        if (!proposedResponse) {
+            throw new ResponseNotFound(event.metadata.responseId);
+        }
+
+        const actorResponse = {
+            prophetData: { requestId: request.id },
+            decodedData: {
+                response: await this.buildResponseBody(request.chainId),
+            },
+        };
+
+        if (this.equalResponses(actorResponse, proposedResponse)) {
             this.logger.info(`Response ${event.metadata.responseId} was validated. Skipping...`);
             return;
         }
 
-        const request = this.getActorRequest();
         const disputer = this.protocolProvider.getAccountAddress();
         const dispute: Dispute["prophetData"] = {
             disputer: disputer,
-            // TODO: populate proposer if does not exist on eventResponse
-            proposer: eventResponse.proposer,
+            proposer: proposedResponse.prophetData.proposer,
             responseId: Address.normalize(event.metadata.responseId) as ResponseId,
             requestId: request.id,
         };
+        try {
+            await this.protocolProvider.disputeResponse(
+                request.prophetData,
+                proposedResponse.prophetData,
+                dispute,
+            );
+        } catch (err) {
+            if (err instanceof ContractFunctionRevertedError) {
+                const customError = ErrorFactory.createError(err.name);
+                const response = this.registry.getResponse(event.metadata.responseId);
 
-        await this.protocolProvider.disputeResponse(request.prophetData, eventResponse, dispute);
+                customError.setContext({
+                    request,
+                    response,
+                    event,
+                    registry: this.registry,
+                });
+
+                throw customError;
+            } else {
+                throw err;
+            }
+        }
     }
 
     /**
      * Check for deep equality between two responses
      *
-     * @param a response
-     * @param b response
+     * @param a {@link EqualResponseParameters} response a
+     * @param b {@link EqualResponseParameters} response b
+     *
      * @returns true if all attributes on `a` are equal to attributes on `b`, false otherwise
      */
-    private equalResponses(a: ResponseBody, b: ResponseBody) {
-        if (a.block != b.block) return false;
-        if (a.chainId != b.chainId) return false;
-        if (a.epoch != b.epoch) return false;
+    private equalResponses(a: EqualResponseParameters, b: EqualResponseParameters) {
+        if (a.prophetData.requestId != b.prophetData.requestId) return false;
+        if (a.decodedData.response.block != b.decodedData.response.block) return false;
 
         return true;
     }
@@ -677,7 +750,7 @@ export class EboActor {
 
         if (!proposedResponse) throw new InvalidActorState();
 
-        const isValidDispute = await this.isValidDispute(proposedResponse);
+        const isValidDispute = await this.isValidDispute(request, proposedResponse);
 
         if (isValidDispute) await this.pledgeFor(request, dispute);
         else await this.pledgeAgainst(request, dispute);
@@ -687,18 +760,21 @@ export class EboActor {
      * Check if a dispute is valid, comparing the already submitted and disputed proposal with
      * the response this actor would propose.
      *
+     * @param request the request of the proposed response
      * @param proposedResponse the already submitted response
      * @returns true if the hypothetical proposal is different that the submitted one, false otherwise
      */
-    private async isValidDispute(proposedResponse: Response) {
-        const actorResponse = await this.buildResponse(
-            proposedResponse.decodedData.response.chainId,
-        );
+    private async isValidDispute(request: Request, proposedResponse: Response) {
+        const actorResponse = {
+            prophetData: {
+                requestId: request.id,
+            },
+            decodedData: {
+                response: await this.buildResponseBody(request.chainId),
+            },
+        };
 
-        const equalResponses = this.equalResponses(
-            actorResponse,
-            proposedResponse.decodedData.response,
-        );
+        const equalResponses = this.equalResponses(actorResponse, proposedResponse);
 
         return !equalResponses;
     }
@@ -711,24 +787,31 @@ export class EboActor {
      */
     private async pledgeFor(request: Request, dispute: Dispute) {
         try {
-            this.logger.info(`Pledging against dispute ${dispute.id}`);
+            this.logger.info(`Pledging for dispute ${dispute.id}`);
 
             await this.protocolProvider.pledgeForDispute(request.prophetData, dispute.prophetData);
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
-                // TODO: handle each error appropriately
-                this.logger.warn(`Pledging for dispute ${dispute.id} was reverted. Skipping...`);
-            } else {
-                // TODO: handle each error appropriately
-                this.logger.error(
-                    `Actor handling request ${this.actorRequest.id} is not able to continue.`,
-                );
+                const errorName = err.data?.errorName || err.name;
+                this.logger.warn(`Pledge for dispute ${dispute.id} reverted due to: ${errorName}`);
 
+                const customError = ErrorFactory.createError(errorName);
+                const context: ErrorContext = {
+                    request,
+                    dispute,
+                    registry: this.registry,
+                    terminateActor: () => {
+                        throw customError;
+                    },
+                };
+                customError.setContext(context);
+
+                await ErrorHandler.handle(customError);
+            } else {
                 throw err;
             }
         }
     }
-
     /**
      * Pledge against the dispute.
      *
@@ -737,7 +820,7 @@ export class EboActor {
      */
     private async pledgeAgainst(request: Request, dispute: Dispute) {
         try {
-            this.logger.info(`Pledging for dispute ${dispute.id}`);
+            this.logger.info(`Pledging against dispute ${dispute.id}`);
 
             await this.protocolProvider.pledgeAgainstDispute(
                 request.prophetData,
@@ -745,14 +828,24 @@ export class EboActor {
             );
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
-                // TODO: handle each error appropriately
-                this.logger.warn(`Pledging on dispute ${dispute.id} was reverted. Skipping...`);
-            } else {
-                // TODO: handle each error appropriately
-                this.logger.error(
-                    `Actor handling request ${this.actorRequest.id} is not able to continue.`,
+                const errorName = err.data?.errorName || err.name;
+                this.logger.warn(
+                    `Pledge against dispute ${dispute.id} reverted due to: ${errorName}`,
                 );
 
+                const customError = ErrorFactory.createError(errorName);
+                const context: ErrorContext = {
+                    request,
+                    dispute,
+                    registry: this.registry,
+                    terminateActor: () => {
+                        throw customError;
+                    },
+                };
+                customError.setContext(context);
+
+                await ErrorHandler.handle(customError);
+            } else {
                 throw err;
             }
         }
@@ -763,7 +856,7 @@ export class EboActor {
      *
      * @param event `DisputeStatusChanged` event
      */
-    private async onDisputeStatusChanged(event: EboEvent<"DisputeStatusChanged">): Promise<void> {
+    private async onDisputeStatusChanged(event: EboEvent<"DisputeStatusUpdated">): Promise<void> {
         const request = this.getActorRequest();
         const disputeId = event.metadata.disputeId;
         const disputeStatus = event.metadata.status;
@@ -832,7 +925,7 @@ export class EboActor {
      *
      * @param event `ResponseFinalized` event
      */
-    private async onRequestFinalized(_event: EboEvent<"RequestFinalized">): Promise<void> {
+    private async onRequestFinalized(_event: EboEvent<"OracleRequestFinalized">): Promise<void> {
         const request = this.getActorRequest();
 
         this.logger.info(`Request ${request.id} has been finalized.`);

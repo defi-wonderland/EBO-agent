@@ -72,10 +72,10 @@ export const eboRequestCreatorAbi = [
     },
     {
         type: "function",
-        name: "createRequests",
+        name: "createRequest",
         inputs: [
             { name: "_epoch", type: "uint256", internalType: "uint256" },
-            { name: "_chainIds", type: "string[]", internalType: "string[]" },
+            { name: "_chainId", type: "string", internalType: "string" },
         ],
         outputs: [],
         stateMutability: "nonpayable",

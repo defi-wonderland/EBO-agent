@@ -13,7 +13,7 @@ export class UpdateDisputeStatus implements EboRegistryCommand {
     ) {}
 
     public static buildFromEvent(
-        event: EboEvent<"DisputeStatusChanged" | "DisputeEscalated">,
+        event: EboEvent<"DisputeStatusUpdated" | "DisputeEscalated">,
         registry: EboRegistry,
     ): UpdateDisputeStatus {
         const disputeId = event.metadata.disputeId;
@@ -27,8 +27,8 @@ export class UpdateDisputeStatus implements EboRegistryCommand {
 
     private static isDisputeStatusChangedEvent(
         event: EboEvent<EboEventName>,
-    ): event is EboEvent<"DisputeStatusChanged"> {
-        return event.name === "DisputeStatusChanged";
+    ): event is EboEvent<"DisputeStatusUpdated"> {
+        return event.name === "DisputeStatusUpdated";
     }
 
     run(): void {

@@ -1,39 +1,46 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
-import { Address, Log } from "viem";
+import { Caip2ChainId } from "@ebo-agent/blocknumber";
+import { Address, Hex, Log } from "viem";
 
-import { DisputeId, DisputeStatus, RequestId, ResponseId } from "./prophet.js";
+import {
+    Dispute,
+    DisputeId,
+    DisputeStatus,
+    Request,
+    RequestId,
+    Response,
+    ResponseId,
+} from "./prophet.js";
 
 export type EboEventName =
     | "RequestCreated"
     | "ResponseProposed"
     | "ResponseDisputed"
-    | "DisputeStatusChanged"
+    | "DisputeStatusUpdated"
     | "DisputeEscalated"
-    | "RequestFinalized";
-
-export interface RequestCreated {
-    requestId: RequestId;
-    epoch: bigint;
-    chainId: Caip2ChainId;
-}
+    | "OracleRequestFinalized";
 
 export interface ResponseProposed {
+    requestId: Hex;
+    responseId: Hex;
+    response: Response["prophetData"];
+}
+
+export interface RequestCreated {
+    epoch: bigint;
+    chainId: Caip2ChainId;
+    request: Request["prophetData"];
     requestId: RequestId;
-    responseId: ResponseId;
-    response: string;
-    blockNumber: bigint;
 }
 
 export interface ResponseDisputed {
     responseId: ResponseId;
     disputeId: DisputeId;
-    dispute: string;
-    blockNumber: bigint;
+    dispute: Dispute["prophetData"];
 }
 
-export interface DisputeStatusChanged {
+export interface DisputeStatusUpdated {
     disputeId: DisputeId;
-    dispute: string;
+    dispute: Dispute["prophetData"];
     status: DisputeStatus;
     blockNumber: bigint;
 }
@@ -44,7 +51,7 @@ export interface DisputeEscalated {
     blockNumber: bigint;
 }
 
-export interface RequestFinalized {
+export interface OracleRequestFinalized {
     requestId: RequestId;
     responseId: ResponseId;
     caller: Address;
@@ -57,12 +64,12 @@ export type EboEventData<E extends EboEventName> = E extends "RequestCreated"
       ? ResponseProposed
       : E extends "ResponseDisputed"
         ? ResponseDisputed
-        : E extends "DisputeStatusChanged"
-          ? DisputeStatusChanged
+        : E extends "DisputeStatusUpdated"
+          ? DisputeStatusUpdated
           : E extends "DisputeEscalated"
             ? DisputeEscalated
-            : E extends "RequestFinalized"
-              ? RequestFinalized
+            : E extends "OracleRequestFinalized"
+              ? OracleRequestFinalized
               : never;
 
 export type EboEvent<T extends EboEventName> = {

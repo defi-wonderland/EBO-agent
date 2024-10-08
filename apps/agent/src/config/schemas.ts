@@ -1,5 +1,4 @@
-import { Caip2Utils } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/dist/types.js";
+import { Caip2ChainId, Caip2Utils } from "@ebo-agent/blocknumber";
 import { isAddress, isHex } from "viem";
 import { z } from "zod";
 
@@ -43,6 +42,7 @@ const protocolProviderConfigSchema = z.object({
         epochManager: addressSchema,
         eboRequestCreator: addressSchema,
         bondEscalationModule: addressSchema,
+        horizonAccountingExtension: addressSchema,
     }),
 });
 
