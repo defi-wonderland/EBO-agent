@@ -7,8 +7,8 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
-        type: "error",
         name: "Oracle_AlreadyFinalized",
+        type: "error",
     },
     {
         inputs: [
@@ -18,8 +18,8 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
-        type: "error",
         name: "Oracle_CannotEscalate",
+        type: "error",
     },
     {
         inputs: [
@@ -29,8 +29,8 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
-        type: "error",
         name: "Oracle_CannotResolve",
+        type: "error",
     },
     {
         inputs: [
@@ -40,28 +40,65 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
-        type: "error",
         name: "Oracle_FinalizableResponseExists",
-    },
-    { inputs: [], type: "error", name: "Oracle_InvalidDisputeBody" },
-    {
-        inputs: [
-            {
-                internalType: "bytes32",
-                name: "_disputeId",
-                type: "bytes32",
-            },
-        ],
         type: "error",
-        name: "Oracle_InvalidDisputeId",
     },
     {
         inputs: [],
+        name: "Oracle_InvalidDispute",
         type: "error",
+    },
+    {
+        inputs: [],
+        name: "Oracle_InvalidDisputeBody",
+        type: "error",
+    },
+    {
+        inputs: [
+            {
+                internalType: "bytes32",
+                name: "_disputeId",
+                type: "bytes32",
+            },
+        ],
+        name: "Oracle_InvalidDisputeId",
+        type: "error",
+    },
+    {
+        inputs: [],
+        name: "Oracle_InvalidDisputer",
+        type: "error",
+    },
+    {
+        inputs: [],
         name: "Oracle_InvalidFinalizedResponse",
+        type: "error",
     },
-    { inputs: [], type: "error", name: "Oracle_InvalidRequestBody" },
-    { inputs: [], type: "error", name: "Oracle_InvalidResponseBody" },
+    {
+        inputs: [],
+        name: "Oracle_InvalidProposer",
+        type: "error",
+    },
+    {
+        inputs: [],
+        name: "Oracle_InvalidRequest",
+        type: "error",
+    },
+    {
+        inputs: [],
+        name: "Oracle_InvalidRequestBody",
+        type: "error",
+    },
+    {
+        inputs: [],
+        name: "Oracle_InvalidResponse",
+        type: "error",
+    },
+    {
+        inputs: [],
+        name: "Oracle_InvalidResponseBody",
+        type: "error",
+    },
     {
         inputs: [
             {
@@ -70,238 +107,52 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
-        type: "error",
         name: "Oracle_NoResolutionModule",
+        type: "error",
     },
     {
-        inputs: [{ internalType: "address", name: "_caller", type: "address" }],
-        type: "error",
+        inputs: [
+            {
+                internalType: "address",
+                name: "_caller",
+                type: "address",
+            },
+        ],
         name: "Oracle_NotDisputeOrResolutionModule",
-    },
-    {
-        inputs: [
-            {
-                internalType: "bytes32",
-                name: "_responseId",
-                type: "bytes32",
-            },
-        ],
         type: "error",
+    },
+    {
+        inputs: [
+            {
+                internalType: "bytes32",
+                name: "_responseId",
+                type: "bytes32",
+            },
+        ],
         name: "Oracle_ResponseAlreadyDisputed",
+        type: "error",
     },
     {
+        inputs: [],
+        name: "Oracle_ResponseAlreadyProposed",
+        type: "error",
+    },
+    {
+        anonymous: false,
         inputs: [
             {
+                indexed: true,
                 internalType: "address",
                 name: "_caller",
                 type: "address",
-                indexed: true,
             },
             {
+                indexed: true,
                 internalType: "bytes32",
                 name: "_disputeId",
                 type: "bytes32",
-                indexed: true,
             },
             {
-                internalType: "uint256",
-                name: "_blockNumber",
-                type: "uint256",
-                indexed: false,
-            },
-        ],
-        type: "event",
-        name: "DisputeEscalated",
-        anonymous: false,
-    },
-    {
-        inputs: [
-            {
-                internalType: "address",
-                name: "_caller",
-                type: "address",
-                indexed: true,
-            },
-            {
-                internalType: "bytes32",
-                name: "_disputeId",
-                type: "bytes32",
-                indexed: true,
-            },
-            {
-                internalType: "uint256",
-                name: "_blockNumber",
-                type: "uint256",
-                indexed: false,
-            },
-        ],
-        type: "event",
-        name: "DisputeResolved",
-        anonymous: false,
-    },
-    {
-        inputs: [
-            {
-                internalType: "bytes32",
-                name: "_disputeId",
-                type: "bytes32",
-                indexed: true,
-            },
-            {
-                internalType: "enum IOracle.DisputeStatus",
-                name: "_status",
-                type: "uint8",
-                indexed: false,
-            },
-            {
-                internalType: "uint256",
-                name: "_blockNumber",
-                type: "uint256",
-                indexed: false,
-            },
-        ],
-        type: "event",
-        name: "DisputeStatusUpdated",
-        anonymous: false,
-    },
-    {
-        inputs: [
-            {
-                internalType: "bytes32",
-                name: "_requestId",
-                type: "bytes32",
-                indexed: true,
-            },
-            {
-                internalType: "bytes32",
-                name: "_responseId",
-                type: "bytes32",
-                indexed: true,
-            },
-            {
-                internalType: "address",
-                name: "_caller",
-                type: "address",
-                indexed: true,
-            },
-            {
-                internalType: "uint256",
-                name: "_blockNumber",
-                type: "uint256",
-                indexed: false,
-            },
-        ],
-        type: "event",
-        name: "OracleRequestFinalized",
-        anonymous: false,
-    },
-    {
-        inputs: [
-            {
-                internalType: "bytes32",
-                name: "_requestId",
-                type: "bytes32",
-                indexed: true,
-            },
-            {
-                internalType: "struct IOracle.Request",
-                name: "_request",
-                type: "tuple",
-                components: [
-                    { internalType: "uint96", name: "nonce", type: "uint96" },
-                    {
-                        internalType: "address",
-                        name: "requester",
-                        type: "address",
-                    },
-                    {
-                        internalType: "address",
-                        name: "requestModule",
-                        type: "address",
-                    },
-                    {
-                        internalType: "address",
-                        name: "responseModule",
-                        type: "address",
-                    },
-                    {
-                        internalType: "address",
-                        name: "disputeModule",
-                        type: "address",
-                    },
-                    {
-                        internalType: "address",
-                        name: "resolutionModule",
-                        type: "address",
-                    },
-                    {
-                        internalType: "address",
-                        name: "finalityModule",
-                        type: "address",
-                    },
-                    {
-                        internalType: "bytes",
-                        name: "requestModuleData",
-                        type: "bytes",
-                    },
-                    {
-                        internalType: "bytes",
-                        name: "responseModuleData",
-                        type: "bytes",
-                    },
-                    {
-                        internalType: "bytes",
-                        name: "disputeModuleData",
-                        type: "bytes",
-                    },
-                    {
-                        internalType: "bytes",
-                        name: "resolutionModuleData",
-                        type: "bytes",
-                    },
-                    {
-                        internalType: "bytes",
-                        name: "finalityModuleData",
-                        type: "bytes",
-                    },
-                ],
-                indexed: false,
-            },
-            {
-                internalType: "bytes32",
-                name: "_ipfsHash",
-                type: "bytes32",
-                indexed: false,
-            },
-            {
-                internalType: "uint256",
-                name: "_blockNumber",
-                type: "uint256",
-                indexed: false,
-            },
-        ],
-        type: "event",
-        name: "RequestCreated",
-        anonymous: false,
-    },
-    {
-        inputs: [
-            {
-                internalType: "bytes32",
-                name: "_responseId",
-                type: "bytes32",
-                indexed: true,
-            },
-            {
-                internalType: "bytes32",
-                name: "_disputeId",
-                type: "bytes32",
-                indexed: true,
-            },
-            {
-                internalType: "struct IOracle.Dispute",
-                name: "_dispute",
-                type: "tuple",
                 components: [
                     {
                         internalType: "address",
@@ -325,37 +176,30 @@ export const oracleAbi = [
                     },
                 ],
                 indexed: false,
-            },
-            {
-                internalType: "uint256",
-                name: "_blockNumber",
-                type: "uint256",
-                indexed: false,
+                internalType: "struct IOracle.Dispute",
+                name: "_dispute",
+                type: "tuple",
             },
         ],
+        name: "DisputeEscalated",
         type: "event",
-        name: "ResponseDisputed",
-        anonymous: false,
     },
     {
+        anonymous: false,
         inputs: [
             {
-                internalType: "bytes32",
-                name: "_requestId",
-                type: "bytes32",
                 indexed: true,
+                internalType: "bytes32",
+                name: "_disputeId",
+                type: "bytes32",
             },
             {
-                internalType: "bytes32",
-                name: "_responseId",
-                type: "bytes32",
-                indexed: true,
-            },
-            {
-                internalType: "struct IOracle.Response",
-                name: "_response",
-                type: "tuple",
                 components: [
+                    {
+                        internalType: "address",
+                        name: "disputer",
+                        type: "address",
+                    },
                     {
                         internalType: "address",
                         name: "proposer",
@@ -363,46 +207,118 @@ export const oracleAbi = [
                     },
                     {
                         internalType: "bytes32",
+                        name: "responseId",
+                        type: "bytes32",
+                    },
+                    {
+                        internalType: "bytes32",
                         name: "requestId",
                         type: "bytes32",
                     },
-                    { internalType: "bytes", name: "response", type: "bytes" },
                 ],
                 indexed: false,
+                internalType: "struct IOracle.Dispute",
+                name: "_dispute",
+                type: "tuple",
             },
             {
-                internalType: "uint256",
-                name: "_blockNumber",
-                type: "uint256",
-                indexed: false,
+                indexed: true,
+                internalType: "address",
+                name: "_caller",
+                type: "address",
             },
         ],
+        name: "DisputeResolved",
         type: "event",
-        name: "ResponseProposed",
-        anonymous: false,
     },
     {
+        anonymous: false,
         inputs: [
             {
+                indexed: true,
+                internalType: "bytes32",
+                name: "_disputeId",
+                type: "bytes32",
+            },
+            {
+                components: [
+                    {
+                        internalType: "address",
+                        name: "disputer",
+                        type: "address",
+                    },
+                    {
+                        internalType: "address",
+                        name: "proposer",
+                        type: "address",
+                    },
+                    {
+                        internalType: "bytes32",
+                        name: "responseId",
+                        type: "bytes32",
+                    },
+                    {
+                        internalType: "bytes32",
+                        name: "requestId",
+                        type: "bytes32",
+                    },
+                ],
+                indexed: false,
+                internalType: "struct IOracle.Dispute",
+                name: "_dispute",
+                type: "tuple",
+            },
+            {
+                indexed: false,
+                internalType: "enum IOracle.DisputeStatus",
+                name: "_status",
+                type: "uint8",
+            },
+        ],
+        name: "DisputeStatusUpdated",
+        type: "event",
+    },
+    {
+        anonymous: false,
+        inputs: [
+            {
+                indexed: true,
                 internalType: "bytes32",
                 name: "_requestId",
                 type: "bytes32",
             },
-            { internalType: "address", name: "_module", type: "address" },
+            {
+                indexed: true,
+                internalType: "bytes32",
+                name: "_responseId",
+                type: "bytes32",
+            },
+            {
+                indexed: true,
+                internalType: "address",
+                name: "_caller",
+                type: "address",
+            },
         ],
-        stateMutability: "view",
-        type: "function",
-        name: "allowedModule",
-        outputs: [{ internalType: "bool", name: "_allowedModule", type: "bool" }],
+        name: "OracleRequestFinalized",
+        type: "event",
     },
     {
+        anonymous: false,
         inputs: [
             {
-                internalType: "struct IOracle.Request",
-                name: "_request",
-                type: "tuple",
+                indexed: true,
+                internalType: "bytes32",
+                name: "_requestId",
+                type: "bytes32",
+            },
+            {
                 components: [
-                    { internalType: "uint96", name: "nonce", type: "uint96" },
+                    {
+                        internalType: "uint96",
+                        name: "nonce",
+                        type: "uint96",
+                    },
                     {
                         internalType: "address",
                         name: "requester",
@@ -459,6 +375,202 @@ export const oracleAbi = [
                         type: "bytes",
                     },
                 ],
+                indexed: false,
+                internalType: "struct IOracle.Request",
+                name: "_request",
+                type: "tuple",
+            },
+            {
+                indexed: false,
+                internalType: "bytes32",
+                name: "_ipfsHash",
+                type: "bytes32",
+            },
+        ],
+        name: "RequestCreated",
+        type: "event",
+    },
+    {
+        anonymous: false,
+        inputs: [
+            {
+                indexed: true,
+                internalType: "bytes32",
+                name: "_responseId",
+                type: "bytes32",
+            },
+            {
+                indexed: true,
+                internalType: "bytes32",
+                name: "_disputeId",
+                type: "bytes32",
+            },
+            {
+                components: [
+                    {
+                        internalType: "address",
+                        name: "disputer",
+                        type: "address",
+                    },
+                    {
+                        internalType: "address",
+                        name: "proposer",
+                        type: "address",
+                    },
+                    {
+                        internalType: "bytes32",
+                        name: "responseId",
+                        type: "bytes32",
+                    },
+                    {
+                        internalType: "bytes32",
+                        name: "requestId",
+                        type: "bytes32",
+                    },
+                ],
+                indexed: false,
+                internalType: "struct IOracle.Dispute",
+                name: "_dispute",
+                type: "tuple",
+            },
+        ],
+        name: "ResponseDisputed",
+        type: "event",
+    },
+    {
+        anonymous: false,
+        inputs: [
+            {
+                indexed: true,
+                internalType: "bytes32",
+                name: "_requestId",
+                type: "bytes32",
+            },
+            {
+                indexed: true,
+                internalType: "bytes32",
+                name: "_responseId",
+                type: "bytes32",
+            },
+            {
+                components: [
+                    {
+                        internalType: "address",
+                        name: "proposer",
+                        type: "address",
+                    },
+                    {
+                        internalType: "bytes32",
+                        name: "requestId",
+                        type: "bytes32",
+                    },
+                    {
+                        internalType: "bytes",
+                        name: "response",
+                        type: "bytes",
+                    },
+                ],
+                indexed: false,
+                internalType: "struct IOracle.Response",
+                name: "_response",
+                type: "tuple",
+            },
+        ],
+        name: "ResponseProposed",
+        type: "event",
+    },
+    {
+        inputs: [
+            {
+                internalType: "bytes32",
+                name: "_requestId",
+                type: "bytes32",
+            },
+            {
+                internalType: "address",
+                name: "_module",
+                type: "address",
+            },
+        ],
+        name: "allowedModule",
+        outputs: [
+            {
+                internalType: "bool",
+                name: "_isAllowed",
+                type: "bool",
+            },
+        ],
+        stateMutability: "view",
+        type: "function",
+    },
+    {
+        inputs: [
+            {
+                components: [
+                    {
+                        internalType: "uint96",
+                        name: "nonce",
+                        type: "uint96",
+                    },
+                    {
+                        internalType: "address",
+                        name: "requester",
+                        type: "address",
+                    },
+                    {
+                        internalType: "address",
+                        name: "requestModule",
+                        type: "address",
+                    },
+                    {
+                        internalType: "address",
+                        name: "responseModule",
+                        type: "address",
+                    },
+                    {
+                        internalType: "address",
+                        name: "disputeModule",
+                        type: "address",
+                    },
+                    {
+                        internalType: "address",
+                        name: "resolutionModule",
+                        type: "address",
+                    },
+                    {
+                        internalType: "address",
+                        name: "finalityModule",
+                        type: "address",
+                    },
+                    {
+                        internalType: "bytes",
+                        name: "requestModuleData",
+                        type: "bytes",
+                    },
+                    {
+                        internalType: "bytes",
+                        name: "responseModuleData",
+                        type: "bytes",
+                    },
+                    {
+                        internalType: "bytes",
+                        name: "disputeModuleData",
+                        type: "bytes",
+                    },
+                    {
+                        internalType: "bytes",
+                        name: "resolutionModuleData",
+                        type: "bytes",
+                    },
+                    {
+                        internalType: "bytes",
+                        name: "finalityModuleData",
+                        type: "bytes",
+                    },
+                ],
+                internalType: "struct IOracle.Request",
+                name: "_request",
+                type: "tuple",
             },
             {
                 internalType: "bytes32",
@@ -466,8 +578,6 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
-        stateMutability: "nonpayable",
-        type: "function",
         name: "createRequest",
         outputs: [
             {
@@ -476,15 +586,18 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
+        stateMutability: "nonpayable",
+        type: "function",
     },
     {
         inputs: [
             {
-                internalType: "struct IOracle.Request[]",
-                name: "_requestsData",
-                type: "tuple[]",
                 components: [
-                    { internalType: "uint96", name: "nonce", type: "uint96" },
+                    {
+                        internalType: "uint96",
+                        name: "nonce",
+                        type: "uint96",
+                    },
                     {
                         internalType: "address",
                         name: "requester",
@@ -541,6 +654,9 @@ export const oracleAbi = [
                         type: "bytes",
                     },
                 ],
+                internalType: "struct IOracle.Request[]",
+                name: "_requestsData",
+                type: "tuple[]",
             },
             {
                 internalType: "bytes32[]",
@@ -548,8 +664,6 @@ export const oracleAbi = [
                 type: "bytes32[]",
             },
         ],
-        stateMutability: "nonpayable",
-        type: "function",
         name: "createRequests",
         outputs: [
             {
@@ -558,19 +672,27 @@ export const oracleAbi = [
                 type: "bytes32[]",
             },
         ],
+        stateMutability: "nonpayable",
+        type: "function",
     },
     {
-        inputs: [{ internalType: "bytes32", name: "_id", type: "bytes32" }],
-        stateMutability: "view",
-        type: "function",
+        inputs: [
+            {
+                internalType: "bytes32",
+                name: "_id",
+                type: "bytes32",
+            },
+        ],
         name: "disputeCreatedAt",
         outputs: [
             {
-                internalType: "uint128",
+                internalType: "uint256",
                 name: "_disputeCreatedAt",
-                type: "uint128",
+                type: "uint256",
             },
         ],
+        stateMutability: "view",
+        type: "function",
     },
     {
         inputs: [
@@ -580,8 +702,6 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
-        stateMutability: "view",
-        type: "function",
         name: "disputeOf",
         outputs: [
             {
@@ -590,15 +710,18 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
+        stateMutability: "view",
+        type: "function",
     },
     {
         inputs: [
             {
-                internalType: "struct IOracle.Request",
-                name: "_request",
-                type: "tuple",
                 components: [
-                    { internalType: "uint96", name: "nonce", type: "uint96" },
+                    {
+                        internalType: "uint96",
+                        name: "nonce",
+                        type: "uint96",
+                    },
                     {
                         internalType: "address",
                         name: "requester",
@@ -655,11 +778,11 @@ export const oracleAbi = [
                         type: "bytes",
                     },
                 ],
+                internalType: "struct IOracle.Request",
+                name: "_request",
+                type: "tuple",
             },
             {
-                internalType: "struct IOracle.Response",
-                name: "_response",
-                type: "tuple",
                 components: [
                     {
                         internalType: "address",
@@ -671,13 +794,17 @@ export const oracleAbi = [
                         name: "requestId",
                         type: "bytes32",
                     },
-                    { internalType: "bytes", name: "response", type: "bytes" },
+                    {
+                        internalType: "bytes",
+                        name: "response",
+                        type: "bytes",
+                    },
                 ],
+                internalType: "struct IOracle.Response",
+                name: "_response",
+                type: "tuple",
             },
             {
-                internalType: "struct IOracle.Dispute",
-                name: "_dispute",
-                type: "tuple",
                 components: [
                     {
                         internalType: "address",
@@ -700,10 +827,11 @@ export const oracleAbi = [
                         type: "bytes32",
                     },
                 ],
+                internalType: "struct IOracle.Dispute",
+                name: "_dispute",
+                type: "tuple",
             },
         ],
-        stateMutability: "nonpayable",
-        type: "function",
         name: "disputeResponse",
         outputs: [
             {
@@ -712,6 +840,8 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
+        stateMutability: "nonpayable",
+        type: "function",
     },
     {
         inputs: [
@@ -721,8 +851,6 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
-        stateMutability: "view",
-        type: "function",
         name: "disputeStatus",
         outputs: [
             {
@@ -731,15 +859,18 @@ export const oracleAbi = [
                 type: "uint8",
             },
         ],
+        stateMutability: "view",
+        type: "function",
     },
     {
         inputs: [
             {
-                internalType: "struct IOracle.Request",
-                name: "_request",
-                type: "tuple",
                 components: [
-                    { internalType: "uint96", name: "nonce", type: "uint96" },
+                    {
+                        internalType: "uint96",
+                        name: "nonce",
+                        type: "uint96",
+                    },
                     {
                         internalType: "address",
                         name: "requester",
@@ -796,11 +927,11 @@ export const oracleAbi = [
                         type: "bytes",
                     },
                 ],
+                internalType: "struct IOracle.Request",
+                name: "_request",
+                type: "tuple",
             },
             {
-                internalType: "struct IOracle.Response",
-                name: "_response",
-                type: "tuple",
                 components: [
                     {
                         internalType: "address",
@@ -812,13 +943,17 @@ export const oracleAbi = [
                         name: "requestId",
                         type: "bytes32",
                     },
-                    { internalType: "bytes", name: "response", type: "bytes" },
+                    {
+                        internalType: "bytes",
+                        name: "response",
+                        type: "bytes",
+                    },
                 ],
+                internalType: "struct IOracle.Response",
+                name: "_response",
+                type: "tuple",
             },
             {
-                internalType: "struct IOracle.Dispute",
-                name: "_dispute",
-                type: "tuple",
                 components: [
                     {
                         internalType: "address",
@@ -841,20 +976,25 @@ export const oracleAbi = [
                         type: "bytes32",
                     },
                 ],
+                internalType: "struct IOracle.Dispute",
+                name: "_dispute",
+                type: "tuple",
             },
         ],
+        name: "escalateDispute",
+        outputs: [],
         stateMutability: "nonpayable",
         type: "function",
-        name: "escalateDispute",
     },
     {
         inputs: [
             {
-                internalType: "struct IOracle.Request",
-                name: "_request",
-                type: "tuple",
                 components: [
-                    { internalType: "uint96", name: "nonce", type: "uint96" },
+                    {
+                        internalType: "uint96",
+                        name: "nonce",
+                        type: "uint96",
+                    },
                     {
                         internalType: "address",
                         name: "requester",
@@ -911,11 +1051,11 @@ export const oracleAbi = [
                         type: "bytes",
                     },
                 ],
+                internalType: "struct IOracle.Request",
+                name: "_request",
+                type: "tuple",
             },
             {
-                internalType: "struct IOracle.Response",
-                name: "_response",
-                type: "tuple",
                 components: [
                     {
                         internalType: "address",
@@ -927,13 +1067,21 @@ export const oracleAbi = [
                         name: "requestId",
                         type: "bytes32",
                     },
-                    { internalType: "bytes", name: "response", type: "bytes" },
+                    {
+                        internalType: "bytes",
+                        name: "response",
+                        type: "bytes",
+                    },
                 ],
+                internalType: "struct IOracle.Response",
+                name: "_response",
+                type: "tuple",
             },
         ],
+        name: "finalize",
+        outputs: [],
         stateMutability: "nonpayable",
         type: "function",
-        name: "finalize",
     },
     {
         inputs: [
@@ -943,16 +1091,16 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
-        stateMutability: "view",
-        type: "function",
         name: "finalizedAt",
         outputs: [
             {
-                internalType: "uint128",
+                internalType: "uint256",
                 name: "_finalizedAt",
-                type: "uint128",
+                type: "uint256",
             },
         ],
+        stateMutability: "view",
+        type: "function",
     },
     {
         inputs: [
@@ -962,8 +1110,6 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
-        stateMutability: "view",
-        type: "function",
         name: "finalizedResponseId",
         outputs: [
             {
@@ -972,6 +1118,8 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
+        stateMutability: "view",
+        type: "function",
     },
     {
         inputs: [
@@ -981,10 +1129,16 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
-        stateMutability: "view",
-        type: "function",
         name: "getResponseIds",
-        outputs: [{ internalType: "bytes32[]", name: "_ids", type: "bytes32[]" }],
+        outputs: [
+            {
+                internalType: "bytes32[]",
+                name: "_ids",
+                type: "bytes32[]",
+            },
+        ],
+        stateMutability: "view",
+        type: "function",
     },
     {
         inputs: [
@@ -993,12 +1147,22 @@ export const oracleAbi = [
                 name: "_requestId",
                 type: "bytes32",
             },
-            { internalType: "address", name: "_user", type: "address" },
+            {
+                internalType: "address",
+                name: "_user",
+                type: "address",
+            },
+        ],
+        name: "isParticipant",
+        outputs: [
+            {
+                internalType: "bool",
+                name: "_isParticipant",
+                type: "bool",
+            },
         ],
         stateMutability: "view",
         type: "function",
-        name: "isParticipant",
-        outputs: [{ internalType: "bool", name: "_isParticipant", type: "bool" }],
     },
     {
         inputs: [
@@ -1013,8 +1177,6 @@ export const oracleAbi = [
                 type: "uint256",
             },
         ],
-        stateMutability: "view",
-        type: "function",
         name: "listRequestIds",
         outputs: [
             {
@@ -1023,28 +1185,37 @@ export const oracleAbi = [
                 type: "bytes32[]",
             },
         ],
-    },
-    {
-        inputs: [{ internalType: "uint256", name: "_nonce", type: "uint256" }],
         stateMutability: "view",
         type: "function",
-        name: "nonceToRequestId",
-        outputs: [
-            {
-                internalType: "bytes32",
-                name: "_requestId",
-                type: "bytes32",
-            },
-        ],
     },
     {
         inputs: [
             {
-                internalType: "struct IOracle.Request",
-                name: "_request",
-                type: "tuple",
+                internalType: "uint256",
+                name: "_requestNumber",
+                type: "uint256",
+            },
+        ],
+        name: "nonceToRequestId",
+        outputs: [
+            {
+                internalType: "bytes32",
+                name: "_id",
+                type: "bytes32",
+            },
+        ],
+        stateMutability: "view",
+        type: "function",
+    },
+    {
+        inputs: [
+            {
                 components: [
-                    { internalType: "uint96", name: "nonce", type: "uint96" },
+                    {
+                        internalType: "uint96",
+                        name: "nonce",
+                        type: "uint96",
+                    },
                     {
                         internalType: "address",
                         name: "requester",
@@ -1101,11 +1272,11 @@ export const oracleAbi = [
                         type: "bytes",
                     },
                 ],
+                internalType: "struct IOracle.Request",
+                name: "_request",
+                type: "tuple",
             },
             {
-                internalType: "struct IOracle.Response",
-                name: "_response",
-                type: "tuple",
                 components: [
                     {
                         internalType: "address",
@@ -1117,12 +1288,17 @@ export const oracleAbi = [
                         name: "requestId",
                         type: "bytes32",
                     },
-                    { internalType: "bytes", name: "response", type: "bytes" },
+                    {
+                        internalType: "bytes",
+                        name: "response",
+                        type: "bytes",
+                    },
                 ],
+                internalType: "struct IOracle.Response",
+                name: "_response",
+                type: "tuple",
             },
         ],
-        stateMutability: "nonpayable",
-        type: "function",
         name: "proposeResponse",
         outputs: [
             {
@@ -1131,28 +1307,37 @@ export const oracleAbi = [
                 type: "bytes32",
             },
         ],
+        stateMutability: "nonpayable",
+        type: "function",
     },
     {
-        inputs: [{ internalType: "bytes32", name: "_id", type: "bytes32" }],
-        stateMutability: "view",
-        type: "function",
+        inputs: [
+            {
+                internalType: "bytes32",
+                name: "_id",
+                type: "bytes32",
+            },
+        ],
         name: "requestCreatedAt",
         outputs: [
             {
-                internalType: "uint128",
+                internalType: "uint256",
                 name: "_requestCreatedAt",
-                type: "uint128",
+                type: "uint256",
             },
         ],
+        stateMutability: "view",
+        type: "function",
     },
     {
         inputs: [
             {
-                internalType: "struct IOracle.Request",
-                name: "_request",
-                type: "tuple",
                 components: [
-                    { internalType: "uint96", name: "nonce", type: "uint96" },
+                    {
+                        internalType: "uint96",
+                        name: "nonce",
+                        type: "uint96",
+                    },
                     {
                         internalType: "address",
                         name: "requester",
@@ -1209,11 +1394,11 @@ export const oracleAbi = [
                         type: "bytes",
                     },
                 ],
+                internalType: "struct IOracle.Request",
+                name: "_request",
+                type: "tuple",
             },
             {
-                internalType: "struct IOracle.Response",
-                name: "_response",
-                type: "tuple",
                 components: [
                     {
                         internalType: "address",
@@ -1225,13 +1410,17 @@ export const oracleAbi = [
                         name: "requestId",
                         type: "bytes32",
                     },
-                    { internalType: "bytes", name: "response", type: "bytes" },
+                    {
+                        internalType: "bytes",
+                        name: "response",
+                        type: "bytes",
+                    },
                 ],
+                internalType: "struct IOracle.Response",
+                name: "_response",
+                type: "tuple",
             },
             {
-                internalType: "struct IOracle.Dispute",
-                name: "_dispute",
-                type: "tuple",
                 components: [
                     {
                         internalType: "address",
@@ -1254,40 +1443,57 @@ export const oracleAbi = [
                         type: "bytes32",
                     },
                 ],
+                internalType: "struct IOracle.Dispute",
+                name: "_dispute",
+                type: "tuple",
             },
         ],
+        name: "resolveDispute",
+        outputs: [],
         stateMutability: "nonpayable",
         type: "function",
-        name: "resolveDispute",
     },
     {
-        inputs: [{ internalType: "bytes32", name: "_id", type: "bytes32" }],
-        stateMutability: "view",
-        type: "function",
+        inputs: [
+            {
+                internalType: "bytes32",
+                name: "_id",
+                type: "bytes32",
+            },
+        ],
         name: "responseCreatedAt",
         outputs: [
             {
-                internalType: "uint128",
+                internalType: "uint256",
                 name: "_responseCreatedAt",
-                type: "uint128",
+                type: "uint256",
             },
         ],
+        stateMutability: "view",
+        type: "function",
     },
     {
         inputs: [],
+        name: "totalRequestCount",
+        outputs: [
+            {
+                internalType: "uint256",
+                name: "",
+                type: "uint256",
+            },
+        ],
         stateMutability: "view",
         type: "function",
-        name: "totalRequestCount",
-        outputs: [{ internalType: "uint256", name: "_count", type: "uint256" }],
     },
     {
         inputs: [
             {
-                internalType: "struct IOracle.Request",
-                name: "_request",
-                type: "tuple",
                 components: [
-                    { internalType: "uint96", name: "nonce", type: "uint96" },
+                    {
+                        internalType: "uint96",
+                        name: "nonce",
+                        type: "uint96",
+                    },
                     {
                         internalType: "address",
                         name: "requester",
@@ -1344,11 +1550,11 @@ export const oracleAbi = [
                         type: "bytes",
                     },
                 ],
+                internalType: "struct IOracle.Request",
+                name: "_request",
+                type: "tuple",
             },
             {
-                internalType: "struct IOracle.Response",
-                name: "_response",
-                type: "tuple",
                 components: [
                     {
                         internalType: "address",
@@ -1360,13 +1566,17 @@ export const oracleAbi = [
                         name: "requestId",
                         type: "bytes32",
                     },
-                    { internalType: "bytes", name: "response", type: "bytes" },
+                    {
+                        internalType: "bytes",
+                        name: "response",
+                        type: "bytes",
+                    },
                 ],
+                internalType: "struct IOracle.Response",
+                name: "_response",
+                type: "tuple",
             },
             {
-                internalType: "struct IOracle.Dispute",
-                name: "_dispute",
-                type: "tuple",
                 components: [
                     {
                         internalType: "address",
@@ -1389,6 +1599,9 @@ export const oracleAbi = [
                         type: "bytes32",
                     },
                 ],
+                internalType: "struct IOracle.Dispute",
+                name: "_dispute",
+                type: "tuple",
             },
             {
                 internalType: "enum IOracle.DisputeStatus",
@@ -1396,8 +1609,9 @@ export const oracleAbi = [
                 type: "uint8",
             },
         ],
+        name: "updateDisputeStatus",
+        outputs: [],
         stateMutability: "nonpayable",
         type: "function",
-        name: "updateDisputeStatus",
     },
 ] as const;
