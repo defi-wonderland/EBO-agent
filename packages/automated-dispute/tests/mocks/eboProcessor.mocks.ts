@@ -20,10 +20,18 @@ export function buildEboProcessor(
 ) {
     const protocolProvider = new ProtocolProvider(
         {
-            urls: ["http://localhost:8538"],
-            retryInterval: 1,
-            timeout: 100,
-            transactionReceiptConfirmations: 1,
+            l1: {
+                urls: ["http://localhost:8538"],
+                retryInterval: 1,
+                timeout: 100,
+                transactionReceiptConfirmations: 1,
+            },
+            l2: {
+                urls: ["http://localhost:8539"],
+                retryInterval: 1,
+                timeout: 100,
+                transactionReceiptConfirmations: 1,
+            },
         },
         DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
         mockedPrivateKey,

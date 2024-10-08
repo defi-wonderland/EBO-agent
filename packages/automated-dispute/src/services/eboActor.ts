@@ -169,7 +169,7 @@ export class EboActor {
                             },
                         );
 
-                        await ErrorHandler.handle(err);
+                        await ErrorHandler.handle(err, this.logger);
 
                         if (err.strategy.shouldNotify) {
                             // TODO: add notification logic
@@ -403,7 +403,7 @@ export class EboActor {
                         );
                         this.logger.info(`Dispute ${dispute.id} escalated.`);
 
-                        await ErrorHandler.handle(customError);
+                        await ErrorHandler.handle(customError, this.logger);
                     } catch (escalationError) {
                         this.logger.error(
                             `Failed to escalate dispute ${dispute.id}: ${escalationError}`,
@@ -619,7 +619,7 @@ export class EboActor {
                 };
                 customError.setContext(context);
 
-                await ErrorHandler.handle(customError);
+                await ErrorHandler.handle(customError, this.logger);
 
                 this.logger.warn(
                     `Block ${responseBody.block} for epoch ${request.epoch} and ` +
@@ -807,7 +807,7 @@ export class EboActor {
                 };
                 customError.setContext(context);
 
-                await ErrorHandler.handle(customError);
+                await ErrorHandler.handle(customError, this.logger);
             } else {
                 throw err;
             }
@@ -845,7 +845,7 @@ export class EboActor {
                 };
                 customError.setContext(context);
 
-                await ErrorHandler.handle(customError);
+                await ErrorHandler.handle(customError, this.logger);
             } else {
                 throw err;
             }

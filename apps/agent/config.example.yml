@@ -1,8 +1,13 @@
 protocolProvider:
     rpcsConfig:
-        transactionReceiptConfirmations: 1
-        timeout: 10000
-        retryInterval: 150
+        l1:
+            transactionReceiptConfirmations: 1
+            timeout: 10000
+            retryInterval: 150
+        l2:
+            transactionReceiptConfirmations: 1
+            timeout: 10000
+            retryInterval: 150
     contracts:
         oracle: "0x1234567890123456789012345678901234567890"
         epochManager: "0x1234567890123456789012345678901234567890"
