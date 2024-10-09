@@ -1,11 +1,19 @@
 import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
-import { ILogger } from "@ebo-agent/shared";
+import { ILogger, Timestamp } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
+import { Block } from "viem";
 import { vi } from "vitest";
 
 import { ProtocolProvider } from "../../src/providers/index.js";
 import { EboActor, EboMemoryRegistry } from "../../src/services/index.js";
-import { Dispute, Request, Response, ResponseBody } from "../../src/types/index.js";
+import {
+    Dispute,
+    DisputeId,
+    Request,
+    Response,
+    ResponseBody,
+    ResponseId,
+} from "../../src/types/index.js";
 import {
     DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
     mockedPrivateKey,
@@ -43,15 +51,19 @@ export function buildEboActor(request: Request, logger: ILogger) {
     vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
         number: BigInt(1),
         firstBlockNumber: BigInt(100),
-        startTimestamp: BigInt(Date.now()),
+        startTimestamp: BigInt(Date.now()) as Timestamp,
     });
     vi.spyOn(protocolProvider, "proposeResponse").mockResolvedValue(undefined);
     vi.spyOn(protocolProvider, "disputeResponse").mockResolvedValue(undefined);
-    vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(BigInt(1000));
+    vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue({
+        number: BigInt(1),
+        timestamp: BigInt(Date.now()) as Timestamp,
+    } as unknown as Block<bigint, false, "finalized">);
 
     const blockNumberRpcUrls = new Map<Caip2ChainId, string[]>([
         [chainId, ["http://localhost:8539"]],
     ]);
+
     const blockNumberService = new BlockNumberService(
         blockNumberRpcUrls,
         {
@@ -104,8 +116,12 @@ export function buildResponse(request: Request, attributes: Partial<Response> = 
     };
 
     const baseResponse: Response = {
-        id: "0x0111111111111111111111111111111111111111",
-        createdAt: request.createdAt + 1n,
+        id: "0x0111111111111111111111111111111111111111" as ResponseId,
+        createdAt: {
+            timestamp: (request.createdAt.timestamp + 1n) as Timestamp,
+            blockNumber: request.createdAt.blockNumber + 1n,
+            logIndex: request.createdAt.logIndex + 1,
+        },
         decodedData: {
             response: responseBody,
         },
@@ -128,9 +144,13 @@ export function buildDispute(
     attributes: Partial<Dispute> = {},
 ): Dispute {
     const baseDispute: Dispute = {
-        id: "0x01",
+        id: "0x01" as DisputeId,
         status: "Active",
-        createdAt: response.createdAt + 1n,
+        createdAt: {
+            timestamp: (response.createdAt.timestamp + 1n) as Timestamp,
+            blockNumber: response.createdAt.blockNumber + 1n,
+            logIndex: response.createdAt.logIndex + 1,
+        },
         prophetData: {
             disputer: "0x01",
             proposer: response.prophetData.proposer,

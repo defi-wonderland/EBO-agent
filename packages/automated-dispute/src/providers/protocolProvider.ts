@@ -1,7 +1,9 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
+import { Timestamp } from "@ebo-agent/shared";
 import {
     Address,
     BaseError,
+    Block,
     Chain,
     ContractFunctionRevertedError,
     createPublicClient,
@@ -21,17 +23,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum, mainnet } from "viem/chains";
 
-import type {
-    Dispute,
-    DisputeId,
-    EboEvent,
-    EboEventName,
-    Epoch,
-    Request,
-    RequestId,
-    Response,
-    ResponseId,
-} from "../types/index.js";
+import type { Dispute, EboEvent, EboEventName, Epoch, Request, Response } from "../types/index.js";
 import {
     bondEscalationModuleAbi,
     eboRequestCreatorAbi,
@@ -272,19 +264,13 @@ export class ProtocolProvider implements IProtocolProvider {
         return {
             number: epoch,
             firstBlockNumber: epochFirstBlockNumber,
-            startTimestamp: epochFirstBlock.timestamp,
+            startTimestamp: epochFirstBlock.timestamp as Timestamp,
         };
     }
 
-    /**
-     * Gets the number of the last finalized block.
-     *
-     * @returns {Promise<bigint>} The block number of the last finalized block.
-     */
-    async getLastFinalizedBlock(): Promise<bigint> {
-        const { number } = await this.l2ReadClient.getBlock({ blockTag: "finalized" });
-
-        return number;
+    /** @inheritdoc */
+    async getLastFinalizedBlock(): Promise<Block<bigint, false, "finalized">> {
+        return await this.l2ReadClient.getBlock({ blockTag: "finalized" });
     }
 
     /**
@@ -300,26 +286,7 @@ export class ProtocolProvider implements IProtocolProvider {
         // We should decode events using the corresponding ABI and also "fabricate" new events
         // if for some triggers there are no events (e.g. dispute window ended)
         const eboRequestCreatorEvents: EboEvent<EboEventName>[] = [];
-
-        const oracleEvents = [
-            {
-                name: "ResponseDisputed",
-                blockNumber: 3n,
-                logIndex: 1,
-                requestId: "0x01" as RequestId,
-                metadata: {
-                    requestId: "0x01" as RequestId,
-                    responseId: "0x02" as ResponseId,
-                    disputeId: "0x03" as DisputeId,
-                    dispute: {
-                        disputer: "0x12345678901234567890123456789012",
-                        proposer: "0x12345678901234567890123456789012",
-                        responseId: "0x02" as ResponseId,
-                        requestId: "0x01" as RequestId,
-                    },
-                },
-            } as EboEvent<"ResponseDisputed">,
-        ];
+        const oracleEvents: EboEvent<EboEventName>[] = [];
 
         return this.mergeEventStreams(eboRequestCreatorEvents, oracleEvents);
     }

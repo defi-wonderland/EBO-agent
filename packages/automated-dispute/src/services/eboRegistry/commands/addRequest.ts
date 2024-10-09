@@ -20,7 +20,11 @@ export class AddRequest implements EboRegistryCommand {
             id: event.requestId,
             chainId: event.metadata.chainId,
             epoch: event.metadata.epoch,
-            createdAt: event.blockNumber,
+            createdAt: {
+                timestamp: event.timestamp,
+                blockNumber: event.blockNumber,
+                logIndex: event.logIndex,
+            },
             decodedData: {
                 disputeModuleData: ProtocolProvider.decodeRequestDisputeModuleData(
                     eventRequest.disputeModuleData,

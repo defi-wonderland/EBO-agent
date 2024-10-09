@@ -106,7 +106,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
      * @returns true if the block contains a non-null number
      */
     private validateBlockNumber(block: Block): block is BlockWithNumber {
-        if (block.number === null) throw new UnsupportedBlockNumber(block.timestamp);
+        if (block.number === null) throw new UnsupportedBlockNumber(block.timestamp as Timestamp);
 
         return true;
     }

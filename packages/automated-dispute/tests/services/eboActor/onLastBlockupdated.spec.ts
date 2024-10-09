@@ -1,3 +1,4 @@
+import { Timestamp } from "@ebo-agent/shared";
 import { describe, expect, it, vi } from "vitest";
 
 import { DisputeWithoutResponse } from "../../../src/exceptions/index.js";
@@ -14,7 +15,13 @@ describe("EboActor", () => {
             const { disputeModuleData } = request.decodedData;
 
             const response = mocks.buildResponse(request, { id: "0x10" as ResponseId });
-            const dispute = mocks.buildDispute(request, response, { createdAt: 1n });
+            const dispute = mocks.buildDispute(request, response, {
+                createdAt: {
+                    timestamp: 1n as Timestamp,
+                    blockNumber: 1000n,
+                    logIndex: 0,
+                },
+            });
             const disputeDeadline =
                 disputeModuleData.bondEscalationDeadline + disputeModuleData.tyingBuffer;
 
@@ -37,7 +44,7 @@ describe("EboActor", () => {
 
             const newBlockNumber = disputeDeadline + 1n;
 
-            await actor.onLastBlockUpdated(newBlockNumber);
+            await actor.onLastBlockUpdated(newBlockNumber as Timestamp);
 
             expect(mockSettleDispute).toHaveBeenCalledWith(
                 request.prophetData,
@@ -51,7 +58,13 @@ describe("EboActor", () => {
             const { disputeModuleData } = request.decodedData;
 
             const response = mocks.buildResponse(request, { id: "0x10" as ResponseId });
-            const dispute = mocks.buildDispute(request, response, { createdAt: 1n });
+            const dispute = mocks.buildDispute(request, response, {
+                createdAt: {
+                    timestamp: 1n as Timestamp,
+                    blockNumber: 1000n,
+                    logIndex: 0,
+                },
+            });
             const disputeDeadline =
                 disputeModuleData.bondEscalationDeadline + disputeModuleData.tyingBuffer;
 
@@ -70,7 +83,9 @@ describe("EboActor", () => {
 
             const newBlockNumber = disputeDeadline + 1n;
 
-            await expect(actor.onLastBlockUpdated(newBlockNumber)).rejects.toThrow(settleError);
+            await expect(actor.onLastBlockUpdated(newBlockNumber as Timestamp)).rejects.toThrow(
+                settleError,
+            );
         });
 
         it("throws if the dispute has no response in registry", async () => {
@@ -78,7 +93,13 @@ describe("EboActor", () => {
             const { disputeModuleData } = request.decodedData;
 
             const response = mocks.buildResponse(request, { id: "0x10" as ResponseId });
-            const dispute = mocks.buildDispute(request, response, { createdAt: 1n });
+            const dispute = mocks.buildDispute(request, response, {
+                createdAt: {
+                    timestamp: 1n as Timestamp,
+                    blockNumber: 1000n,
+                    logIndex: 0,
+                },
+            });
             const disputeDeadline =
                 disputeModuleData.bondEscalationDeadline + disputeModuleData.tyingBuffer;
 
@@ -92,7 +113,7 @@ describe("EboActor", () => {
 
             const newBlockNumber = disputeDeadline + 1n;
 
-            expect(actor.onLastBlockUpdated(newBlockNumber)).rejects.toThrow(
+            expect(actor.onLastBlockUpdated(newBlockNumber as Timestamp)).rejects.toThrow(
                 DisputeWithoutResponse,
             );
         });
@@ -119,7 +140,7 @@ describe("EboActor", () => {
             const newBlockNumber = deadline - 1n;
             const mockFinalize = vi.spyOn(protocolProvider, "finalize");
 
-            await actor.onLastBlockUpdated(newBlockNumber);
+            await actor.onLastBlockUpdated(newBlockNumber as Timestamp);
 
             expect(logger.debug).toBeCalledWith(
                 expect.stringMatching(`Proposal window for request ${request.id} not closed yet.`),
@@ -132,14 +153,22 @@ describe("EboActor", () => {
             const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
             const firstResponse = mocks.buildResponse(request, {
                 id: "0x10" as ResponseId,
-                createdAt: 5n,
+                createdAt: {
+                    timestamp: 5n as Timestamp,
+                    blockNumber: 1000n,
+                    logIndex: 0,
+                },
             });
             const firstResponseDispute = mocks.buildDispute(request, firstResponse, {
                 status: "Lost",
             });
             const secondResponse = mocks.buildResponse(request, {
                 id: "0x11" as ResponseId,
-                createdAt: 10n,
+                createdAt: {
+                    timestamp: 10n as Timestamp,
+                    blockNumber: 1000n,
+                    logIndex: 0,
+                },
             });
 
             const { actor, registry, protocolProvider } = mocks.buildEboActor(request, logger);
@@ -155,9 +184,10 @@ describe("EboActor", () => {
             });
 
             const newBlock =
-                secondResponse.createdAt + request.decodedData.responseModuleData.disputeWindow;
+                secondResponse.createdAt.timestamp +
+                request.decodedData.responseModuleData.disputeWindow;
 
-            await actor.onLastBlockUpdated(newBlock + 1n);
+            await actor.onLastBlockUpdated((newBlock + 1n) as Timestamp);
 
             expect(mockFinalize).toHaveBeenCalledWith(
                 request.prophetData,

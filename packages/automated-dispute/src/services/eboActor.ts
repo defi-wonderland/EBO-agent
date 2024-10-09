@@ -1,9 +1,9 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
-import { Address, ILogger } from "@ebo-agent/shared";
+import { Address, ILogger, Timestamp } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
-import { BlockNumber, ContractFunctionRevertedError } from "viem";
+import { ContractFunctionRevertedError } from "viem";
 
 import type {
     Dispute,
@@ -283,14 +283,14 @@ export class EboActor {
      * Triggers time-based interactions with smart contracts. This handles window-based
      * checks like proposal windows to close requests, or dispute windows to accept responses.
      *
-     * @param blockNumber block number to check open/closed windows
+     * @param at block timestamp to check open/closed windows
      */
-    public async onLastBlockUpdated(blockNumber: bigint): Promise<void> {
-        await this.settleDisputes(blockNumber);
+    public async onLastBlockUpdated(at: Timestamp): Promise<void> {
+        await this.settleDisputes(at);
 
         const request = this.getActorRequest();
         const proposalDeadline = request.decodedData.responseModuleData.deadline;
-        const isProposalWindowOpen = blockNumber <= proposalDeadline;
+        const isProposalWindowOpen = at <= proposalDeadline;
 
         if (isProposalWindowOpen) {
             this.logger.debug(`Proposal window for request ${request.id} not closed yet.`);
@@ -298,7 +298,7 @@ export class EboActor {
             return;
         }
 
-        const acceptedResponse = this.getAcceptedResponse(blockNumber);
+        const acceptedResponse = this.getAcceptedResponse(at);
 
         if (acceptedResponse) {
             this.logger.info(`Finalizing request ${request.id}...`);
@@ -313,9 +313,9 @@ export class EboActor {
     /**
      * Try to settle all active disputes if settling is needed.
      *
-     * @param blockNumber block number to check if the dispute is to be settled
+     * @param at timestamp to check against if the dispute is to be settled
      */
-    private async settleDisputes(blockNumber: bigint): Promise<void> {
+    private async settleDisputes(at: Timestamp): Promise<void> {
         const request = this.getActorRequest();
         const disputes: Dispute[] = this.getActiveDisputes();
 
@@ -332,7 +332,7 @@ export class EboActor {
                 throw new DisputeWithoutResponse(dispute);
             }
 
-            if (this.canBeSettled(request, dispute, blockNumber)) {
+            if (this.canBeSettled(request, dispute, at)) {
                 await this.settleDispute(request, response, dispute);
             }
         });
@@ -348,13 +348,13 @@ export class EboActor {
     }
 
     // TODO: extract this into another service
-    private canBeSettled(request: Request, dispute: Dispute, blockNumber: bigint): boolean {
+    private canBeSettled(request: Request, dispute: Dispute, at: Timestamp): boolean {
         if (dispute.status !== "Active") return false;
 
         const { bondEscalationDeadline, tyingBuffer } = request.decodedData.disputeModuleData;
         const deadline = bondEscalationDeadline + tyingBuffer;
 
-        return blockNumber > deadline;
+        return at > deadline;
     }
 
     /**
@@ -421,32 +421,32 @@ export class EboActor {
     /**
      * Gets the first accepted response based on its creation timestamp
      *
-     * @param blockNumber current block number
+     * @param at timestamp to check against response acceptance
      * @returns a `Response` instance if any accepted, otherwise `undefined`
      */
-    private getAcceptedResponse(blockNumber: bigint): Response | undefined {
+    private getAcceptedResponse(at: Timestamp): Response | undefined {
         const responses = this.registry.getResponses();
         const acceptedResponses = responses.filter((response) =>
-            this.isResponseAccepted(response, blockNumber),
+            this.isResponseAccepted(response, at),
         );
 
         return acceptedResponses.sort((a, b) => {
-            if (a.createdAt < b.createdAt) return -1;
-            if (a.createdAt > b.createdAt) return 1;
+            if (a.createdAt.blockNumber < b.createdAt.blockNumber) return -1;
+            if (a.createdAt.blockNumber > b.createdAt.blockNumber) return 1;
 
-            return 0;
+            return a.createdAt.logIndex - b.createdAt.logIndex;
         })[0];
     }
 
     // TODO: refactor outside this module
-    private isResponseAccepted(response: Response, blockNumber: bigint) {
+    private isResponseAccepted(response: Response, at: Timestamp) {
         const request = this.getActorRequest();
         const dispute = this.registry.getResponseDispute(response);
         const disputeWindow =
-            response.createdAt + request.decodedData.disputeModuleData.disputeWindow;
+            response.createdAt.timestamp + request.decodedData.disputeModuleData.disputeWindow;
 
         // Response is still able to be disputed
-        if (blockNumber <= disputeWindow) return false;
+        if (at <= disputeWindow) return false;
 
         return dispute ? dispute.status === "Lost" : true;
     }
@@ -462,14 +462,14 @@ export class EboActor {
      * At last, actors must be kept alive until their epoch concludes, to ensure no actor/request duplication.
      *
      * @param currentEpoch the epoch to check against actor termination
-     * @param blockNumber block number to check entities at
+     * @param at timestamp to check entities at
      * @returns `true` if all entities are settled, otherwise `false`
      */
-    public canBeTerminated(currentEpoch: Epoch["number"], blockNumber: bigint): boolean {
+    public canBeTerminated(currentEpoch: Epoch["number"], at: Timestamp): boolean {
         const request = this.getActorRequest();
         const isPastEpoch = currentEpoch > request.epoch;
         const isRequestFinalized = request.status === "Finalized";
-        const nonSettledProposals = this.activeProposals(blockNumber);
+        const nonSettledProposals = this.activeProposals(at);
 
         return isPastEpoch && isRequestFinalized && nonSettledProposals.length === 0;
     }
@@ -477,14 +477,14 @@ export class EboActor {
     /**
      * Check for any active proposals at a specific block number.
      *
-     * @param blockNumber block number to check proposals' status against
+     * @param at timestamp to check proposals' status against
      * @returns an array of `Response` instances
      */
-    private activeProposals(blockNumber: BlockNumber): Response[] {
+    private activeProposals(at: Timestamp): Response[] {
         const responses = this.registry.getResponses();
 
         return responses.filter((response) => {
-            if (this.isResponseAccepted(response, blockNumber)) return false;
+            if (this.isResponseAccepted(response, at)) return false;
 
             const dispute = this.registry.getResponseDispute(response);
 
