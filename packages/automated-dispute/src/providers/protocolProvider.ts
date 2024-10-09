@@ -367,7 +367,9 @@ export class ProtocolProvider implements IProtocolProvider {
      * @param fromBlock - The starting block number to fetch events from.
      * @param toBlock - The ending block number to fetch events to.
      * @returns A promise that resolves to an array of EboEvents.
+     *
      */
+    // OPTIMIZE: could remove decodeLogData and improve typing if using getContractEvents for each function
     private async getOracleEvents(fromBlock: bigint, toBlock: bigint) {
         const eventNames = [
             "ResponseProposed",
@@ -401,38 +403,33 @@ export class ProtocolProvider implements IProtocolProvider {
      * @returns A promise that resolves to an array of EboEvents.
      */
     private async getEBORequestCreatorEvents(fromBlock: bigint, toBlock: bigint) {
-        const logs = await this.readClient.getLogs({
+        const events = await this.readClient.getContractEvents({
             address: this.eboRequestCreatorContract.address,
-            event: eboRequestCreatorAbi.find(
-                (e) => e.type === "event" && e.name === "RequestCreated",
-            ) as AbiEvent,
+            abi: eboRequestCreatorAbi,
+            eventName: "RequestCreated",
             fromBlock,
             toBlock,
+            strict: true,
         });
 
-        return logs.map((log: Log) => {
-            if (log.blockNumber === null || log.logIndex === null) {
-                throw new Error("log.blockNumber or log.logIndex is null");
+        return events.map((event) => {
+            if (event.blockNumber === null || event.logIndex === null) {
+                throw new Error("event.blockNumber or event.logIndex is null");
             }
-
-            const decodedLog = this.decodeLogData(
-                "RequestCreated",
-                log,
-            ) as DecodedLogArgsMap["RequestCreated"];
 
             return {
                 name: "RequestCreated" as const,
-                blockNumber: log.blockNumber,
-                logIndex: log.logIndex,
-                rawLog: log,
+                blockNumber: event.blockNumber,
+                logIndex: event.logIndex,
+                rawLog: event,
 
-                requestId: decodedLog.requestId,
+                requestId: event.args._requestId,
                 metadata: {
-                    requestId: decodedLog.requestId,
-                    epoch: decodedLog.epoch,
-                    chainId: decodedLog.chainId,
+                    requestId: event.args._requestId,
+                    epoch: event.args._epoch,
+                    chainId: event.args._chainId,
                 },
-            } as EboEvent<"RequestCreated">;
+            } as unknown as EboEvent<"RequestCreated">;
         });
     }
 

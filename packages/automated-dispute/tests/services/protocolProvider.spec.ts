@@ -1,12 +1,16 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import {
+    AbiEvent,
     ContractFunctionRevertedError,
     createPublicClient,
     createWalletClient,
+    encodeAbiParameters,
     fallback,
     getContract,
+    getEventSelector,
     http,
     isHex,
+    keccak256,
     Log,
     WaitForTransactionReceiptTimeoutError,
 } from "viem";
@@ -838,13 +842,43 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
+            const eboRequestCreatorAbi = [
+                {
+                    type: "event",
+                    name: "RequestCreated",
+                    inputs: [
+                        {
+                            name: "_requestId",
+                            type: "bytes32",
+                            indexed: true,
+                            internalType: "bytes32",
+                        },
+                        { name: "_epoch", type: "uint256", indexed: true, internalType: "uint256" },
+                        { name: "_chainId", type: "string", indexed: true, internalType: "string" },
+                    ],
+                    anonymous: false,
+                },
+            ];
+
+            const eventAbi = eboRequestCreatorAbi[0];
+            const eventSignature = getEventSelector(eventAbi as AbiEvent);
+
+            const _requestId = "0x" + "123".padStart(64, "0");
+            const _epoch = 1n;
+            const _chainId = "eip155:1";
+
+            const epochHex = "0x" + _epoch.toString(16).padStart(64, "0");
+            const chainIdHash = keccak256(encodeAbiParameters([{ type: "string" }], [_chainId]));
+
+            const topics = [eventSignature, _requestId, epochHex, chainIdHash] as [
+                `0x${string}`,
+                ...`0x${string}`[],
+            ];
+
             const mockLog: Log = {
                 address: "0x1234567890123456789012345678901234567890",
-                topics: [
-                    "0x0000000000000000000000000000000000000000000000000000000000000001",
-                    "0x0000000000000000000000000000000000000000000000000000000000000002",
-                ],
-                data: "0x0000000000000000000000000000000000000000000000000000000000000003",
+                topics,
+                data: "0x",
                 blockNumber: 1n,
                 transactionHash:
                     "0x1234567890123456789012345678901234567890123456789012345678901234",
@@ -857,6 +891,11 @@ describe("ProtocolProvider", () => {
             const result = (protocolProvider as any).decodeLogData("RequestCreated", mockLog);
 
             expect(result).toBeDefined();
+            expect(result).toEqual({
+                _requestId,
+                _epoch,
+                _chainId: chainIdHash,
+            });
         });
 
         it("throws an error for unsupported event name", () => {
@@ -1022,31 +1061,27 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            const mockLogs: Log[] = [
+            (protocolProvider["readClient"] as any).getContractEvents = vi.fn().mockResolvedValue([
                 {
                     address: "0x1234567890123456789012345678901234567890",
+                    args: {
+                        _requestId: "0x123",
+                        _epoch: 1n,
+                        _chainId: "eip155:1",
+                    },
+                    blockNumber: 1n,
+                    logIndex: 1,
+                    blockHash: "0x1234567890123456789012345678901234567890123456789012345678901234",
+                    transactionHash: "0x1234567890123456789012345678901234567890",
+                    transactionIndex: 1,
+                    data: "0x0000000000000000000000000000000000000000000000000000000000000003",
+                    removed: false,
                     topics: [
                         "0x0000000000000000000000000000000000000000000000000000000000000001",
                         "0x0000000000000000000000000000000000000000000000000000000000000002",
                     ],
-                    data: "0x0000000000000000000000000000000000000000000000000000000000000003",
-                    blockNumber: 1n,
-                    transactionHash:
-                        "0x1234567890123456789012345678901234567890123456789012345678901234",
-                    transactionIndex: 1,
-                    blockHash: "0x1234567890123456789012345678901234567890123456789012345678901234",
-                    logIndex: 1,
-                    removed: false,
                 },
-            ];
-
-            (protocolProvider["readClient"] as any).getLogs = vi.fn().mockResolvedValue(mockLogs);
-
-            vi.spyOn(protocolProvider as any, "decodeLogData").mockReturnValue({
-                requestId: "0x123",
-                epoch: 1n,
-                chainId: "eip155:1",
-            });
+            ]);
 
             const result = await (protocolProvider as any).getEBORequestCreatorEvents(0n, 100n);
 
@@ -1055,12 +1090,30 @@ describe("ProtocolProvider", () => {
                 name: "RequestCreated",
                 blockNumber: 1n,
                 logIndex: 1,
-                rawLog: mockLogs[0],
                 requestId: "0x123",
                 metadata: {
+                    requestId: "0x123",
                     epoch: 1n,
                     chainId: "eip155:1",
-                    requestId: "0x123",
+                },
+                rawLog: {
+                    address: "0x1234567890123456789012345678901234567890",
+                    args: {
+                        _chainId: "eip155:1",
+                        _epoch: 1n,
+                        _requestId: "0x123",
+                    },
+                    blockHash: "0x1234567890123456789012345678901234567890123456789012345678901234",
+                    blockNumber: 1n,
+                    data: "0x0000000000000000000000000000000000000000000000000000000000000003",
+                    logIndex: 1,
+                    removed: false,
+                    topics: [
+                        "0x0000000000000000000000000000000000000000000000000000000000000001",
+                        "0x0000000000000000000000000000000000000000000000000000000000000002",
+                    ],
+                    transactionHash: "0x1234567890123456789012345678901234567890",
+                    transactionIndex: 1,
                 },
             });
         });
