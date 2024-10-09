@@ -33,17 +33,38 @@ describe("EboActorsManager", () => {
             notifyError: vi.fn().mockResolvedValue(undefined),
         };
 
-        const protocolProviderRpcUrls = ["http://localhost:8538"];
         protocolProvider = new ProtocolProvider(
-            protocolProviderRpcUrls,
+            {
+                l1: {
+                    urls: ["http://localhost:8538"],
+                    retryInterval: 1,
+                    timeout: 100,
+                    transactionReceiptConfirmations: 1,
+                },
+                l2: {
+                    urls: ["http://localhost:8539"],
+                    retryInterval: 1,
+                    timeout: 100,
+                    transactionReceiptConfirmations: 1,
+                },
+            },
             DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
             mockedPrivateKey,
         );
 
-        const blockNumberRpcUrls = new Map<Caip2ChainId, string[]>([
-            [chainId, ["http://localhost:8539"]],
-        ]);
-        blockNumberService = new BlockNumberService(blockNumberRpcUrls, logger);
+        blockNumberService = new BlockNumberService(
+            new Map<Caip2ChainId, string[]>([[chainId, ["http://localhost:8539"]]]),
+            {
+                baseUrl: new URL("http://localhost"),
+                bearerToken: "secret-token",
+                bearerTokenExpirationWindow: 10,
+                servicePaths: {
+                    block: "/block",
+                    blockByTime: "/blockbytime",
+                },
+            },
+            logger,
+        );
     });
 
     describe("createActor", () => {
