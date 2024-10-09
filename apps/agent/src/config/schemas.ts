@@ -18,12 +18,15 @@ const chainRpcUrlSchema = z
     .record(chainIdSchema, z.array(z.string().url()))
     .transform((records) => new Map(Object.entries(records) as [Caip2ChainId, string[]][]));
 
+const rpcUrlsSchema = z
+    .string()
+    .transform((str) => str.split(","))
+    .refine((arr) => arr.every((url) => z.string().url().safeParse(url).success));
+
 export const envSchema = z.object({
     PROTOCOL_PROVIDER_PRIVATE_KEY: z.string().refine((key) => isHex(key)),
-    PROTOCOL_PROVIDER_RPC_URLS: z
-        .string()
-        .transform((str) => str.split(","))
-        .refine((arr) => arr.every((url) => z.string().url().safeParse(url).success)),
+    PROTOCOL_PROVIDER_L1_RPC_URLS: rpcUrlsSchema,
+    PROTOCOL_PROVIDER_L2_RPC_URLS: rpcUrlsSchema,
     BLOCK_NUMBER_RPC_URLS_MAP: stringToJSONSchema.pipe(chainRpcUrlSchema),
     BLOCK_NUMBER_BLOCKMETA_TOKEN: z.string(),
     EBO_AGENT_CONFIG_FILE_PATH: z.string(),
@@ -32,18 +35,23 @@ export const envSchema = z.object({
 });
 
 const addressSchema = z.string().refine((address) => isAddress(address));
+const rpcConfigSchema = z.object({
+    transactionReceiptConfirmations: z.number().int().positive(),
+    timeout: z.number().int().positive(),
+    retryInterval: z.number().int().positive(),
+});
 
 const protocolProviderConfigSchema = z.object({
     rpcsConfig: z.object({
-        transactionReceiptConfirmations: z.number().int().positive(),
-        timeout: z.number().int().positive(),
-        retryInterval: z.number().int().positive(),
+        l1: rpcConfigSchema,
+        l2: rpcConfigSchema,
     }),
     contracts: z.object({
         oracle: addressSchema,
         epochManager: addressSchema,
         eboRequestCreator: addressSchema,
         bondEscalationModule: addressSchema,
+        horizonAccountingExtension: addressSchema,
     }),
 });
 

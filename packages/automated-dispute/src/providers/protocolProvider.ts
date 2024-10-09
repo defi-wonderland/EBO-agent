@@ -1,7 +1,8 @@
-import { Caip2ChainId, Caip2Utils, InvalidChainId } from "@ebo-agent/blocknumber/src/index.js";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
 import {
     Address,
     BaseError,
+    Chain,
     ContractFunctionRevertedError,
     createPublicClient,
     createWalletClient,
@@ -18,7 +19,7 @@ import {
     WalletClient,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { arbitrum } from "viem/chains";
+import { arbitrum, mainnet } from "viem/chains";
 
 import type {
     Dispute,
@@ -35,6 +36,7 @@ import {
     bondEscalationModuleAbi,
     eboRequestCreatorAbi,
     epochManagerAbi,
+    horizonAccountingExtensionAbi,
     oracleAbi,
 } from "../abis/index.js";
 import {
@@ -50,12 +52,18 @@ import {
     ProtocolContractsAddresses,
 } from "../interfaces/index.js";
 
-type ProtocolRpcConfig = {
+type RpcConfig = {
     urls: string[];
     transactionReceiptConfirmations: number;
     timeout: number;
     retryInterval: number;
 };
+
+type ProtocolRpcConfig = {
+    l1: RpcConfig;
+    l2: RpcConfig;
+};
+
 export const REQUEST_RESPONSE_MODULE_DATA_ABI_FIELDS = [
     { name: "accountingExtension", type: "address" },
     { name: "bondToken", type: "address" },
@@ -74,39 +82,46 @@ export const REQUEST_DISPUTE_MODULE_DATA_ABI_FIELDS = [
     { name: "disputeWindow", type: "uint256" },
 ] as const;
 
-export const RESPONSE_ABI_FIELDS = [
-    { name: "chainId", type: "string" },
-    { name: "epoch", type: "uint256" },
-    { name: "block", type: "uint256" },
-] as const;
+export const RESPONSE_ABI_FIELDS = [{ name: "block", type: "uint256" }] as const;
 
 export class ProtocolProvider implements IProtocolProvider {
-    private readClient: PublicClient<FallbackTransport<HttpTransport[]>>;
-    private writeClient: WalletClient<FallbackTransport<HttpTransport[]>>;
+    private l1ReadClient: PublicClient<FallbackTransport<HttpTransport[]>>;
+    private l2ReadClient: PublicClient<FallbackTransport<HttpTransport[]>>;
+    private l2WriteClient: WalletClient<FallbackTransport<HttpTransport[]>>;
+
     private oracleContract: GetContractReturnType<
         typeof oracleAbi,
-        typeof this.writeClient,
+        typeof this.l2WriteClient,
         Address
     >;
+
     private epochManagerContract: GetContractReturnType<
         typeof epochManagerAbi,
-        typeof this.readClient,
+        typeof this.l2ReadClient,
         Address
     >;
+
     private eboRequestCreatorContract: GetContractReturnType<
         typeof eboRequestCreatorAbi,
-        typeof this.writeClient,
+        typeof this.l2WriteClient,
         Address
     >;
+
     private bondEscalationContract: GetContractReturnType<
         typeof bondEscalationModuleAbi,
-        typeof this.writeClient,
+        typeof this.l2WriteClient,
+        Address
+    >;
+
+    private horizonAccountingExtensionContract: GetContractReturnType<
+        typeof horizonAccountingExtensionAbi,
+        typeof this.l2WriteClient,
         Address
     >;
 
     /**
      * Creates a new ProtocolProvider instance
-     * @param rpcUrls The RPC URLs to connect to the Arbitrum chain
+     * @param rpcConfig The configuration for RPC connections including URLs, timeout, retry interval, and transaction receipt confirmations
      * @param contracts The addresses of the protocol contracts that will be instantiated
      * @param privateKey The private key of the account that will be used to interact with the contracts
      */
@@ -115,64 +130,43 @@ export class ProtocolProvider implements IProtocolProvider {
         contracts: ProtocolContractsAddresses,
         privateKey: Hex,
     ) {
-        const { urls, timeout, retryInterval } = rpcConfig;
-
-        if (urls.length === 0) {
-            throw new RpcUrlsEmpty();
-        }
-
-        this.readClient = createPublicClient({
-            chain: arbitrum,
-            transport: fallback(
-                urls.map((url) =>
-                    http(url, {
-                        timeout: timeout,
-                        retryDelay: retryInterval,
-                    }),
-                ),
-            ),
-        });
-
-        const account = privateKeyToAccount(privateKey);
-
-        this.writeClient = createWalletClient({
-            chain: arbitrum,
-            transport: fallback(
-                urls.map((url) =>
-                    http(url, {
-                        timeout: timeout,
-                        retryDelay: retryInterval,
-                    }),
-                ),
-            ),
-            account: account,
-        });
+        this.l1ReadClient = this.createReadClient(rpcConfig.l1, mainnet);
+        this.l2ReadClient = this.createReadClient(rpcConfig.l2, arbitrum);
+        this.l2WriteClient = this.createWriteClient(rpcConfig.l2, arbitrum, privateKey);
 
         // Instantiate all the protocol contracts
         this.oracleContract = getContract({
             address: contracts.oracle,
             abi: oracleAbi,
-            client: this.writeClient,
+            client: this.l2WriteClient,
         });
         this.epochManagerContract = getContract({
             address: contracts.epochManager,
             abi: epochManagerAbi,
-            client: this.readClient,
+            client: this.l2ReadClient,
         });
         this.eboRequestCreatorContract = getContract({
             address: contracts.eboRequestCreator,
             abi: eboRequestCreatorAbi,
             client: {
-                public: this.readClient,
-                wallet: this.writeClient,
+                public: this.l2ReadClient,
+                wallet: this.l2WriteClient,
             },
         });
         this.bondEscalationContract = getContract({
             address: contracts.bondEscalationModule,
             abi: bondEscalationModuleAbi,
             client: {
-                public: this.readClient,
-                wallet: this.writeClient,
+                public: this.l2ReadClient,
+                wallet: this.l2WriteClient,
+            },
+        });
+        this.horizonAccountingExtensionContract = getContract({
+            address: contracts.horizonAccountingExtension,
+            abi: horizonAccountingExtensionAbi,
+            client: {
+                public: this.l2ReadClient,
+                wallet: this.l2WriteClient,
             },
         });
     }
@@ -187,6 +181,7 @@ export class ProtocolProvider implements IProtocolProvider {
         escalateDispute: this.escalateDispute.bind(this),
         finalize: this.finalize.bind(this),
         approveAccountingModules: this.approveAccountingModules.bind(this),
+        approveModule: this.approveModule.bind(this),
     };
 
     public read: IReadProvider = {
@@ -196,24 +191,73 @@ export class ProtocolProvider implements IProtocolProvider {
         getAvailableChains: this.getAvailableChains.bind(this),
         getAccountingModuleAddress: this.getAccountingModuleAddress.bind(this),
         getAccountingApprovedModules: this.getAccountingApprovedModules.bind(this),
+        getApprovedModules: this.getApprovedModules.bind(this),
     };
+
+    private createReadClient(
+        config: RpcConfig,
+        chain: Chain,
+    ): PublicClient<FallbackTransport<HttpTransport[]>> {
+        const { urls, timeout, retryInterval } = config;
+
+        if (urls.length === 0) {
+            throw new RpcUrlsEmpty();
+        }
+
+        return createPublicClient({
+            chain: chain,
+            transport: fallback(
+                urls.map((url) =>
+                    http(url, {
+                        timeout: timeout,
+                        retryDelay: retryInterval,
+                    }),
+                ),
+            ),
+        });
+    }
+
+    private createWriteClient(
+        config: RpcConfig,
+        chain: Chain,
+        privateKey: Hex,
+    ): WalletClient<FallbackTransport<HttpTransport[]>> {
+        const { urls, timeout, retryInterval } = config;
+        const account = privateKeyToAccount(privateKey);
+
+        return createWalletClient({
+            chain: chain,
+            transport: fallback(
+                urls.map((url) =>
+                    http(url, {
+                        timeout: timeout,
+                        retryDelay: retryInterval,
+                    }),
+                ),
+            ),
+            account: account,
+        });
+    }
 
     /**
      * Returns the address of the account used for transactions.
      *
      * @returns {Address} The account address.
+     * @throws {InvalidAccountOnClient} Throws if the write client does not have an assigned account.
      */
     public getAccountAddress(): Address {
-        if (!this.writeClient.account) {
+        if (!this.l2WriteClient.account) {
             throw new InvalidAccountOnClient();
         }
-        return this.writeClient.account.address;
+        return this.l2WriteClient.account.address;
     }
 
     /**
-     * Gets the current epoch, the block number and its timestamp of the current epoch
+     * Gets the current epoch, including the block number and its timestamp.
      *
-     * @returns The current epoch, its block number and its timestamp
+     * NOTE: this method works on L1 block numbers as EpochManager contract uses blocks from L1.
+     *
+     * @returns {Promise<Epoch>} The current epoch, its block number, and its timestamp.
      */
     async getCurrentEpoch(): Promise<Epoch> {
         const [epoch, epochFirstBlockNumber] = await Promise.all([
@@ -221,7 +265,7 @@ export class ProtocolProvider implements IProtocolProvider {
             this.epochManagerContract.read.currentEpochBlock(),
         ]);
 
-        const epochFirstBlock = await this.readClient.getBlock({
+        const epochFirstBlock = await this.l1ReadClient.getBlock({
             blockNumber: epochFirstBlockNumber,
         });
 
@@ -232,12 +276,24 @@ export class ProtocolProvider implements IProtocolProvider {
         };
     }
 
+    /**
+     * Gets the number of the last finalized block.
+     *
+     * @returns {Promise<bigint>} The block number of the last finalized block.
+     */
     async getLastFinalizedBlock(): Promise<bigint> {
-        const { number } = await this.readClient.getBlock({ blockTag: "finalized" });
+        const { number } = await this.l2ReadClient.getBlock({ blockTag: "finalized" });
 
         return number;
     }
 
+    /**
+     * Gets a list of events between two blocks.
+     *
+     * @param {bigint} _fromBlock - The starting block number.
+     * @param {bigint} _toBlock - The ending block number.
+     * @returns {Promise<EboEvent<EboEventName>[]>} A list of EBO events.
+     */
     async getEvents(_fromBlock: bigint, _toBlock: bigint): Promise<EboEvent<EboEventName>[]> {
         // TODO: implement actual method.
         //
@@ -272,9 +328,8 @@ export class ProtocolProvider implements IProtocolProvider {
      * Merge multiple streams of events considering the chain order, based on their block numbers
      * and log indexes.
      *
-     * @param streams a collection of EboEvent[] arrays.
-     * @returns the EboEvent[] arrays merged in a single array and sorted by ascending blockNumber
-     *  and logIndex
+     * @param {EboEvent<EboEventName>[][]} streams - A collection of EboEvent[] arrays.
+     * @returns {EboEvent<EboEventName>[]} The merged and sorted event array.
      */
     private mergeEventStreams(...streams: EboEvent<EboEventName>[][]) {
         return streams
@@ -293,12 +348,51 @@ export class ProtocolProvider implements IProtocolProvider {
     // TODO: use Caip2 Chain ID instead of string in return type
     async getAvailableChains(): Promise<Caip2ChainId[]> {
         // TODO: implement actual method
-        return ["eip155:1", "eip155:42161"];
+        return ["eip155:42161"];
     }
 
     getAccountingModuleAddress(): Address {
         // TODO: implement actual method
         return "0x01";
+    }
+
+    /**
+     * Approves a module in the accounting extension contract.
+     *
+     * @param {Address} module - The address of the module to approve.
+     * @throws {TransactionExecutionError} Throws if the transaction fails during execution.
+     * @returns {Promise<void>} A promise that resolves when the module is approved.
+     */
+    async approveModule(module: Address): Promise<void> {
+        const { request: simulatedRequest } = await this.l2ReadClient.simulateContract({
+            address: this.horizonAccountingExtensionContract.address,
+            abi: horizonAccountingExtensionAbi,
+            functionName: "approveModule",
+            args: [module],
+            account: this.l2WriteClient.account,
+        });
+
+        const hash = await this.l2WriteClient.writeContract(simulatedRequest);
+
+        const { transactionReceiptConfirmations } = this.rpcConfig.l2;
+        const receipt = await this.l2ReadClient.waitForTransactionReceipt({
+            hash,
+            confirmations: transactionReceiptConfirmations,
+        });
+
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("approveModule transaction failed");
+        }
+    }
+
+    /**
+     * Gets the list of approved modules' addresses for a given user.
+     *
+     * @param {Address} user - The address of the user.
+     * @returns {Promise<Address[]>} A promise that resolves with an array of approved modules for the user.
+     */
+    async getApprovedModules(user: Address): Promise<Address[]> {
+        return [...(await this.horizonAccountingExtensionContract.read.approvedModules([user]))];
     }
 
     async getAccountingApprovedModules(): Promise<Address[]> {
@@ -311,11 +405,10 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Decodes the Prophet's request responseModuleData bytes into an object.
+     * Decodes the request's response module data bytes into an object.
      *
-     * @param responseModuleData responseModuleData bytes
-     * @throws {BaseErrorType} when the responseModuleData decoding fails
-     * @returns a decoded object with responseModuleData properties
+     * @param {Request["prophetData"]["responseModuleData"]} responseModuleData - The response module data bytes.
+     * @returns {Request["decodedData"]["responseModuleData"]} A decoded object with responseModuleData properties.
      */
     static decodeRequestResponseModuleData(
         responseModuleData: Request["prophetData"]["responseModuleData"],
@@ -335,11 +428,10 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Decodes the Prophet's request disputeModuelData bytes into an object.
+     * Decodes the request's dispute module data bytes into an object.
      *
-     * @param disputeModuelData disputeModuelData bytes
-     * @throws {BaseErrorType} when the disputeModuelData decoding fails
-     * @returns a decoded object with disputeModuelData properties
+     * @param {Request["prophetData"]["disputeModuleData"]} disputeModuleData - The dispute module data bytes.
+     * @returns {Request["decodedData"]["disputeModuleData"]} A decoded object with disputeModuleData properties.
      */
     static decodeRequestDisputeModuleData(
         disputeModuleData: Request["prophetData"]["disputeModuleData"],
@@ -361,45 +453,31 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Encodes a Prophet's response body object into bytes.
+     * Encodes a response object into bytes.
      *
-     * @param response response body object
-     * @returns byte-encode response body
+     * @param {Response["decodedData"]["response"]} response - The response object to encode.
+     * @returns {Response["prophetData"]["response"]} Byte-encoded response body.
      */
     static encodeResponse(
         response: Response["decodedData"]["response"],
     ): Response["prophetData"]["response"] {
-        return encodeAbiParameters(RESPONSE_ABI_FIELDS, [
-            response.chainId,
-            response.epoch,
-            response.block,
-        ]);
+        return encodeAbiParameters(RESPONSE_ABI_FIELDS, [response.block]);
     }
 
     /**
-     * Decodes a Prophet's response body bytes into an object.
+     * Decodes a response body bytes into an object.
      *
-     * @param response response body bytes
-     * @returns decoded response body object
+     * @param {Response["prophetData"]["response"]} response - The response body bytes.
+     * @returns {Response["decodedData"]["response"]} Decoded response body object.
      */
     static decodeResponse(
         response: Response["prophetData"]["response"],
     ): Response["decodedData"]["response"] {
         const decodedParameters = decodeAbiParameters(RESPONSE_ABI_FIELDS, response);
 
-        const chainId = decodedParameters[0];
-
-        if (Caip2Utils.isCaip2ChainId(chainId)) {
-            return {
-                chainId: chainId,
-                epoch: decodedParameters[1],
-                block: decodedParameters[2],
-            };
-        } else {
-            throw new InvalidChainId(
-                `Could not decode response chain ID while decoding:\n${response}`,
-            );
-        }
+        return {
+            block: decodedParameters[0],
+        };
     }
 
     // TODO: waiting for ChainId to be merged for _chains parameter
@@ -408,40 +486,29 @@ export class ProtocolProvider implements IProtocolProvider {
      * and then executing it if the simulation is successful.
      *
      * @param {bigint} epoch - The epoch for which the request is being created.
-     * @param {Caip2ChainId[]} chains - An array of chain identifiers where the request should be created.
+     * @param {Caip2ChainId} chain - A chain identifier for which the request should be created.
      * @throws {Error} Throws an error if the chains array is empty or if the transaction fails.
-     * @throws {EBORequestCreator_InvalidEpoch} Throws if the epoch is invalid.
-     * @throws {Oracle_InvalidRequestBody} Throws if the request body is invalid.
-     * @throws {EBORequestModule_InvalidRequester} Throws if the requester is invalid.
-     * @throws {EBORequestCreator_ChainNotAdded} Throws if the specified chain is not added.
      * @returns {Promise<void>} A promise that resolves when the request is successfully created.
      */
-    async createRequest(epoch: bigint, chains: Caip2ChainId[]): Promise<void> {
-        if (chains.length === 0) {
-            throw new Error("Chains array cannot be empty");
-        }
+    async createRequest(epoch: bigint, chain: Caip2ChainId): Promise<void> {
+        const { request } = await this.l2ReadClient.simulateContract({
+            address: this.eboRequestCreatorContract.address,
+            abi: eboRequestCreatorAbi,
+            functionName: "createRequest",
+            args: [epoch, chain],
+            account: this.l2WriteClient.account,
+        });
 
-        try {
-            const { request } = await this.readClient.simulateContract({
-                address: this.eboRequestCreatorContract.address,
-                abi: eboRequestCreatorAbi,
-                functionName: "createRequests",
-                args: [epoch, chains],
-                account: this.writeClient.account,
-            });
+        const hash = await this.l2WriteClient.writeContract(request);
 
-            const hash = await this.writeClient.writeContract(request);
+        const { transactionReceiptConfirmations } = this.rpcConfig.l2;
+        const receipt = await this.l2ReadClient.waitForTransactionReceipt({
+            hash,
+            confirmations: transactionReceiptConfirmations,
+        });
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
-
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("createRequest transaction failed");
-            }
-        } catch (error) {
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("createRequest transaction failed");
         }
     }
 
@@ -458,27 +525,24 @@ export class ProtocolProvider implements IProtocolProvider {
         request: Request["prophetData"],
         response: Response["prophetData"],
     ): Promise<void> {
-        try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.oracleContract.address,
-                abi: oracleAbi,
-                functionName: "proposeResponse",
-                args: [request, response],
-                account: this.writeClient.account,
-            });
+        const { request: simulatedRequest } = await this.l2ReadClient.simulateContract({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            functionName: "proposeResponse",
+            args: [request, response],
+            account: this.l2WriteClient.account,
+        });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+        const hash = await this.l2WriteClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
+        const { transactionReceiptConfirmations } = this.rpcConfig.l2;
+        const receipt = await this.l2ReadClient.waitForTransactionReceipt({
+            hash,
+            confirmations: transactionReceiptConfirmations,
+        });
 
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("proposeResponse transaction failed");
-            }
-        } catch (error) {
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("proposeResponse transaction failed");
         }
     }
 
@@ -497,27 +561,24 @@ export class ProtocolProvider implements IProtocolProvider {
         response: Response["prophetData"],
         dispute: Dispute["prophetData"],
     ): Promise<void> {
-        try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.oracleContract.address,
-                abi: oracleAbi,
-                functionName: "disputeResponse",
-                args: [request, response, dispute],
-                account: this.writeClient.account,
-            });
+        const { request: simulatedRequest } = await this.l2ReadClient.simulateContract({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            functionName: "disputeResponse",
+            args: [request, response, dispute],
+            account: this.l2WriteClient.account,
+        });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+        const hash = await this.l2WriteClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
+        const { transactionReceiptConfirmations } = this.rpcConfig.l2;
+        const receipt = await this.l2ReadClient.waitForTransactionReceipt({
+            hash,
+            confirmations: transactionReceiptConfirmations,
+        });
 
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("disputeResponse transaction failed");
-            }
-        } catch (error) {
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("disputeResponse transaction failed");
         }
     }
 
@@ -535,19 +596,20 @@ export class ProtocolProvider implements IProtocolProvider {
         dispute: Dispute["prophetData"],
     ): Promise<void> {
         try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
+            const { request: simulatedRequest } = await this.l2ReadClient.simulateContract({
                 address: this.bondEscalationContract.address,
                 abi: bondEscalationModuleAbi,
                 functionName: "pledgeForDispute",
                 args: [request, dispute],
-                account: this.writeClient.account,
+                account: this.l2WriteClient.account,
             });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+            const hash = await this.l2WriteClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
+            const { transactionReceiptConfirmations } = this.rpcConfig.l2;
+            const receipt = await this.l2ReadClient.waitForTransactionReceipt({
                 hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
+                confirmations: transactionReceiptConfirmations,
             });
 
             if (receipt.status !== "success") {
@@ -581,19 +643,20 @@ export class ProtocolProvider implements IProtocolProvider {
         dispute: Dispute["prophetData"],
     ): Promise<void> {
         try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
+            const { request: simulatedRequest } = await this.l2ReadClient.simulateContract({
                 address: this.bondEscalationContract.address,
                 abi: bondEscalationModuleAbi,
                 functionName: "pledgeAgainstDispute",
                 args: [request, dispute],
-                account: this.writeClient.account,
+                account: this.l2WriteClient.account,
             });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+            const hash = await this.l2WriteClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
+            const { transactionReceiptConfirmations } = this.rpcConfig.l2;
+            const receipt = await this.l2ReadClient.waitForTransactionReceipt({
                 hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
+                confirmations: transactionReceiptConfirmations,
             });
 
             if (receipt.status !== "success") {
@@ -629,19 +692,20 @@ export class ProtocolProvider implements IProtocolProvider {
         dispute: Dispute["prophetData"],
     ): Promise<void> {
         try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
+            const { request: simulatedRequest } = await this.l2ReadClient.simulateContract({
                 address: this.bondEscalationContract.address,
                 abi: bondEscalationModuleAbi,
                 functionName: "settleBondEscalation",
                 args: [request, response, dispute],
-                account: this.writeClient.account,
+                account: this.l2WriteClient.account,
             });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+            const hash = await this.l2WriteClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
+            const { transactionReceiptConfirmations } = this.rpcConfig.l2;
+            const receipt = await this.l2ReadClient.waitForTransactionReceipt({
                 hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
+                confirmations: transactionReceiptConfirmations,
             });
 
             if (receipt.status !== "success") {
@@ -681,27 +745,24 @@ export class ProtocolProvider implements IProtocolProvider {
         response: Response["prophetData"],
         dispute: Dispute["prophetData"],
     ): Promise<void> {
-        try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.oracleContract.address,
-                abi: oracleAbi,
-                functionName: "escalateDispute",
-                args: [request, response, dispute],
-                account: this.writeClient.account,
-            });
+        const { request: simulatedRequest } = await this.l2ReadClient.simulateContract({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            functionName: "escalateDispute",
+            args: [request, response, dispute],
+            account: this.l2WriteClient.account,
+        });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+        const hash = await this.l2WriteClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
+        const { transactionReceiptConfirmations } = this.rpcConfig.l2;
+        const receipt = await this.l2ReadClient.waitForTransactionReceipt({
+            hash,
+            confirmations: transactionReceiptConfirmations,
+        });
 
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("escalateDispute transaction failed");
-            }
-        } catch (error) {
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("escalateDispute transaction failed");
         }
     }
 
@@ -724,27 +785,24 @@ export class ProtocolProvider implements IProtocolProvider {
         request: Request["prophetData"],
         response: Response["prophetData"],
     ): Promise<void> {
-        try {
-            const { request: simulatedRequest } = await this.readClient.simulateContract({
-                address: this.oracleContract.address,
-                abi: oracleAbi,
-                functionName: "finalize",
-                args: [request, response],
-                account: this.writeClient.account,
-            });
+        const { request: simulatedRequest } = await this.l2ReadClient.simulateContract({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            functionName: "finalize",
+            args: [request, response],
+            account: this.l2WriteClient.account,
+        });
 
-            const hash = await this.writeClient.writeContract(simulatedRequest);
+        const hash = await this.l2WriteClient.writeContract(simulatedRequest);
 
-            const receipt = await this.readClient.waitForTransactionReceipt({
-                hash,
-                confirmations: this.rpcConfig.transactionReceiptConfirmations,
-            });
+        const { transactionReceiptConfirmations } = this.rpcConfig.l2;
+        const receipt = await this.l2ReadClient.waitForTransactionReceipt({
+            hash,
+            confirmations: transactionReceiptConfirmations,
+        });
 
-            if (receipt.status !== "success") {
-                throw new TransactionExecutionError("finalize transaction failed");
-            }
-        } catch (error) {
-            throw error;
+        if (receipt.status !== "success") {
+            throw new TransactionExecutionError("finalize transaction failed");
         }
     }
 }

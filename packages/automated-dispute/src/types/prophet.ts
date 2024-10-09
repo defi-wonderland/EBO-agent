@@ -53,9 +53,7 @@ export interface Request {
 }
 
 export type ResponseBody = {
-    chainId: Caip2ChainId;
     block: bigint;
-    epoch: bigint;
 };
 
 export interface Response {

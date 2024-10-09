@@ -1,4 +1,4 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
 import { ILogger } from "@ebo-agent/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 

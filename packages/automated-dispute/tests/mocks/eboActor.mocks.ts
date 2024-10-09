@@ -24,10 +24,18 @@ export function buildEboActor(request: Request, logger: ILogger) {
 
     const protocolProvider = new ProtocolProvider(
         {
-            urls: ["http://localhost:8545"],
-            retryInterval: 1,
-            timeout: 100,
-            transactionReceiptConfirmations: 1,
+            l1: {
+                urls: ["http://localhost:8545"],
+                retryInterval: 1,
+                timeout: 100,
+                transactionReceiptConfirmations: 1,
+            },
+            l2: {
+                urls: ["http://localhost:8546"],
+                retryInterval: 1,
+                timeout: 100,
+                transactionReceiptConfirmations: 1,
+            },
         },
         DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
         mockedPrivateKey,
@@ -102,9 +110,7 @@ export function buildEboActor(request: Request, logger: ILogger) {
  */
 export function buildResponse(request: Request, attributes: Partial<Response> = {}): Response {
     const responseBody: ResponseBody = {
-        chainId: request.chainId,
         block: 1n,
-        epoch: request.epoch,
     };
 
     const baseResponse: Response = {

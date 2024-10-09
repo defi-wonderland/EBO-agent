@@ -521,9 +521,10 @@ describe("EboProcessor", () => {
 
             await processor.start();
 
-            expect(mockProtocolProviderCreateRequest).toHaveBeenCalledWith(currentEpoch.number, [
+            expect(mockProtocolProviderCreateRequest).toHaveBeenCalledWith(
+                currentEpoch.number,
                 "eip155:42161",
-            ]);
+            );
         });
 
         it("does not create a new request if a corresponding actor already exist", async () => {

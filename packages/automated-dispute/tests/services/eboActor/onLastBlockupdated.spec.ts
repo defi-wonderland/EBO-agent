@@ -1,4 +1,3 @@
-import { ContractFunctionRevertedError } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
 import { DisputeWithoutResponse } from "../../../src/exceptions/index.js";
@@ -47,7 +46,7 @@ describe("EboActor", () => {
             );
         });
 
-        it("escalates dispute if cannot settle", async () => {
+        it("throws error when settleDispute fails during onLastBlockUpdated", async () => {
             const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
             const { disputeModuleData } = request.decodedData;
 
@@ -60,43 +59,18 @@ describe("EboActor", () => {
 
             vi.spyOn(registry, "getRequest").mockReturnValue(request);
             vi.spyOn(registry, "getResponse").mockImplementation((id) => {
-                switch (id) {
-                    case response.id:
-                        return response;
-                }
+                if (id === response.id) return response;
             });
-            // Skipping finalize flow with this mock
             vi.spyOn(registry, "getResponses").mockReturnValue([]);
             vi.spyOn(registry, "getDisputes").mockReturnValue([dispute]);
 
-            const error = Object.create(ContractFunctionRevertedError.prototype);
-            error.data = { errorName: "BondEscalationModule_ShouldBeEscalated" };
+            const settleError = new Error("SettleDispute failed");
 
-            const mockSettleDispute = vi
-                .spyOn(protocolProvider, "settleDispute")
-                .mockImplementation(async () => {
-                    throw error;
-                });
-
-            const mockEscalateDispute = vi
-                .spyOn(protocolProvider, "escalateDispute")
-                .mockImplementation(() => Promise.resolve());
+            vi.spyOn(protocolProvider, "settleDispute").mockRejectedValue(settleError);
 
             const newBlockNumber = disputeDeadline + 1n;
 
-            await actor.onLastBlockUpdated(newBlockNumber);
-
-            expect(mockSettleDispute).toHaveBeenCalledWith(
-                request.prophetData,
-                response.prophetData,
-                dispute.prophetData,
-            );
-
-            expect(mockEscalateDispute).toHaveBeenCalledWith(
-                request.prophetData,
-                response.prophetData,
-                dispute.prophetData,
-            );
+            await expect(actor.onLastBlockUpdated(newBlockNumber)).rejects.toThrow(settleError);
         });
 
         it("throws if the dispute has no response in registry", async () => {

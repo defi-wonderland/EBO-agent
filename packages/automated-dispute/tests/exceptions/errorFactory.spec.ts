@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CustomContractError } from "../../src/exceptions/customContractError";
-import { ErrorFactory } from "../../src/exceptions/errorFactory";
+import { CustomContractError, ErrorFactory } from "../../src/exceptions/index.js";
 
 describe("ErrorFactory", () => {
     it("creates a CustomContractError with the correct name and strategy for known errors", () => {
