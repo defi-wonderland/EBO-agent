@@ -40,7 +40,7 @@ import {
     NotificationService,
     UpdateDisputeStatus,
 } from "../services/index.js";
-import { ActorRequest } from "../types/actorRequest.js";
+import { ActorRequest } from "../types/index.js";
 
 /**
  * Compare function to sort events chronologically in ascending order by block number
@@ -76,16 +76,20 @@ export class EboActor {
      */
     private readonly eventsQueue: Heap<EboEvent<EboEventName>>;
     private lastEventProcessed: EboEvent<EboEventName> | undefined;
+    private errorHandler: ErrorHandler;
 
     /**
      * Creates an `EboActor` instance.
      *
      * @param actorRequest.id request ID this actor will handle
      * @param actorRequest.epoch requested epoch
+     * @param actorRequest
      * @param protocolProvider a `ProtocolProvider` instance
      * @param blockNumberService a `BlockNumberService` instance
      * @param registry an `EboRegistry` instance
+     * @param eventProcessingMutex
      * @param logger an `ILogger` instance
+     * @param notificationService for notifying about any agent or contract errors
      */
     constructor(
         public readonly actorRequest: ActorRequest,
@@ -97,6 +101,7 @@ export class EboActor {
         private readonly notificationService: NotificationService,
     ) {
         this.eventsQueue = new Heap(EBO_EVENT_COMPARATOR);
+        this.errorHandler = new ErrorHandler(this.notificationService);
     }
 
     /**
@@ -171,12 +176,7 @@ export class EboActor {
                             },
                         );
 
-                        await ErrorHandler.handle(err, this.logger);
-
-                        if (err.strategy.shouldNotify) {
-                            // TODO: add notification logic
-                            continue;
-                        }
+                        await this.errorHandler.handle(err, this.logger);
                         return;
                     } else {
                         throw err;
@@ -404,8 +404,7 @@ export class EboActor {
                             dispute.prophetData,
                         );
                         this.logger.info(`Dispute ${dispute.id} escalated.`);
-
-                        await ErrorHandler.handle(customError, this.logger);
+                        await this.errorHandler.handle(customError, this.logger);
                     } catch (escalationError) {
                         this.logger.error(
                             `Failed to escalate dispute ${dispute.id}: ${escalationError}`,
@@ -621,8 +620,7 @@ export class EboActor {
                 };
                 customError.setContext(context);
 
-                await ErrorHandler.handle(customError, this.logger);
-
+                await this.errorHandler.handle(customError, this.logger);
                 this.logger.warn(
                     `Block ${responseBody.block} for epoch ${request.epoch} and ` +
                         `chain ${chainId} was not proposed. Skipping proposal...`,
@@ -809,7 +807,7 @@ export class EboActor {
                 };
                 customError.setContext(context);
 
-                await ErrorHandler.handle(customError, this.logger);
+                await this.errorHandler.handle(customError, this.logger);
             } else {
                 throw err;
             }
@@ -847,7 +845,7 @@ export class EboActor {
                 };
                 customError.setContext(context);
 
-                await ErrorHandler.handle(customError, this.logger);
+                await this.errorHandler.handle(customError, this.logger);
             } else {
                 throw err;
             }
@@ -892,12 +890,6 @@ export class EboActor {
 
     private async onDisputeEscalated(event: EboEvent<"DisputeEscalated">) {
         const request = this.getActorRequest();
-
-        await this.notificationService.notifyError(new Error("Dispute Escalated"), {
-            event,
-            request,
-        });
-
         this.logger.info(
             `Dispute ${event.metadata.disputeId} for request ${request.id} has been escalated.`,
         );
@@ -914,12 +906,6 @@ export class EboActor {
                 //
                 // This actor will just wait until the proposal window ends.
                 this.logger.warn(err.message);
-
-                await this.notificationService.notifyError(err, {
-                    disputeId,
-                    request,
-                    message: err.message,
-                });
             } else {
                 this.logger.error(
                     `Could not handle dispute ${disputeId} changing to NoResolution status.`,

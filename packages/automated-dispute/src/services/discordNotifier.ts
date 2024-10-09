@@ -1,4 +1,5 @@
 import { Client, IntentsBitField, TextChannel } from "discord.js";
+import { stringify } from "viem";
 
 import { NotificationService } from "./notificationService.js";
 
@@ -75,7 +76,7 @@ export class DiscordNotifier implements NotificationService {
      * @returns {string} The formatted error message.
      */
     private formatErrorMessage(error: Error, context: any): string {
-        return `**Error:** ${error.name} - ${error.message}\n**Context:**\n\`\`\`json\n${JSON.stringify(
+        return `**Error:** ${error.name} - ${error.message}\n**Context:**\n\`\`\`json\n${stringify(
             context,
             null,
             2,
