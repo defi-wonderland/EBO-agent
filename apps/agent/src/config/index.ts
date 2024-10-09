@@ -48,8 +48,14 @@ export const config = {
     protocolProvider: {
         ...configData.protocolProvider,
         rpcsConfig: {
-            ...configData.protocolProvider.rpcsConfig,
-            urls: envData.PROTOCOL_PROVIDER_RPC_URLS,
+            l1: {
+                ...configData.protocolProvider.rpcsConfig.l1,
+                urls: envData.PROTOCOL_PROVIDER_L1_RPC_URLS,
+            },
+            l2: {
+                ...configData.protocolProvider.rpcsConfig.l2,
+                urls: envData.PROTOCOL_PROVIDER_L2_RPC_URLS,
+            },
         },
         privateKey: envData.PROTOCOL_PROVIDER_PRIVATE_KEY,
     },
