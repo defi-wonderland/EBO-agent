@@ -1048,7 +1048,7 @@ describe("ProtocolProvider", () => {
                 },
             ];
 
-            (protocolProvider["readClient"] as any).getLogs = vi.fn().mockResolvedValue(mockLogs);
+            (protocolProvider["l2ReadClient"] as any).getLogs = vi.fn().mockResolvedValue(mockLogs);
 
             vi.spyOn(protocolProvider as any, "parseOracleEvent").mockReturnValue({
                 name: "ResponseProposed",
@@ -1081,27 +1081,30 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            (protocolProvider["readClient"] as any).getContractEvents = vi.fn().mockResolvedValue([
-                {
-                    address: "0x1234567890123456789012345678901234567890",
-                    args: {
-                        _requestId: "0x123",
-                        _epoch: 1n,
-                        _chainId: "eip155:1",
+            (protocolProvider["l2ReadClient"] as any).getContractEvents = vi
+                .fn()
+                .mockResolvedValue([
+                    {
+                        address: "0x1234567890123456789012345678901234567890",
+                        args: {
+                            _requestId: "0x123",
+                            _epoch: 1n,
+                            _chainId: "eip155:1",
+                        },
+                        blockNumber: 1n,
+                        logIndex: 1,
+                        blockHash:
+                            "0x1234567890123456789012345678901234567890123456789012345678901234",
+                        transactionHash: "0x1234567890123456789012345678901234567890",
+                        transactionIndex: 1,
+                        data: "0x0000000000000000000000000000000000000000000000000000000000000003",
+                        removed: false,
+                        topics: [
+                            "0x0000000000000000000000000000000000000000000000000000000000000001",
+                            "0x0000000000000000000000000000000000000000000000000000000000000002",
+                        ],
                     },
-                    blockNumber: 1n,
-                    logIndex: 1,
-                    blockHash: "0x1234567890123456789012345678901234567890123456789012345678901234",
-                    transactionHash: "0x1234567890123456789012345678901234567890",
-                    transactionIndex: 1,
-                    data: "0x0000000000000000000000000000000000000000000000000000000000000003",
-                    removed: false,
-                    topics: [
-                        "0x0000000000000000000000000000000000000000000000000000000000000001",
-                        "0x0000000000000000000000000000000000000000000000000000000000000002",
-                    ],
-                },
-            ]);
+                ]);
 
             const result = await (protocolProvider as any).getEBORequestCreatorEvents(0n, 100n);
 

@@ -409,7 +409,7 @@ export class ProtocolProvider implements IProtocolProvider {
             "RequestFinalized",
         ];
 
-        const logs = await this.readClient.getLogs({
+        const logs = await this.l2ReadClient.getLogs({
             address: this.oracleContract.address,
             events: eventNames.map(
                 (eventName) =>
@@ -433,7 +433,7 @@ export class ProtocolProvider implements IProtocolProvider {
      * @returns A promise that resolves to an array of EboEvents.
      */
     private async getEBORequestCreatorEvents(fromBlock: bigint, toBlock: bigint) {
-        const events = await this.readClient.getContractEvents({
+        const events = await this.l2ReadClient.getContractEvents({
             address: this.eboRequestCreatorContract.address,
             abi: eboRequestCreatorAbi,
             eventName: "RequestCreated",
