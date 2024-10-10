@@ -55,10 +55,18 @@ vi.mock("viem", async () => {
 
 describe("ProtocolProvider", () => {
     const mockRpcConfig = {
-        urls: ["http://localhost:8545"],
-        retryInterval: 1,
-        timeout: 100,
-        transactionReceiptConfirmations: 1,
+        l1: {
+            urls: ["http://localhost:8545"],
+            retryInterval: 1,
+            timeout: 100,
+            transactionReceiptConfirmations: 1,
+        },
+        l2: {
+            urls: ["http://localhost:8546"],
+            retryInterval: 1,
+            timeout: 100,
+            transactionReceiptConfirmations: 1,
+        },
     };
 
     const mockContractAddress: ProtocolContractsAddresses = {
@@ -163,7 +171,7 @@ describe("ProtocolProvider", () => {
             expect(createPublicClient).toHaveBeenCalledWith({
                 chain: arbitrum,
                 transport: fallback(
-                    mockRpcConfig.urls.map((url) =>
+                    mockRpcConfig.l2.urls.map((url) =>
                         http(url, {
                             timeout: protocolProvider["TIMEOUT"],
                             retryDelay: protocolProvider["RETRY_INTERVAL"],
@@ -175,7 +183,7 @@ describe("ProtocolProvider", () => {
             expect(createWalletClient).toHaveBeenCalledWith({
                 chain: arbitrum,
                 transport: fallback(
-                    mockRpcConfig.urls.map((url) =>
+                    mockRpcConfig.l2.urls.map((url) =>
                         http(url, {
                             timeout: protocolProvider["TIMEOUT"],
                             retryDelay: protocolProvider["RETRY_INTERVAL"],
@@ -196,20 +204,32 @@ describe("ProtocolProvider", () => {
             expect(getContract).toHaveBeenCalledWith({
                 address: mockContractAddress.oracle,
                 abi: oracleAbi,
-                client: protocolProvider["writeClient"],
+                client: protocolProvider["l2WriteClient"],
             });
 
             expect(getContract).toHaveBeenCalledWith({
                 address: mockContractAddress.epochManager,
                 abi: epochManagerAbi,
-                client: protocolProvider["readClient"],
+                client: protocolProvider["l2ReadClient"],
             });
         });
-        it("throws if rpcUrls are empty", () => {
+
+        it("throws if L1 rpcUrls are empty", () => {
             expect(
                 () =>
                     new ProtocolProvider(
-                        { ...mockRpcConfig, urls: [] },
+                        { ...mockRpcConfig, l1: { ...mockRpcConfig.l1, urls: [] } },
+                        mockContractAddress,
+                        mockedPrivateKey,
+                    ),
+            ).toThrowError(RpcUrlsEmpty);
+        });
+
+        it("throws if L2 rpcUrls are empty", () => {
+            expect(
+                () =>
+                    new ProtocolProvider(
+                        { ...mockRpcConfig, l2: { ...mockRpcConfig.l2, urls: [] } },
                         mockContractAddress,
                         mockedPrivateKey,
                     ),
@@ -346,7 +366,7 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+            (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
                 status: "reverted",
             });
 
@@ -365,7 +385,7 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            (protocolProvider["writeClient"].writeContract as Mock).mockRejectedValue(
+            (protocolProvider["l2WriteClient"].writeContract as Mock).mockRejectedValue(
                 new Error("Transaction couldn't be confirmed"),
             );
 
@@ -384,7 +404,7 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            (protocolProvider["readClient"].simulateContract as Mock).mockRejectedValue(
+            (protocolProvider["l2ReadClient"].simulateContract as Mock).mockRejectedValue(
                 new ContractFunctionRevertedError({
                     abi: eboRequestCreatorAbi,
                     functionName: "proposeResponse",
@@ -406,7 +426,7 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockRejectedValue(
+            (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockRejectedValue(
                 new WaitForTransactionReceiptTimeoutError({ hash: "0xmockedTransactionHash" }),
             );
 
@@ -447,7 +467,7 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+            (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
                 status: "reverted",
             });
 
@@ -493,7 +513,7 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+            (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
                 status: "reverted",
             });
 
@@ -544,7 +564,7 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+            (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
                 status: "reverted",
             });
 
@@ -569,13 +589,13 @@ describe("ProtocolProvider", () => {
             const mockChain: Caip2ChainId = "eip155:42161";
 
             const mockWriteContractResponse = "0xmockedTransactionHash";
-            (protocolProvider["writeClient"].writeContract as Mock).mockResolvedValue(
+            (protocolProvider["l2WriteClient"].writeContract as Mock).mockResolvedValue(
                 mockWriteContractResponse,
             );
 
             await protocolProvider.createRequest(mockEpoch, mockChain);
 
-            expect(protocolProvider["readClient"].simulateContract).toHaveBeenCalledWith({
+            expect(protocolProvider["l2ReadClient"].simulateContract).toHaveBeenCalledWith({
                 address: mockContractAddress.eboRequestCreator,
                 abi: eboRequestCreatorAbi,
                 functionName: "createRequest",
@@ -583,7 +603,7 @@ describe("ProtocolProvider", () => {
                 account: expect.any(Object),
             });
 
-            expect(protocolProvider["writeClient"].writeContract).toHaveBeenCalledWith(
+            expect(protocolProvider["l2WriteClient"].writeContract).toHaveBeenCalledWith(
                 expect.objectContaining({
                     functionName: "createRequest",
                     args: [mockEpoch, mockChain],
@@ -611,7 +631,7 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            (protocolProvider["writeClient"] as any).account = undefined;
+            (protocolProvider["l2WriteClient"] as any).account = undefined;
 
             expect(() => protocolProvider.getAccountAddress()).toThrow(InvalidAccountOnClient);
         });
@@ -640,7 +660,7 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+            (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
                 status: "reverted",
             });
 
@@ -679,7 +699,7 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+            (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
                 status: "reverted",
             });
 
@@ -723,7 +743,7 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+            (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
                 status: "reverted",
             });
 
@@ -753,7 +773,7 @@ describe("ProtocolProvider", () => {
 
             await expect(protocolProvider.approveModule(mockModuleAddress)).resolves.not.toThrow();
 
-            expect(protocolProvider["readClient"].simulateContract).toHaveBeenCalledWith({
+            expect(protocolProvider["l2ReadClient"].simulateContract).toHaveBeenCalledWith({
                 address: mockContractAddress.horizonAccountingExtension,
                 abi: horizonAccountingExtensionAbi,
                 functionName: "approveModule",
@@ -761,7 +781,7 @@ describe("ProtocolProvider", () => {
                 account: expect.any(Object),
             });
 
-            expect(protocolProvider["writeClient"].writeContract).toHaveBeenCalledWith(
+            expect(protocolProvider["l2WriteClient"].writeContract).toHaveBeenCalledWith(
                 expect.objectContaining({
                     functionName: "approveModule",
                     args: [mockModuleAddress],
@@ -776,7 +796,7 @@ describe("ProtocolProvider", () => {
                 mockedPrivateKey,
             );
 
-            (protocolProvider["readClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
+            (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
                 status: "reverted",
             });
 

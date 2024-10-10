@@ -1,34 +1,31 @@
-import { Logger } from "@ebo-agent/shared";
+import { ILogger } from "@ebo-agent/shared";
 
 import { CustomContractError } from "../exceptions/index.js";
 import { ErrorContext } from "../types/index.js";
 
 export class ErrorHandler {
-    private static logger = Logger.getInstance();
-
-    public static async handle(error: CustomContractError): Promise<void> {
+    public static async handle(error: CustomContractError, logger: ILogger): Promise<void> {
         const strategy = error.strategy;
         const context = error.getContext();
 
-        this.logger.error(`Error occurred: ${error.message}`);
-
-        if (strategy.shouldNotify) {
-            await this.notifyError(error, context);
-        }
+        logger.error(`Error occurred: ${error.message}`);
 
         try {
             await error.executeCustomAction();
         } catch (actionError) {
-            this.logger.error(`Error executing custom action: ${actionError}`);
-            // Continue without rethrowing
-        }
+            logger.error(`Error executing custom action: ${actionError}`);
+        } finally {
+            if (strategy.shouldNotify) {
+                await this.notifyError(error, context);
+            }
 
-        if (strategy.shouldReenqueue && context.reenqueueEvent) {
-            context.reenqueueEvent();
-        }
+            if (strategy.shouldReenqueue && context.reenqueueEvent) {
+                context.reenqueueEvent();
+            }
 
-        if (strategy.shouldTerminate && context.terminateActor) {
-            context.terminateActor();
+            if (strategy.shouldTerminate && context.terminateActor) {
+                context.terminateActor();
+            }
         }
     }
 
