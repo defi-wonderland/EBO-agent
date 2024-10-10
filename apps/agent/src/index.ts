@@ -24,10 +24,13 @@ const main = async (): Promise<void> => {
 
     const actorsManager = new EboActorsManager();
 
-    const notifier = await DiscordNotifier.create({
-        discordBotToken: config.DISCORD_BOT_TOKEN,
-        discordChannelId: config.DISCORD_CHANNEL_ID,
-    });
+    const notifier = await DiscordNotifier.create(
+        {
+            discordBotToken: config.DISCORD_BOT_TOKEN,
+            discordChannelId: config.DISCORD_CHANNEL_ID,
+        },
+        logger,
+    );
 
     const processor = new EboProcessor(
         config.processor.accountingModules,

@@ -1,7 +1,9 @@
+import { ILogger } from "@ebo-agent/shared";
 import { Client, IntentsBitField } from "discord.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DiscordNotifier } from "../../src/services/index.js";
+import mocks from "../mocks/index.js";
 
 vi.mock("discord.js", async () => {
     const actualDiscord = await vi.importActual<typeof import("discord.js")>("discord.js");
@@ -42,10 +44,11 @@ describe("DiscordNotifier", () => {
     };
 
     let notifier: DiscordNotifier;
+    const logger: ILogger = mocks.mockLogger();
 
     beforeEach(async () => {
         vi.clearAllMocks();
-        notifier = await DiscordNotifier.create(mockConfig);
+        notifier = await DiscordNotifier.create(mockConfig, logger);
     });
 
     it("initializes the Discord client and login", async () => {
@@ -79,7 +82,7 @@ describe("DiscordNotifier", () => {
         expect(sendMock).toHaveBeenCalledWith(expect.stringContaining("**Error:**"));
     });
 
-    it("throws an error if the channel is not found", async () => {
+    it("logs an error if the channel is not found", async () => {
         const ClientMock = Client as unknown as vi.Mock;
         const clientInstance = ClientMock.mock.results[0].value;
         clientInstance.channels.fetch.mockResolvedValueOnce(null);
@@ -87,8 +90,10 @@ describe("DiscordNotifier", () => {
         const error = new Error("Test error");
         const context = { key: "value" };
 
-        await expect(notifier.notifyError(error, context)).rejects.toThrow(
-            "Discord channel not found or is not text-based",
+        await notifier.notifyError(error, context);
+
+        expect(logger.error).toHaveBeenCalledWith(
+            "Failed to send error notification to Discord: Error: Discord channel not found or is not text-based",
         );
     });
 

@@ -101,7 +101,7 @@ export class EboActor {
         private readonly notificationService: NotificationService,
     ) {
         this.eventsQueue = new Heap(EBO_EVENT_COMPARATOR);
-        this.errorHandler = new ErrorHandler(this.notificationService);
+        this.errorHandler = new ErrorHandler(this.notificationService, this.logger);
     }
 
     /**
@@ -176,7 +176,7 @@ export class EboActor {
                             },
                         );
 
-                        await this.errorHandler.handle(err, this.logger);
+                        await this.errorHandler.handle(err);
                         return;
                     } else {
                         throw err;
@@ -404,7 +404,7 @@ export class EboActor {
                             dispute.prophetData,
                         );
                         this.logger.info(`Dispute ${dispute.id} escalated.`);
-                        await this.errorHandler.handle(customError, this.logger);
+                        await this.errorHandler.handle(customError);
                     } catch (escalationError) {
                         this.logger.error(
                             `Failed to escalate dispute ${dispute.id}: ${escalationError}`,
@@ -620,7 +620,7 @@ export class EboActor {
                 };
                 customError.setContext(context);
 
-                await this.errorHandler.handle(customError, this.logger);
+                await this.errorHandler.handle(customError);
                 this.logger.warn(
                     `Block ${responseBody.block} for epoch ${request.epoch} and ` +
                         `chain ${chainId} was not proposed. Skipping proposal...`,
@@ -807,7 +807,7 @@ export class EboActor {
                 };
                 customError.setContext(context);
 
-                await this.errorHandler.handle(customError, this.logger);
+                await this.errorHandler.handle(customError);
             } else {
                 throw err;
             }
@@ -845,7 +845,7 @@ export class EboActor {
                 };
                 customError.setContext(context);
 
-                await this.errorHandler.handle(customError, this.logger);
+                await this.errorHandler.handle(customError);
             } else {
                 throw err;
             }

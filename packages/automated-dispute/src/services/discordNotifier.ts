@@ -1,3 +1,4 @@
+import { ILogger } from "@ebo-agent/shared";
 import { Client, IntentsBitField, TextChannel } from "discord.js";
 import { stringify } from "viem";
 
@@ -14,18 +15,24 @@ interface DiscordNotifierConfig {
 export class DiscordNotifier implements NotificationService {
     private client: Client;
     private config: DiscordNotifierConfig;
+    private logger: ILogger;
 
-    private constructor(client: Client, config: DiscordNotifierConfig) {
+    private constructor(client: Client, config: DiscordNotifierConfig, logger: ILogger) {
         this.client = client;
         this.config = config;
+        this.logger = logger;
     }
 
     /**
      * Creates an instance of the DiscordNotifier.
      * @param {DiscordNotifierConfig} config - The configuration object for the DiscordNotifier.
+     * @param {ILogger} logger - The logger instance.
      * @returns {Promise<DiscordNotifier>} A promise that resolves to a DiscordNotifier instance.
      */
-    public static async create(config: DiscordNotifierConfig): Promise<DiscordNotifier> {
+    public static async create(
+        config: DiscordNotifierConfig,
+        logger: ILogger,
+    ): Promise<DiscordNotifier> {
         const intents = new IntentsBitField().add(
             IntentsBitField.Flags.Guilds,
             IntentsBitField.Flags.GuildMessages,
@@ -36,16 +43,16 @@ export class DiscordNotifier implements NotificationService {
             await client.login(config.discordBotToken);
             await new Promise<void>((resolve) => {
                 client.once("ready", () => {
-                    console.log("Discord bot is ready");
+                    logger.info("Discord bot is ready");
                     resolve();
                 });
             });
         } catch (error) {
-            console.error("Failed to initialize Discord notifier:", error);
+            logger.error(`FFailed to initialize Discord notifier: ${error}`);
             throw error;
         }
 
-        return new DiscordNotifier(client, config);
+        return new DiscordNotifier(client, config, logger);
     }
 
     /**
@@ -62,10 +69,9 @@ export class DiscordNotifier implements NotificationService {
             }
             const errorMessage = this.formatErrorMessage(error, context);
             await (channel as TextChannel).send(errorMessage);
-            console.log("Error notification sent to Discord");
+            this.logger.info("Error notification sent to Discord");
         } catch (err) {
-            console.error("Failed to send error notification to Discord:", err);
-            throw err;
+            this.logger.error(`Failed to send error notification to Discord: ${err}`);
         }
     }
 

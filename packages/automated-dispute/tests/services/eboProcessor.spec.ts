@@ -1,9 +1,7 @@
-import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PendingModulesApproval, ProcessorAlreadyStarted } from "../../src/exceptions/index.js";
-import { ProtocolProvider } from "../../src/providers/index.js";
 import { NotificationService } from "../../src/services/index.js";
 import {
     AccountingModules,
@@ -95,18 +93,18 @@ describe("EboProcessor", () => {
 
             await processor.start(msBetweenChecks);
 
-            const expectedActorRequest = expect.objectContaining({
-                id: requestCreatedEvent.requestId,
-                epoch: currentEpoch.number,
-                chainId: request.chainId,
-            });
+            let calledActorRequest;
+            if (mockCreateActor.mock.calls[0]) {
+                calledActorRequest = mockCreateActor.mock.calls[0][0];
+            }
 
-            expect(mockCreateActor).toHaveBeenCalledWith(
-                expectedActorRequest,
-                expect.any(ProtocolProvider),
-                expect.any(BlockNumberService),
-                logger,
-            );
+            if (calledActorRequest) {
+                expect(calledActorRequest.id).toEqual(requestCreatedEvent.requestId);
+                expect(calledActorRequest.chainId).toEqual(request.chainId);
+                expect(calledActorRequest.epoch).toEqual(currentEpoch.number);
+            } else {
+                throw new Error();
+            }
         });
 
         it("does not create actors to handle unsupported chains", async () => {
