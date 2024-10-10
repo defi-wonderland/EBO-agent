@@ -1,7 +1,7 @@
 import { isNativeError } from "util/types";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
-import { Address, EBO_SUPPORTED_CHAIN_IDS, ILogger, Timestamp } from "@ebo-agent/shared";
+import { Address, EBO_SUPPORTED_CHAIN_IDS, ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import { Block } from "viem";
 
 import { PendingModulesApproval, ProcessorAlreadyStarted } from "../exceptions/index.js";
@@ -254,7 +254,7 @@ export class EboProcessor {
 
         events.forEach((event) => actor.enqueue(event));
 
-        const lastBlockTimestamp = lastBlock.timestamp as Timestamp;
+        const lastBlockTimestamp = lastBlock.timestamp as UnixTimestamp;
 
         await actor.processEvents();
         await actor.onLastBlockUpdated(lastBlockTimestamp);

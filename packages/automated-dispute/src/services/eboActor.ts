@@ -1,6 +1,6 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
-import { Address, ILogger, Timestamp } from "@ebo-agent/shared";
+import { Address, ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
 import { ContractFunctionRevertedError } from "viem";
@@ -283,14 +283,14 @@ export class EboActor {
      * Triggers time-based interactions with smart contracts. This handles window-based
      * checks like proposal windows to close requests, or dispute windows to accept responses.
      *
-     * @param at block timestamp to check open/closed windows
+     * @param atTimestamp block timestamp to check open/closed windows
      */
-    public async onLastBlockUpdated(at: Timestamp): Promise<void> {
-        await this.settleDisputes(at);
+    public async onLastBlockUpdated(atTimestamp: UnixTimestamp): Promise<void> {
+        await this.settleDisputes(atTimestamp);
 
         const request = this.getActorRequest();
         const proposalDeadline = request.decodedData.responseModuleData.deadline;
-        const isProposalWindowOpen = at <= proposalDeadline;
+        const isProposalWindowOpen = atTimestamp <= proposalDeadline;
 
         if (isProposalWindowOpen) {
             this.logger.debug(`Proposal window for request ${request.id} not closed yet.`);
@@ -298,7 +298,7 @@ export class EboActor {
             return;
         }
 
-        const acceptedResponse = this.getAcceptedResponse(at);
+        const acceptedResponse = this.getAcceptedResponse(atTimestamp);
 
         if (acceptedResponse) {
             this.logger.info(`Finalizing request ${request.id}...`);
@@ -313,9 +313,9 @@ export class EboActor {
     /**
      * Try to settle all active disputes if settling is needed.
      *
-     * @param at timestamp to check against if the dispute is to be settled
+     * @param atTimestamp timestamp to check against if the dispute is to be settled
      */
-    private async settleDisputes(at: Timestamp): Promise<void> {
+    private async settleDisputes(atTimestamp: UnixTimestamp): Promise<void> {
         const request = this.getActorRequest();
         const disputes: Dispute[] = this.getActiveDisputes();
 
@@ -332,7 +332,7 @@ export class EboActor {
                 throw new DisputeWithoutResponse(dispute);
             }
 
-            if (this.canBeSettled(request, dispute, at)) {
+            if (this.canBeSettled(request, dispute, atTimestamp)) {
                 await this.settleDispute(request, response, dispute);
             }
         });
@@ -348,13 +348,13 @@ export class EboActor {
     }
 
     // TODO: extract this into another service
-    private canBeSettled(request: Request, dispute: Dispute, at: Timestamp): boolean {
+    private canBeSettled(request: Request, dispute: Dispute, atTimestamp: UnixTimestamp): boolean {
         if (dispute.status !== "Active") return false;
 
         const { bondEscalationDeadline, tyingBuffer } = request.decodedData.disputeModuleData;
         const deadline = bondEscalationDeadline + tyingBuffer;
 
-        return at > deadline;
+        return atTimestamp > deadline;
     }
 
     /**
@@ -421,13 +421,13 @@ export class EboActor {
     /**
      * Gets the first accepted response based on its creation timestamp
      *
-     * @param at timestamp to check against response acceptance
+     * @param atTimestamp timestamp to check against response acceptance
      * @returns a `Response` instance if any accepted, otherwise `undefined`
      */
-    private getAcceptedResponse(at: Timestamp): Response | undefined {
+    private getAcceptedResponse(atTimestamp: UnixTimestamp): Response | undefined {
         const responses = this.registry.getResponses();
         const acceptedResponses = responses.filter((response) =>
-            this.isResponseAccepted(response, at),
+            this.isResponseAccepted(response, atTimestamp),
         );
 
         return acceptedResponses.sort((a, b) => {
@@ -439,14 +439,14 @@ export class EboActor {
     }
 
     // TODO: refactor outside this module
-    private isResponseAccepted(response: Response, at: Timestamp) {
+    private isResponseAccepted(response: Response, atTimestamp: UnixTimestamp) {
         const request = this.getActorRequest();
         const dispute = this.registry.getResponseDispute(response);
         const disputeWindow =
             response.createdAt.timestamp + request.decodedData.disputeModuleData.disputeWindow;
 
         // Response is still able to be disputed
-        if (at <= disputeWindow) return false;
+        if (atTimestamp <= disputeWindow) return false;
 
         return dispute ? dispute.status === "Lost" : true;
     }
@@ -462,14 +462,14 @@ export class EboActor {
      * At last, actors must be kept alive until their epoch concludes, to ensure no actor/request duplication.
      *
      * @param currentEpoch the epoch to check against actor termination
-     * @param at timestamp to check entities at
+     * @param atTimestamp timestamp to check entities at
      * @returns `true` if all entities are settled, otherwise `false`
      */
-    public canBeTerminated(currentEpoch: Epoch["number"], at: Timestamp): boolean {
+    public canBeTerminated(currentEpoch: Epoch["number"], atTimestamp: UnixTimestamp): boolean {
         const request = this.getActorRequest();
         const isPastEpoch = currentEpoch > request.epoch;
         const isRequestFinalized = request.status === "Finalized";
-        const nonSettledProposals = this.activeProposals(at);
+        const nonSettledProposals = this.activeProposals(atTimestamp);
 
         return isPastEpoch && isRequestFinalized && nonSettledProposals.length === 0;
     }
@@ -477,14 +477,14 @@ export class EboActor {
     /**
      * Check for any active proposals at a specific block number.
      *
-     * @param at timestamp to check proposals' status against
+     * @param atTimestamp timestamp to check proposals' status against
      * @returns an array of `Response` instances
      */
-    private activeProposals(at: Timestamp): Response[] {
+    private activeProposals(atTimestamp: UnixTimestamp): Response[] {
         const responses = this.registry.getResponses();
 
         return responses.filter((response) => {
-            if (this.isResponseAccepted(response, at)) return false;
+            if (this.isResponseAccepted(response, atTimestamp)) return false;
 
             const dispute = this.registry.getResponseDispute(response);
 

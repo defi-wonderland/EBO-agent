@@ -1,4 +1,4 @@
-import { Timestamp } from "@ebo-agent/shared";
+import { UnixTimestamp } from "@ebo-agent/shared";
 import { Address, Hex } from "viem";
 
 import { ProtocolContractsAddresses } from "../../../src/interfaces";
@@ -43,7 +43,7 @@ export const DEFAULT_MOCKED_REQUEST_CREATED_DATA: Request = {
     chainId: "eip155:1",
     epoch: 1n,
     createdAt: {
-        timestamp: BigInt(Date.UTC(2024, 0, 1, 0, 0, 0, 0) / 1000) as Timestamp,
+        timestamp: BigInt(Date.UTC(2024, 0, 1, 0, 0, 0, 0) / 1000) as UnixTimestamp,
         blockNumber: 1n,
         logIndex: 0,
     },

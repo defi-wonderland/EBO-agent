@@ -1,5 +1,5 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
-import { Branded, NormalizedAddress, Timestamp } from "@ebo-agent/shared";
+import { Branded, NormalizedAddress, UnixTimestamp } from "@ebo-agent/shared";
 import { Address, Hex } from "viem";
 
 export type RequestId = Branded<NormalizedAddress, "RequestId">;
@@ -14,7 +14,7 @@ export interface Request {
     epoch: bigint;
     createdAt: {
         /** Timestamp of the block the request was created on */
-        timestamp: Timestamp;
+        timestamp: UnixTimestamp;
         blockNumber: bigint;
         logIndex: number;
     };
@@ -65,7 +65,7 @@ export interface Response {
     id: ResponseId;
     createdAt: {
         /** Timestamp of the block the response was created on */
-        timestamp: Timestamp;
+        timestamp: UnixTimestamp;
         blockNumber: bigint;
         logIndex: number;
     };
@@ -87,7 +87,7 @@ export interface Dispute {
     id: DisputeId;
     createdAt: {
         /** Timestamp of the block the dispute was created on */
-        timestamp: Timestamp;
+        timestamp: UnixTimestamp;
         blockNumber: bigint;
         logIndex: number;
     };

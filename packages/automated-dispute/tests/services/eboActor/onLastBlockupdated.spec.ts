@@ -1,4 +1,4 @@
-import { Timestamp } from "@ebo-agent/shared";
+import { UnixTimestamp } from "@ebo-agent/shared";
 import { describe, expect, it, vi } from "vitest";
 
 import { DisputeWithoutResponse } from "../../../src/exceptions/index.js";
@@ -17,7 +17,7 @@ describe("EboActor", () => {
             const response = mocks.buildResponse(request, { id: "0x10" as ResponseId });
             const dispute = mocks.buildDispute(request, response, {
                 createdAt: {
-                    timestamp: 1n as Timestamp,
+                    timestamp: 1n as UnixTimestamp,
                     blockNumber: 1000n,
                     logIndex: 0,
                 },
@@ -44,7 +44,7 @@ describe("EboActor", () => {
 
             const newBlockNumber = disputeDeadline + 1n;
 
-            await actor.onLastBlockUpdated(newBlockNumber as Timestamp);
+            await actor.onLastBlockUpdated(newBlockNumber as UnixTimestamp);
 
             expect(mockSettleDispute).toHaveBeenCalledWith(
                 request.prophetData,
@@ -60,7 +60,7 @@ describe("EboActor", () => {
             const response = mocks.buildResponse(request, { id: "0x10" as ResponseId });
             const dispute = mocks.buildDispute(request, response, {
                 createdAt: {
-                    timestamp: 1n as Timestamp,
+                    timestamp: 1n as UnixTimestamp,
                     blockNumber: 1000n,
                     logIndex: 0,
                 },
@@ -83,7 +83,7 @@ describe("EboActor", () => {
 
             const newBlockNumber = disputeDeadline + 1n;
 
-            await expect(actor.onLastBlockUpdated(newBlockNumber as Timestamp)).rejects.toThrow(
+            await expect(actor.onLastBlockUpdated(newBlockNumber as UnixTimestamp)).rejects.toThrow(
                 settleError,
             );
         });
@@ -95,7 +95,7 @@ describe("EboActor", () => {
             const response = mocks.buildResponse(request, { id: "0x10" as ResponseId });
             const dispute = mocks.buildDispute(request, response, {
                 createdAt: {
-                    timestamp: 1n as Timestamp,
+                    timestamp: 1n as UnixTimestamp,
                     blockNumber: 1000n,
                     logIndex: 0,
                 },
@@ -113,7 +113,7 @@ describe("EboActor", () => {
 
             const newBlockNumber = disputeDeadline + 1n;
 
-            expect(actor.onLastBlockUpdated(newBlockNumber as Timestamp)).rejects.toThrow(
+            expect(actor.onLastBlockUpdated(newBlockNumber as UnixTimestamp)).rejects.toThrow(
                 DisputeWithoutResponse,
             );
         });
@@ -140,7 +140,7 @@ describe("EboActor", () => {
             const newBlockNumber = deadline - 1n;
             const mockFinalize = vi.spyOn(protocolProvider, "finalize");
 
-            await actor.onLastBlockUpdated(newBlockNumber as Timestamp);
+            await actor.onLastBlockUpdated(newBlockNumber as UnixTimestamp);
 
             expect(logger.debug).toBeCalledWith(
                 expect.stringMatching(`Proposal window for request ${request.id} not closed yet.`),
@@ -154,7 +154,7 @@ describe("EboActor", () => {
             const firstResponse = mocks.buildResponse(request, {
                 id: "0x10" as ResponseId,
                 createdAt: {
-                    timestamp: 5n as Timestamp,
+                    timestamp: 5n as UnixTimestamp,
                     blockNumber: 1000n,
                     logIndex: 0,
                 },
@@ -165,7 +165,7 @@ describe("EboActor", () => {
             const secondResponse = mocks.buildResponse(request, {
                 id: "0x11" as ResponseId,
                 createdAt: {
-                    timestamp: 10n as Timestamp,
+                    timestamp: 10n as UnixTimestamp,
                     blockNumber: 1000n,
                     logIndex: 0,
                 },
@@ -187,7 +187,7 @@ describe("EboActor", () => {
                 secondResponse.createdAt.timestamp +
                 request.decodedData.responseModuleData.disputeWindow;
 
-            await actor.onLastBlockUpdated((newBlock + 1n) as Timestamp);
+            await actor.onLastBlockUpdated((newBlock + 1n) as UnixTimestamp);
 
             expect(mockFinalize).toHaveBeenCalledWith(
                 request.prophetData,

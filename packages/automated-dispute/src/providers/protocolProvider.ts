@@ -1,5 +1,5 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
-import { Timestamp } from "@ebo-agent/shared";
+import { UnixTimestamp } from "@ebo-agent/shared";
 import {
     Address,
     BaseError,
@@ -264,7 +264,7 @@ export class ProtocolProvider implements IProtocolProvider {
         return {
             number: epoch,
             firstBlockNumber: epochFirstBlockNumber,
-            startTimestamp: epochFirstBlock.timestamp as Timestamp,
+            startTimestamp: epochFirstBlock.timestamp as UnixTimestamp,
         };
     }
 

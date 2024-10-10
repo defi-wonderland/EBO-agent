@@ -1,5 +1,5 @@
 import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
-import { Timestamp } from "@ebo-agent/shared";
+import { UnixTimestamp } from "@ebo-agent/shared";
 import { Block } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -59,7 +59,7 @@ describe("EboProcessor", () => {
             const currentEpoch: Epoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
             const lastFinalizedBlock = {
@@ -70,7 +70,7 @@ describe("EboProcessor", () => {
                 name: "RequestCreated",
                 blockNumber: 1n,
                 logIndex: 1,
-                timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                 requestId: request.id,
                 metadata: {
                     requestId: request.id,
@@ -114,7 +114,7 @@ describe("EboProcessor", () => {
             const currentEpoch: Epoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
             const request = {
@@ -126,7 +126,7 @@ describe("EboProcessor", () => {
                 name: "RequestCreated",
                 blockNumber: 1n,
                 logIndex: 1,
-                timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                 requestId: request.id,
                 metadata: {
                     requestId: request.id,
@@ -137,7 +137,7 @@ describe("EboProcessor", () => {
             };
 
             const lastFinalizedBlock = {
-                number: (currentEpoch.firstBlockNumber + 10n) as Timestamp,
+                number: (currentEpoch.firstBlockNumber + 10n) as UnixTimestamp,
             } as unknown as Block<bigint, false, "finalized">;
 
             vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
@@ -162,11 +162,11 @@ describe("EboProcessor", () => {
             const currentEpoch: Epoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
             const lastFinalizedBlock = {
-                number: (currentEpoch.firstBlockNumber + 10n) as Timestamp,
+                number: (currentEpoch.firstBlockNumber + 10n) as UnixTimestamp,
             } as unknown as Block<bigint, false, "finalized">;
 
             vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
@@ -193,7 +193,7 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
             const currentBlock = {
@@ -204,7 +204,7 @@ describe("EboProcessor", () => {
                 name: "RequestCreated",
                 blockNumber: 1n,
                 logIndex: 1,
-                timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                 requestId: request.id,
                 metadata: {
                     requestId: request.id,
@@ -247,7 +247,7 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
             const mockProtocolProviderGetEvents = vi
@@ -313,17 +313,17 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
             const currentBlock = {
-                number: (currentEpoch.firstBlockNumber + 10n) as Timestamp,
+                number: (currentEpoch.firstBlockNumber + 10n) as UnixTimestamp,
             } as unknown as Block<bigint, false, "finalized">;
 
             const requestCreatedEvent: EboEvent<"RequestCreated"> = {
                 name: "RequestCreated",
                 blockNumber: 6n,
-                timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                 logIndex: 1,
                 requestId: DEFAULT_MOCKED_REQUEST_CREATED_DATA.id,
                 metadata: {
@@ -363,7 +363,7 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
             const currentBlock = {
@@ -384,7 +384,7 @@ describe("EboProcessor", () => {
                     name: "RequestCreated",
                     blockNumber: 6n,
                     logIndex: 1,
-                    timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                    timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                     requestId: request.id,
                     metadata: {
                         requestId: request.id,
@@ -397,7 +397,7 @@ describe("EboProcessor", () => {
                     name: "ResponseProposed",
                     blockNumber: 7n,
                     logIndex: 1,
-                    timestamp: BigInt(Date.UTC(2024, 1, 2, 0, 0, 0, 0)) as Timestamp,
+                    timestamp: BigInt(Date.UTC(2024, 1, 2, 0, 0, 0, 0)) as UnixTimestamp,
                     requestId: request.id,
                     metadata: {
                         requestId: request.id,
@@ -436,7 +436,7 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
             const currentBlock = {
@@ -468,7 +468,7 @@ describe("EboProcessor", () => {
                     name: "ResponseProposed",
                     blockNumber: 7n,
                     logIndex: 1,
-                    timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                    timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                     requestId: request1.id,
                     metadata: {
                         requestId: request1.id,
@@ -480,7 +480,7 @@ describe("EboProcessor", () => {
                     name: "ResponseProposed",
                     blockNumber: 7n,
                     logIndex: 2,
-                    timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                    timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                     requestId: request2.id,
                     metadata: {
                         requestId: request2.id,
@@ -537,7 +537,7 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
             const lastFinalizedBlock = { number: 1n } as unknown as Block<
@@ -584,7 +584,7 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
             const lastFinalizedBlock = {
@@ -627,7 +627,7 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
             const lastFinalizedBlock = {
@@ -666,7 +666,7 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as Timestamp,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
             const currentBlock = {

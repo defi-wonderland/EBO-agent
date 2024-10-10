@@ -1,5 +1,5 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
-import { Timestamp } from "@ebo-agent/shared";
+import { UnixTimestamp } from "@ebo-agent/shared";
 import { Address, Hex, Log } from "viem";
 
 import {
@@ -80,7 +80,7 @@ export type EboEvent<T extends EboEventName> = {
     /** Log index relative to the block this event was logged on */
     logIndex: number;
     /** Block's timestamp this event was logged on */
-    timestamp: Timestamp;
+    timestamp: UnixTimestamp;
     rawLog?: Log;
     requestId: RequestId; // Field to use to route events to actors
     metadata: EboEventData<T>;
