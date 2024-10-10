@@ -1,4 +1,4 @@
-import { Timestamp } from "@ebo-agent/shared";
+import { UnixTimestamp } from "@ebo-agent/shared";
 
 export interface BlockNumberProvider {
     /**
@@ -11,5 +11,5 @@ export interface BlockNumberProvider {
      *
      * @returns the corresponding block number of a chain at a specific timestamp
      */
-    getEpochBlockNumber(timestamp: Timestamp): Promise<bigint>;
+    getEpochBlockNumber(timestamp: UnixTimestamp): Promise<bigint>;
 }

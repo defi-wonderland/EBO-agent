@@ -1,4 +1,4 @@
-import { ILogger, Timestamp } from "@ebo-agent/shared";
+import { ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import axios, {
     AxiosInstance,
     AxiosResponse,
@@ -126,7 +126,7 @@ export class BlockmetaJsonBlockNumberProvider implements BlockNumberProvider {
     }
 
     /** @inheritdoc */
-    async getEpochBlockNumber(timestamp: Timestamp): Promise<bigint> {
+    async getEpochBlockNumber(timestamp: UnixTimestamp): Promise<bigint> {
         if (timestamp > Number.MAX_SAFE_INTEGER || timestamp < 0)
             throw new RangeError(`Timestamp ${timestamp.toString()} cannot be casted to a Number.`);
 

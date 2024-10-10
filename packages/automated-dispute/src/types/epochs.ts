@@ -1,4 +1,4 @@
-import { Timestamp } from "@ebo-agent/shared";
+import { UnixTimestamp } from "@ebo-agent/shared";
 
 /**
  * Type representing an epoch's data.
@@ -10,5 +10,5 @@ import { Timestamp } from "@ebo-agent/shared";
 export type Epoch = {
     number: bigint;
     firstBlockNumber: bigint;
-    startTimestamp: Timestamp;
+    startTimestamp: UnixTimestamp;
 };
