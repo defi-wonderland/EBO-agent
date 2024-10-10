@@ -15,6 +15,7 @@ export class AddRequest implements EboRegistryCommand {
         event: EboEvent<"RequestCreated">,
         registry: EboRegistry,
     ): AddRequest {
+        // @ts-expect-error: must fetch request differently
         const eventRequest = event.metadata.request;
         const request: Request = {
             id: event.requestId,
@@ -29,6 +30,7 @@ export class AddRequest implements EboRegistryCommand {
                     eventRequest.responseModuleData,
                 ),
             },
+            // @ts-expect-error: must fetch request
             prophetData: event.metadata.request,
             status: "Active",
         };

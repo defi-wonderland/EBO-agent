@@ -12,7 +12,7 @@ export class FinalizeRequest implements EboRegistryCommand {
     ) {}
 
     public static buildFromEvent(
-        event: EboEvent<"RequestFinalized">,
+        event: EboEvent<"OracleRequestFinalized">,
         registry: EboRegistry,
     ): FinalizeRequest {
         const requestId = event.metadata.requestId;

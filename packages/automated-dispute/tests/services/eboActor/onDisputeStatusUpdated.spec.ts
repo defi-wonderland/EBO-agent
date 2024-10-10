@@ -13,14 +13,14 @@ const logger: ILogger = {
     debug: vi.fn(),
 };
 
-describe("onDisputeStatusChanged", () => {
+describe("onDisputeStatusUpdated", () => {
     const actorRequest = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
     const response = mocks.buildResponse(actorRequest);
 
     it("updates the state of the dispute", async () => {
         const dispute = mocks.buildDispute(actorRequest, response, { status: "None" });
-        const event: EboEvent<"DisputeStatusChanged"> = {
-            name: "DisputeStatusChanged",
+        const event: EboEvent<"DisputeStatusUpdated"> = {
+            name: "DisputeStatusUpdated",
             requestId: actorRequest.id,
             blockNumber: 1n,
             logIndex: 1,
@@ -49,8 +49,8 @@ describe("onDisputeStatusChanged", () => {
     it("proposes a new response when dispute status goes into NoResolution", async () => {
         const proposerAddress = "0x1234567890abcdef1234567890abcdef12345678";
         const dispute = mocks.buildDispute(actorRequest, response, { status: "Escalated" });
-        const event: EboEvent<"DisputeStatusChanged"> = {
-            name: "DisputeStatusChanged",
+        const event: EboEvent<"DisputeStatusUpdated"> = {
+            name: "DisputeStatusUpdated",
             requestId: actorRequest.id,
             blockNumber: 1n,
             logIndex: 1,

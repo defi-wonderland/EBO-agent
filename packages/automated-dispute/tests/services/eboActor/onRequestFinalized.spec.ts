@@ -10,11 +10,11 @@ const logger: ILogger = mocks.mockLogger();
 
 describe("EboActor", () => {
     describe("processEvents", () => {
-        describe("when RequestFinalized is enqueued", () => {
+        describe("when OracleRequestFinalized is enqueued", () => {
             const actorRequest = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
 
-            const event: EboEvent<"RequestFinalized"> = {
-                name: "RequestFinalized",
+            const event: EboEvent<"OracleRequestFinalized"> = {
+                name: "OracleRequestFinalized",
                 requestId: actorRequest.id,
                 blockNumber: 1n,
                 logIndex: 1,

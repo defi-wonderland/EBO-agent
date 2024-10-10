@@ -1,23 +1,15 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
+import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import { Address, Hex, Log } from "viem";
 
-import {
-    Dispute,
-    DisputeId,
-    DisputeStatus,
-    Request,
-    RequestId,
-    Response,
-    ResponseId,
-} from "./prophet.js";
+import { Dispute, DisputeId, DisputeStatus, RequestId, Response, ResponseId } from "./prophet.js";
 
 export type EboEventName =
     | "RequestCreated"
     | "ResponseProposed"
     | "ResponseDisputed"
-    | "DisputeStatusChanged"
+    | "DisputeStatusUpdated"
     | "DisputeEscalated"
-    | "RequestFinalized";
+    | "OracleRequestFinalized";
 
 export interface ResponseProposed {
     requestId: Hex;
@@ -28,7 +20,6 @@ export interface ResponseProposed {
 export interface RequestCreated {
     epoch: bigint;
     chainId: Caip2ChainId;
-    request: Request["prophetData"];
     requestId: RequestId;
 }
 
@@ -38,7 +29,7 @@ export interface ResponseDisputed {
     dispute: Dispute["prophetData"];
 }
 
-export interface DisputeStatusChanged {
+export interface DisputeStatusUpdated {
     disputeId: DisputeId;
     dispute: Dispute["prophetData"];
     status: DisputeStatus;
@@ -51,7 +42,7 @@ export interface DisputeEscalated {
     blockNumber: bigint;
 }
 
-export interface RequestFinalized {
+export interface OracleRequestFinalized {
     requestId: RequestId;
     responseId: ResponseId;
     caller: Address;
@@ -64,12 +55,12 @@ export type EboEventData<E extends EboEventName> = E extends "RequestCreated"
       ? ResponseProposed
       : E extends "ResponseDisputed"
         ? ResponseDisputed
-        : E extends "DisputeStatusChanged"
-          ? DisputeStatusChanged
+        : E extends "DisputeStatusUpdated"
+          ? DisputeStatusUpdated
           : E extends "DisputeEscalated"
             ? DisputeEscalated
-            : E extends "RequestFinalized"
-              ? RequestFinalized
+            : E extends "OracleRequestFinalized"
+              ? OracleRequestFinalized
               : never;
 
 export type EboEvent<T extends EboEventName> = {
