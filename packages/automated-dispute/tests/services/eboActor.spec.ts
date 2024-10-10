@@ -1,7 +1,6 @@
 import { Abi, ContractFunctionRevertedError, encodeErrorResult } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ErrorHandler } from "../../src/exceptions/errorHandler.js";
 import {
     CustomContractError,
     ErrorFactory,
@@ -143,14 +142,9 @@ describe("EboActor", () => {
                 shouldTerminate: false,
                 shouldNotify: false,
             });
+
             // Mock ErrorHandler.handle to prevent re-enqueueing
-            const errorHandlerSpy = vi
-                .spyOn(ErrorHandler, "handle")
-                .mockImplementation(async (error) => {
-                    if (error.strategy.shouldReenqueue && error.getContext()?.reenqueueEvent) {
-                        error.getContext().reenqueueEvent();
-                    }
-                });
+            const errorHandlerSpy = vi.spyOn(actor["errorHandler"], "handle");
 
             actor["onLastEvent"] = vi.fn().mockImplementation(() => {
                 return new Promise((resolve, reject) => {

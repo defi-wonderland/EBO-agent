@@ -1,6 +1,6 @@
 import { Address, Hex } from "viem";
 
-import { ProtocolContractsAddresses } from "../../../src/interfaces";
+import { ProtocolContractsAddresses } from "../../../src/interfaces/index.js";
 import {
     Dispute,
     DisputeId,
@@ -18,6 +18,7 @@ export const DEFAULT_MOCKED_PROTOCOL_CONTRACTS: ProtocolContractsAddresses = {
     epochManager: "0x6543210000000000000000000000000000000000" as Address,
     eboRequestCreator: "0x9999990000000000000000000000000000000000" as Address,
     bondEscalationModule: "0x1a2b3c" as Address,
+    horizonAccountingExtension: "0x9999990000000000000000000000000000000000" as Address,
 };
 
 export const DEFAULT_MOCKED_RESPONSE_DATA: Response = {

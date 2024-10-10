@@ -1,6 +1,7 @@
 import { inspect } from "util";
 import { isNativeError } from "util/types";
 import { EboActorsManager, EboProcessor, ProtocolProvider } from "@ebo-agent/automated-dispute";
+import { DiscordNotifier } from "@ebo-agent/automated-dispute/src/services/index.js";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Logger } from "@ebo-agent/shared";
 
@@ -23,12 +24,21 @@ const main = async (): Promise<void> => {
 
     const actorsManager = new EboActorsManager();
 
+    const notifier = await DiscordNotifier.create(
+        {
+            discordBotToken: config.DISCORD_BOT_TOKEN,
+            discordChannelId: config.DISCORD_CHANNEL_ID,
+        },
+        logger,
+    );
+
     const processor = new EboProcessor(
         config.processor.accountingModules,
         protocolProvider,
         blockNumberService,
         actorsManager,
         logger,
+        notifier,
     );
 
     await processor.start(config.processor.msBetweenChecks);

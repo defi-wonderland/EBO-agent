@@ -1,10 +1,11 @@
-import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
+import { BlockNumberService } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
 import { ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { vi } from "vitest";
 
 import { ProtocolProvider } from "../../src/providers/index.js";
-import { EboActor, EboMemoryRegistry } from "../../src/services/index.js";
+import { EboActor, EboMemoryRegistry, NotificationService } from "../../src/services/index.js";
 import { Dispute, Request, Response, ResponseBody } from "../../src/types/index.js";
 import {
     DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
@@ -72,6 +73,14 @@ export function buildEboActor(request: Request, logger: ILogger) {
 
     const eventProcessingMutex = new Mutex();
 
+    let notificationService: NotificationService | undefined;
+
+    if (!notificationService) {
+        notificationService = {
+            notifyError: vi.fn().mockResolvedValue(undefined),
+        };
+    }
+
     const actor = new EboActor(
         { id, epoch, chainId },
         protocolProvider,
@@ -79,6 +88,7 @@ export function buildEboActor(request: Request, logger: ILogger) {
         registry,
         eventProcessingMutex,
         logger,
+        notificationService,
     );
 
     return {

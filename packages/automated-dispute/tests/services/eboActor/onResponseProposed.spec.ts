@@ -47,7 +47,7 @@ describe("EboActor", () => {
                 vi.spyOn(registry, "getRequest").mockReturnValue(actorRequest);
 
                 vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-                    number: proposedResponseBody.epoch,
+                    number: 1n,
                     firstBlockNumber: 1n,
                     startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
                 });
@@ -67,7 +67,9 @@ describe("EboActor", () => {
                     );
 
                 const errorFactorySpy = vi.spyOn(ErrorFactory, "createError");
-                const errorHandlerSpy = vi.spyOn(ErrorHandler, "handle").mockResolvedValue();
+                const errorHandlerSpy = vi
+                    .spyOn(ErrorHandler.prototype, "handle")
+                    .mockResolvedValue();
 
                 actor.enqueue(responseProposedEvent);
 
@@ -81,8 +83,6 @@ describe("EboActor", () => {
                 errorHandlerSpy.mockRestore();
             });
 
-            const proposeData = responseProposedEvent.metadata.response.response;
-
             it("adds the response to the registry", async () => {
                 const { actor, registry, blockNumberService, protocolProvider } =
                     mocks.buildEboActor(actorRequest, logger);
@@ -94,7 +94,7 @@ describe("EboActor", () => {
                 );
 
                 vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-                    number: proposeData.epoch,
+                    number: 1n,
                     firstBlockNumber: 1n,
                     startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
                 });
@@ -123,7 +123,7 @@ describe("EboActor", () => {
                 vi.spyOn(protocolProvider, "disputeResponse").mockResolvedValue(undefined);
 
                 vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-                    number: proposeData.epoch,
+                    number: 1n,
                     firstBlockNumber: 1n,
                     startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
                 });

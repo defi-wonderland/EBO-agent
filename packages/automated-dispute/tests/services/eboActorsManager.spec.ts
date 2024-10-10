@@ -1,11 +1,10 @@
-import { beforeEach } from "node:test";
 import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
 import { ILogger } from "@ebo-agent/shared";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RequestAlreadyHandled } from "../../src/exceptions/index.js";
 import { ProtocolProvider } from "../../src/providers/index.js";
-import { EboActorsManager } from "../../src/services/index.js";
+import { EboActorsManager, NotificationService } from "../../src/services/index.js";
 import mocks from "../mocks/index.js";
 import {
     DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
@@ -25,19 +24,47 @@ describe("EboActorsManager", () => {
 
     let protocolProvider: ProtocolProvider;
     let blockNumberService: BlockNumberService;
+    let notifier: NotificationService;
 
     beforeEach(() => {
-        const protocolProviderRpcUrls = ["http://localhost:8538"];
+        vi.clearAllMocks();
+
+        notifier = {
+            notifyError: vi.fn().mockResolvedValue(undefined),
+        };
+
         protocolProvider = new ProtocolProvider(
-            protocolProviderRpcUrls,
+            {
+                l1: {
+                    urls: ["http://localhost:8538"],
+                    retryInterval: 1,
+                    timeout: 100,
+                    transactionReceiptConfirmations: 1,
+                },
+                l2: {
+                    urls: ["http://localhost:8539"],
+                    retryInterval: 1,
+                    timeout: 100,
+                    transactionReceiptConfirmations: 1,
+                },
+            },
             DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
             mockedPrivateKey,
         );
 
-        const blockNumberRpcUrls = new Map<Caip2ChainId, string[]>([
-            [chainId, ["http://localhost:8539"]],
-        ]);
-        blockNumberService = new BlockNumberService(blockNumberRpcUrls, logger);
+        blockNumberService = new BlockNumberService(
+            new Map<Caip2ChainId, string[]>([[chainId, ["http://localhost:8539"]]]),
+            {
+                baseUrl: new URL("http://localhost"),
+                bearerToken: "secret-token",
+                bearerTokenExpirationWindow: 10,
+                servicePaths: {
+                    block: "/block",
+                    blockByTime: "/blockbytime",
+                },
+            },
+            logger,
+        );
     });
 
     describe("createActor", () => {
@@ -48,6 +75,7 @@ describe("EboActorsManager", () => {
                 protocolProvider,
                 blockNumberService,
                 logger,
+                notifier,
             );
 
             expect(actor).toMatchObject({
@@ -63,7 +91,13 @@ describe("EboActorsManager", () => {
 
             expect(actorsManager.getActor(request.id)).toBeUndefined();
 
-            actorsManager.createActor(actorRequest, protocolProvider, blockNumberService, logger);
+            actorsManager.createActor(
+                actorRequest,
+                protocolProvider,
+                blockNumberService,
+                logger,
+                notifier,
+            );
 
             const actor = actorsManager.getActor(request.id);
 
@@ -73,7 +107,13 @@ describe("EboActorsManager", () => {
         it("throws if the request has already an actor linked to it", () => {
             const actorsManager = new EboActorsManager();
 
-            actorsManager.createActor(actorRequest, protocolProvider, blockNumberService, logger);
+            actorsManager.createActor(
+                actorRequest,
+                protocolProvider,
+                blockNumberService,
+                logger,
+                notifier,
+            );
 
             expect(() => {
                 actorsManager.createActor(
@@ -81,6 +121,7 @@ describe("EboActorsManager", () => {
                     protocolProvider,
                     blockNumberService,
                     logger,
+                    notifier,
                 );
             }).toThrowError(RequestAlreadyHandled);
         });
@@ -96,7 +137,13 @@ describe("EboActorsManager", () => {
         it("returns the request's linked actor", () => {
             const actorsManager = new EboActorsManager();
 
-            actorsManager.createActor(actorRequest, protocolProvider, blockNumberService, logger);
+            actorsManager.createActor(
+                actorRequest,
+                protocolProvider,
+                blockNumberService,
+                logger,
+                notifier,
+            );
 
             const actor = actorsManager.getActor(request.id);
 
@@ -113,7 +160,13 @@ describe("EboActorsManager", () => {
         it("deletes the actor linked to the request", () => {
             const actorsManager = new EboActorsManager();
 
-            actorsManager.createActor(actorRequest, protocolProvider, blockNumberService, logger);
+            actorsManager.createActor(
+                actorRequest,
+                protocolProvider,
+                blockNumberService,
+                logger,
+                notifier,
+            );
 
             expect(actorsManager.getActor(request.id)).toBeDefined();
 
