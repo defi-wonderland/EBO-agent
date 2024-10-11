@@ -81,7 +81,7 @@ export class DiscordNotifier implements NotificationService {
      * @param {any} context - Additional context information.
      * @returns {string} The formatted error message.
      */
-    private formatErrorMessage(error: Error, context: any): string {
+    private formatErrorMessage(error: Error, context: unknown): string {
         return `**Error:** ${error.name} - ${error.message}\n**Context:**\n\`\`\`json\n${stringify(
             context,
             null,
