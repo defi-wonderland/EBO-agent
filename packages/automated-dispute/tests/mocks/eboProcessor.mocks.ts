@@ -1,8 +1,9 @@
 import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
 import { ILogger } from "@ebo-agent/shared";
+import { vi } from "vitest";
 
 import { ProtocolProvider } from "../../src/providers/index.js";
-import { EboProcessor } from "../../src/services";
+import { EboProcessor, NotificationService } from "../../src/services";
 import { EboActorsManager } from "../../src/services/index.js";
 import { AccountingModules } from "../../src/types/prophet.js";
 import {
@@ -17,6 +18,7 @@ export function buildEboProcessor(
         responseModule: "0x02",
         escalationModule: "0x03",
     },
+    notifier?: NotificationService,
 ) {
     const protocolProvider = new ProtocolProvider(
         {
@@ -56,12 +58,19 @@ export function buildEboProcessor(
 
     const actorsManager = new EboActorsManager();
 
+    if (!notifier) {
+        notifier = {
+            notifyError: vi.fn().mockResolvedValue(undefined),
+        };
+    }
+
     const processor = new EboProcessor(
         accountingModules,
         protocolProvider,
         blockNumberService,
         actorsManager,
         logger,
+        notifier,
     );
 
     return {

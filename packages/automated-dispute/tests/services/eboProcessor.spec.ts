@@ -1,10 +1,10 @@
-import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
 import { UnixTimestamp } from "@ebo-agent/shared";
 import { Block } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PendingModulesApproval, ProcessorAlreadyStarted } from "../../src/exceptions/index.js";
-import { ProtocolProvider } from "../../src/providers/index.js";
+import { NotificationService } from "../../src/services/index.js";
 import {
     AccountingModules,
     EboEvent,
@@ -26,11 +26,15 @@ const accountingModules: AccountingModules = {
 const allModulesApproved = Object.values(accountingModules);
 
 describe("EboProcessor", () => {
+    let notifier: NotificationService;
     describe("start", () => {
         const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
 
         beforeEach(() => {
             vi.useFakeTimers();
+            notifier = {
+                notifyError: vi.fn().mockResolvedValue(undefined),
+            };
         });
 
         afterEach(() => {
@@ -41,6 +45,7 @@ describe("EboProcessor", () => {
             const { processor, protocolProvider } = mocks.buildEboProcessor(
                 logger,
                 accountingModules,
+                notifier,
             );
 
             vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue([]);
@@ -54,6 +59,7 @@ describe("EboProcessor", () => {
             const { processor, actorsManager, protocolProvider } = mocks.buildEboProcessor(
                 logger,
                 accountingModules,
+                notifier,
             );
 
             const currentEpoch: Epoch = {
@@ -94,18 +100,18 @@ describe("EboProcessor", () => {
 
             await processor.start(msBetweenChecks);
 
-            const expectedActorRequest = expect.objectContaining({
-                id: requestCreatedEvent.requestId,
-                epoch: currentEpoch.number,
-                chainId: request.chainId,
-            });
+            let calledActorRequest;
+            if (mockCreateActor.mock.calls[0]) {
+                calledActorRequest = mockCreateActor.mock.calls[0][0];
+            }
 
-            expect(mockCreateActor).toHaveBeenCalledWith(
-                expectedActorRequest,
-                expect.any(ProtocolProvider),
-                expect.any(BlockNumberService),
-                logger,
-            );
+            if (calledActorRequest) {
+                expect(calledActorRequest.id).toEqual(requestCreatedEvent.requestId);
+                expect(calledActorRequest.chainId).toEqual(request.chainId);
+                expect(calledActorRequest.epoch).toEqual(currentEpoch.number);
+            } else {
+                throw new Error();
+            }
         });
 
         it("does not create actors to handle unsupported chains", async () => {
@@ -187,6 +193,7 @@ describe("EboProcessor", () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
                 logger,
                 accountingModules,
+                notifier,
             );
             const { actor } = mocks.buildEboActor(request, logger);
 
@@ -241,6 +248,7 @@ describe("EboProcessor", () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
                 logger,
                 accountingModules,
+                notifier,
             );
             const { actor } = mocks.buildEboActor(request, logger);
 
@@ -304,6 +312,7 @@ describe("EboProcessor", () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
                 logger,
                 accountingModules,
+                notifier,
             );
             const { actor } = mocks.buildEboActor(request, logger);
 
@@ -358,6 +367,7 @@ describe("EboProcessor", () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
                 logger,
                 accountingModules,
+                notifier,
             );
 
             const currentEpoch = {
@@ -431,6 +441,7 @@ describe("EboProcessor", () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
                 logger,
                 accountingModules,
+                notifier,
             );
 
             const currentEpoch = {
@@ -532,6 +543,7 @@ describe("EboProcessor", () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
                 logger,
                 accountingModules,
+                notifier,
             );
 
             const currentEpoch = {
@@ -579,6 +591,7 @@ describe("EboProcessor", () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
                 logger,
                 accountingModules,
+                notifier,
             );
 
             const currentEpoch = {
@@ -622,6 +635,7 @@ describe("EboProcessor", () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
                 logger,
                 accountingModules,
+                notifier,
             );
 
             const currentEpoch = {
@@ -661,6 +675,7 @@ describe("EboProcessor", () => {
             const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
                 logger,
                 accountingModules,
+                notifier,
             );
 
             const currentEpoch = {

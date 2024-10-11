@@ -7,6 +7,7 @@ import { ProtocolProvider } from "../providers/protocolProvider.js";
 import { ActorRequest, RequestId } from "../types/index.js";
 import { EboActor } from "./eboActor.js";
 import { EboMemoryRegistry } from "./eboRegistry/eboMemoryRegistry.js";
+import { NotificationService } from "./notificationService.js";
 
 export class EboActorsManager {
     private readonly requestActorMap: Map<RequestId, EboActor>;
@@ -40,6 +41,7 @@ export class EboActorsManager {
         protocolProvider: ProtocolProvider,
         blockNumberService: BlockNumberService,
         logger: ILogger,
+        notifier: NotificationService,
     ): EboActor {
         const requestId = actorRequest.id;
 
@@ -56,6 +58,7 @@ export class EboActorsManager {
             registry,
             eventProcessingMutex,
             logger,
+            notifier,
         );
 
         this.requestActorMap.set(requestId, actor);
