@@ -1,8 +1,10 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber";
+import { UnixTimestamp } from "@ebo-agent/shared";
 import {
     AbiEvent,
     Address,
     BaseError,
+    Block,
     Chain,
     ContractFunctionRevertedError,
     createPublicClient,
@@ -277,19 +279,13 @@ export class ProtocolProvider implements IProtocolProvider {
         return {
             number: epoch,
             firstBlockNumber: epochFirstBlockNumber,
-            startTimestamp: epochFirstBlock.timestamp,
+            startTimestamp: epochFirstBlock.timestamp as UnixTimestamp,
         };
     }
 
-    /**
-     * Gets the number of the last finalized block.
-     *
-     * @returns {Promise<bigint>} The block number of the last finalized block.
-     */
-    async getLastFinalizedBlock(): Promise<bigint> {
-        const { number } = await this.l2ReadClient.getBlock({ blockTag: "finalized" });
-
-        return number;
+    /** @inheritdoc */
+    async getLastFinalizedBlock(): Promise<Block<bigint, false, "finalized">> {
+        return await this.l2ReadClient.getBlock({ blockTag: "finalized" });
     }
 
     /**

@@ -16,7 +16,11 @@ export class AddDispute implements EboRegistryCommand {
     ): AddDispute {
         const dispute: Dispute = {
             id: event.metadata.disputeId,
-            createdAt: event.blockNumber,
+            createdAt: {
+                timestamp: event.timestamp,
+                blockNumber: event.blockNumber,
+                logIndex: event.logIndex,
+            },
             status: "Active",
             prophetData: event.metadata.dispute,
         };
