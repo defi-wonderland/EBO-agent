@@ -1,7 +1,10 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
+import { UnixTimestamp } from "@ebo-agent/shared";
+import { Block } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PendingModulesApproval, ProcessorAlreadyStarted } from "../../src/exceptions/index.js";
+import { ProtocolProvider } from "../../src/providers/index.js";
 import { NotificationService } from "../../src/services/index.js";
 import {
     AccountingModules,
@@ -63,13 +66,18 @@ describe("EboProcessor", () => {
             const currentEpoch: Epoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
+
+            const lastFinalizedBlock = {
+                number: currentEpoch.firstBlockNumber + 10n,
+            } as unknown as Block<bigint, false, "finalized">;
 
             const requestCreatedEvent: EboEvent<"RequestCreated"> = {
                 name: "RequestCreated",
                 blockNumber: 1n,
                 logIndex: 1,
+                timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                 requestId: request.id,
                 metadata: {
                     requestId: request.id,
@@ -84,7 +92,7 @@ describe("EboProcessor", () => {
             );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(
-                currentEpoch.firstBlockNumber + 10n,
+                lastFinalizedBlock,
             );
             vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([requestCreatedEvent]);
 
@@ -113,7 +121,7 @@ describe("EboProcessor", () => {
             const currentEpoch: Epoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
             const request = {
@@ -125,6 +133,7 @@ describe("EboProcessor", () => {
                 name: "RequestCreated",
                 blockNumber: 1n,
                 logIndex: 1,
+                timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                 requestId: request.id,
                 metadata: {
                     requestId: request.id,
@@ -134,12 +143,16 @@ describe("EboProcessor", () => {
                 },
             };
 
+            const lastFinalizedBlock = {
+                number: (currentEpoch.firstBlockNumber + 10n) as UnixTimestamp,
+            } as unknown as Block<bigint, false, "finalized">;
+
             vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
                 allModulesApproved,
             );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(
-                currentEpoch.firstBlockNumber + 10n,
+                lastFinalizedBlock,
             );
             vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([requestCreatedEvent]);
 
@@ -156,15 +169,19 @@ describe("EboProcessor", () => {
             const currentEpoch: Epoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
+
+            const lastFinalizedBlock = {
+                number: (currentEpoch.firstBlockNumber + 10n) as UnixTimestamp,
+            } as unknown as Block<bigint, false, "finalized">;
 
             vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
                 allModulesApproved,
             );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(
-                currentEpoch.firstBlockNumber + 10n,
+                lastFinalizedBlock,
             );
             vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([]);
 
@@ -184,15 +201,18 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
-            const currentBlock = currentEpoch.firstBlockNumber + 10n;
+            const currentBlock = {
+                number: currentEpoch.firstBlockNumber + 10n,
+            } as unknown as Block<bigint, false, "finalized">;
 
             const requestCreatedEvent: EboEvent<"RequestCreated"> = {
                 name: "RequestCreated",
                 blockNumber: 1n,
                 logIndex: 1,
+                timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                 requestId: request.id,
                 metadata: {
                     requestId: request.id,
@@ -217,7 +237,10 @@ describe("EboProcessor", () => {
 
             await processor.start(msBetweenChecks);
 
-            expect(mockGetEvents).toHaveBeenCalledWith(currentEpoch.firstBlockNumber, currentBlock);
+            expect(mockGetEvents).toHaveBeenCalledWith(
+                currentEpoch.firstBlockNumber,
+                currentBlock.number,
+            );
         });
 
         it("keeps the last block checked unaltered when something fails during sync", async () => {
@@ -233,7 +256,7 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
             const mockProtocolProviderGetEvents = vi
@@ -249,8 +272,16 @@ describe("EboProcessor", () => {
             );
 
             vi.spyOn(protocolProvider, "getLastFinalizedBlock")
-                .mockResolvedValueOnce(initialCurrentBlock + 10n)
-                .mockResolvedValueOnce(initialCurrentBlock + 20n);
+                .mockResolvedValueOnce({ number: initialCurrentBlock + 10n } as unknown as Block<
+                    bigint,
+                    false,
+                    "finalized"
+                >)
+                .mockResolvedValueOnce({ number: initialCurrentBlock + 20n } as unknown as Block<
+                    bigint,
+                    false,
+                    "finalized"
+                >);
 
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
             vi.spyOn(actorsManager, "createActor").mockReturnValue(actor);
@@ -292,14 +323,17 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
-            const currentBlock = currentEpoch.firstBlockNumber + 10n;
+            const currentBlock = {
+                number: (currentEpoch.firstBlockNumber + 10n) as UnixTimestamp,
+            } as unknown as Block<bigint, false, "finalized">;
 
             const requestCreatedEvent: EboEvent<"RequestCreated"> = {
                 name: "RequestCreated",
                 blockNumber: 6n,
+                timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                 logIndex: 1,
                 requestId: DEFAULT_MOCKED_REQUEST_CREATED_DATA.id,
                 metadata: {
@@ -327,7 +361,7 @@ describe("EboProcessor", () => {
 
             await processor.start(msBetweenChecks);
 
-            expect(mockGetEvents).toHaveBeenCalledWith(mockLastCheckedBlock, currentBlock);
+            expect(mockGetEvents).toHaveBeenCalledWith(mockLastCheckedBlock, currentBlock.number);
         });
 
         it("enqueues and process every new event into the actor", async () => {
@@ -340,10 +374,12 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
-            const currentBlock = currentEpoch.firstBlockNumber + 10n;
+            const currentBlock = {
+                number: currentEpoch.firstBlockNumber + 10n,
+            } as unknown as Block<bigint, false, "finalized">;
 
             vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
                 allModulesApproved,
@@ -359,6 +395,7 @@ describe("EboProcessor", () => {
                     name: "RequestCreated",
                     blockNumber: 6n,
                     logIndex: 1,
+                    timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                     requestId: request.id,
                     metadata: {
                         requestId: request.id,
@@ -371,6 +408,7 @@ describe("EboProcessor", () => {
                     name: "ResponseProposed",
                     blockNumber: 7n,
                     logIndex: 1,
+                    timestamp: BigInt(Date.UTC(2024, 1, 2, 0, 0, 0, 0)) as UnixTimestamp,
                     requestId: request.id,
                     metadata: {
                         requestId: request.id,
@@ -410,10 +448,12 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
-            const currentBlock = currentEpoch.firstBlockNumber + 10n;
+            const currentBlock = {
+                number: currentEpoch.firstBlockNumber + 10n,
+            } as unknown as Block<bigint, false, "finalized">;
 
             vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
                 allModulesApproved,
@@ -440,6 +480,7 @@ describe("EboProcessor", () => {
                     name: "ResponseProposed",
                     blockNumber: 7n,
                     logIndex: 1,
+                    timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                     requestId: request1.id,
                     metadata: {
                         requestId: request1.id,
@@ -451,6 +492,7 @@ describe("EboProcessor", () => {
                     name: "ResponseProposed",
                     blockNumber: 7n,
                     logIndex: 2,
+                    timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                     requestId: request2.id,
                     metadata: {
                         requestId: request2.id,
@@ -508,14 +550,22 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
+
+            const lastFinalizedBlock = { number: 1n } as unknown as Block<
+                bigint,
+                false,
+                "finalized"
+            >;
 
             vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
                 allModulesApproved,
             );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
-            vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(1n);
+            vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(
+                lastFinalizedBlock,
+            );
             vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([]);
             vi.spyOn(protocolProvider, "getAvailableChains").mockResolvedValue([
                 "eip155:1",
@@ -523,7 +573,7 @@ describe("EboProcessor", () => {
             ]);
 
             vi.spyOn(actorsManager, "getActorsRequests").mockReturnValue([
-                { id: "0x01", chainId: "eip155:1", epoch: currentEpoch.number },
+                { id: "0x01" as RequestId, chainId: "eip155:1", epoch: currentEpoch.number },
             ]);
 
             const mockProtocolProviderCreateRequest = vi
@@ -548,14 +598,20 @@ describe("EboProcessor", () => {
             const currentEpoch = {
                 number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
+
+            const lastFinalizedBlock = {
+                number: 1n,
+            } as unknown as Block<bigint, false, "finalized">;
 
             vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
                 allModulesApproved,
             );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
-            vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(1n);
+            vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(
+                lastFinalizedBlock,
+            );
             vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([]);
             vi.spyOn(protocolProvider, "getAvailableChains").mockResolvedValue([
                 "eip155:1",
@@ -563,8 +619,8 @@ describe("EboProcessor", () => {
             ]);
 
             vi.spyOn(actorsManager, "getActorsRequests").mockReturnValue([
-                { id: "0x01", chainId: "eip155:1", epoch: currentEpoch.number },
-                { id: "0x02", chainId: "eip155:42161", epoch: currentEpoch.number },
+                { id: "0x01" as RequestId, chainId: "eip155:1", epoch: currentEpoch.number },
+                { id: "0x02" as RequestId, chainId: "eip155:42161", epoch: currentEpoch.number },
             ]);
 
             const mockProtocolProviderCreateRequest = vi
@@ -584,16 +640,22 @@ describe("EboProcessor", () => {
             );
 
             const currentEpoch = {
-                epoch: 1n,
+                number: 1n,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
+
+            const lastFinalizedBlock = {
+                number: 1n,
+            } as unknown as Block<bigint, false, "finalized">;
 
             vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
                 allModulesApproved,
             );
             vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
-            vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(1n);
+            vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(
+                lastFinalizedBlock,
+            );
             vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([]);
             vi.spyOn(protocolProvider, "getAvailableChains").mockResolvedValue([
                 "eip155:1",
@@ -602,7 +664,7 @@ describe("EboProcessor", () => {
             vi.spyOn(protocolProvider, "createRequest").mockImplementation(() => Promise.reject());
 
             vi.spyOn(actorsManager, "getActorsRequests").mockReturnValue([
-                { id: "0x01", chainId: "eip155:1", epoch: currentEpoch.epoch },
+                { id: "0x01" as RequestId, chainId: "eip155:1", epoch: currentEpoch.number },
             ]);
 
             expect(processor.start()).resolves.not.toThrow();
@@ -618,12 +680,14 @@ describe("EboProcessor", () => {
             );
 
             const currentEpoch = {
-                currentEpoch: 1n,
-                currentEpochBlockNumber: 1n,
-                currentEpochTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                number: 1n,
+                firstBlockNumber: 1n,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
-            const currentBlock = currentEpoch.currentEpochBlockNumber + 10n;
+            const currentBlock = {
+                number: currentEpoch.number + 10n,
+            } as unknown as Block<bigint, false, "finalized">;
 
             vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
                 allModulesApproved,

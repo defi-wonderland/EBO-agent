@@ -14,7 +14,8 @@ describe("AddResponse", () => {
     const response = mocks.buildResponse(request);
     const event: EboEvent<"ResponseProposed"> = {
         name: "ResponseProposed",
-        blockNumber: response.createdAt,
+        blockNumber: response.createdAt.blockNumber,
+        timestamp: response.createdAt.timestamp,
         logIndex: 1,
         requestId: request.id,
         metadata: {

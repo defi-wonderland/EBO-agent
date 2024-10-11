@@ -1,3 +1,4 @@
+import { UnixTimestamp } from "@ebo-agent/shared";
 import { Abi, ContractFunctionRevertedError, encodeErrorResult } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,7 +9,7 @@ import {
     RequestMismatch,
 } from "../../src/exceptions/index.js";
 import { ProtocolProvider } from "../../src/providers/index.js";
-import { EboEvent, Request, RequestId } from "../../src/types/index.js";
+import { EboEvent, Request, RequestId, ResponseId } from "../../src/types/index.js";
 import mocks from "../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../services/eboActor/fixtures.js";
 
@@ -21,6 +22,7 @@ describe("EboActor", () => {
         name: "RequestCreated",
         blockNumber: 2n,
         logIndex: 1,
+        timestamp: BigInt(Date.UTC(2024, 0, 1, 0, 0, 0) / 1000) as UnixTimestamp,
         requestId: request.id,
         metadata: {
             chainId: request.chainId,
@@ -60,7 +62,7 @@ describe("EboActor", () => {
 
             const otherRequestEvent = {
                 ...event,
-                requestId: (request.id === "0x01" ? "0x02" : "0x01") as RequestId,
+                requestId: (request.id === ("0x01" as RequestId) ? "0x02" : "0x01") as RequestId,
             };
 
             expect(() => actor.enqueue(otherRequestEvent)).toThrow(RequestMismatch);
@@ -197,6 +199,7 @@ describe("EboActor", () => {
                 name: "ResponseProposed",
                 blockNumber: firstEvent.blockNumber + 1n,
                 logIndex: 1,
+                timestamp: BigInt(Date.UTC(2024, 0, 1, 0, 0, 0) / 1000) as UnixTimestamp,
                 requestId: firstEvent.requestId,
                 metadata: {
                     requestId: firstEvent.requestId,
@@ -266,29 +269,37 @@ describe("EboActor", () => {
     describe("canBeTerminated", () => {
         it("returns false if the request has not been finalized yet", () => {
             const { actor, registry } = mocks.buildEboActor(request, logger);
-            const currentBlockNumber = request.decodedData.responseModuleData.disputeWindow - 1n;
+            const blockTimestamp = request.decodedData.responseModuleData.disputeWindow - 1n;
 
             vi.spyOn(registry, "getRequest").mockReturnValue(request);
             vi.spyOn(registry, "getResponses").mockReturnValue([]);
 
-            expect(actor.canBeTerminated(actor.actorRequest.epoch + 1n, currentBlockNumber)).toBe(
-                false,
-            );
+            expect(
+                actor.canBeTerminated(
+                    actor.actorRequest.epoch + 1n,
+                    blockTimestamp as UnixTimestamp,
+                ),
+            ).toBe(false);
         });
 
         it("returns false if there's one disputable response", () => {
             const response = mocks.buildResponse(request);
             const { actor, registry } = mocks.buildEboActor(request, logger);
-            const currentBlockNumber =
-                response.createdAt + request.decodedData.disputeModuleData.disputeWindow - 1n;
+            const blockTimestamp =
+                response.createdAt.timestamp +
+                request.decodedData.disputeModuleData.disputeWindow -
+                1n;
 
             vi.spyOn(registry, "getRequest").mockReturnValue(request);
             vi.spyOn(registry, "getResponses").mockReturnValue([response]);
             vi.spyOn(registry, "getResponseDispute").mockReturnValue(undefined);
 
-            expect(actor.canBeTerminated(actor.actorRequest.epoch + 1n, currentBlockNumber)).toBe(
-                false,
-            );
+            expect(
+                actor.canBeTerminated(
+                    actor.actorRequest.epoch + 1n,
+                    blockTimestamp as UnixTimestamp,
+                ),
+            ).toBe(false);
         });
 
         it("returns false if the request is finalized but there's one active dispute", () => {
@@ -301,8 +312,10 @@ describe("EboActor", () => {
             const dispute = mocks.buildDispute(request, response, { status: "Active" });
 
             const { actor, registry } = mocks.buildEboActor(request, logger);
-            const currentBlockNumber =
-                response.createdAt + request.decodedData.disputeModuleData.disputeWindow - 1n;
+            const blockTimestamp =
+                response.createdAt.timestamp +
+                request.decodedData.disputeModuleData.disputeWindow -
+                1n;
 
             vi.spyOn(registry, "getRequest").mockReturnValue(request);
             vi.spyOn(registry, "getResponses").mockReturnValue([response]);
@@ -310,7 +323,7 @@ describe("EboActor", () => {
 
             const canBeTerminated = actor.canBeTerminated(
                 actor.actorRequest.epoch + 1n,
-                currentBlockNumber,
+                blockTimestamp as UnixTimestamp,
             );
 
             expect(canBeTerminated).toBe(false);
@@ -322,10 +335,15 @@ describe("EboActor", () => {
                 status: "Finalized",
             };
 
-            const disputedResponse = mocks.buildResponse(request, { id: "0x01" });
+            const disputedResponse = mocks.buildResponse(request, { id: "0x01" as ResponseId });
             const undisputedResponse = mocks.buildResponse(request, {
-                id: "0x02",
-                createdAt: request.decodedData.responseModuleData.deadline - 1n,
+                id: "0x02" as ResponseId,
+                createdAt: {
+                    timestamp: (request.decodedData.responseModuleData.deadline -
+                        1n) as UnixTimestamp,
+                    blockNumber: request.createdAt.blockNumber + 1n,
+                    logIndex: 0,
+                },
             });
 
             const escalatedDispute = mocks.buildDispute(request, disputedResponse, {
@@ -333,8 +351,8 @@ describe("EboActor", () => {
             });
 
             const { actor, registry } = mocks.buildEboActor(request, logger);
-            const currentBlockNumber =
-                undisputedResponse.createdAt +
+            const lastBlockTimestamp =
+                undisputedResponse.createdAt.timestamp +
                 request.decodedData.disputeModuleData.disputeWindow +
                 1n;
 
@@ -357,12 +375,12 @@ describe("EboActor", () => {
 
             const canBeTerminatedDuringCurrentEpoch = actor.canBeTerminated(
                 actor.actorRequest.epoch,
-                currentBlockNumber,
+                lastBlockTimestamp as UnixTimestamp,
             );
 
             const canBeTerminatedDuringNextEpoch = actor.canBeTerminated(
                 actor.actorRequest.epoch + 1n,
-                currentBlockNumber,
+                lastBlockTimestamp as UnixTimestamp,
             );
 
             expect(canBeTerminatedDuringCurrentEpoch).toBe(false);
@@ -377,10 +395,15 @@ describe("EboActor", () => {
                 status: "Finalized",
             };
 
-            const disputedResponse = mocks.buildResponse(request, { id: "0x01" });
+            const disputedResponse = mocks.buildResponse(request, { id: "0x01" as ResponseId });
             const undisputedResponse = mocks.buildResponse(request, {
-                id: "0x02",
-                createdAt: request.decodedData.responseModuleData.deadline - 1n,
+                id: "0x02" as ResponseId,
+                createdAt: {
+                    timestamp: (request.decodedData.responseModuleData.deadline -
+                        1n) as UnixTimestamp,
+                    blockNumber: request.createdAt.blockNumber + 1n,
+                    logIndex: 0,
+                },
             });
 
             const escalatedDispute = mocks.buildDispute(request, disputedResponse, {
@@ -388,8 +411,8 @@ describe("EboActor", () => {
             });
 
             const { actor, registry } = mocks.buildEboActor(request, logger);
-            const currentBlockNumber =
-                undisputedResponse.createdAt +
+            const lastBlockTimestamp =
+                undisputedResponse.createdAt.timestamp +
                 request.decodedData.disputeModuleData.disputeWindow +
                 1n;
 
@@ -412,7 +435,7 @@ describe("EboActor", () => {
 
             const canBeTerminated = actor.canBeTerminated(
                 actor.actorRequest.epoch + 1n,
-                currentBlockNumber,
+                lastBlockTimestamp as UnixTimestamp,
             );
 
             expect(canBeTerminated).toBe(true);
@@ -426,6 +449,7 @@ describe("EboActor", () => {
                 name: "RequestCreated",
                 blockNumber: 1n,
                 logIndex: 0,
+                timestamp: BigInt(Date.UTC(2024, 0, 1, 0, 0, 0) / 1000) as UnixTimestamp,
                 requestId: request.id,
                 metadata: {
                     chainId: request.chainId,

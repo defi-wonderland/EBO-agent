@@ -1,7 +1,8 @@
 import { isNativeError } from "util/types";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
-import { Address, EBO_SUPPORTED_CHAIN_IDS, ILogger } from "@ebo-agent/shared";
+import { Address, EBO_SUPPORTED_CHAIN_IDS, ILogger, UnixTimestamp } from "@ebo-agent/shared";
+import { Block } from "viem";
 
 import { PendingModulesApproval, ProcessorAlreadyStarted } from "../exceptions/index.js";
 import { isRequestCreatedEvent } from "../guards.js";
@@ -113,7 +114,7 @@ export class EboProcessor {
             }
 
             const lastBlock = await this.getLastFinalizedBlock();
-            const events = await this.getEvents(this.lastCheckedBlock, lastBlock);
+            const events = await this.getEvents(this.lastCheckedBlock, lastBlock.number);
 
             const eventsByRequestId = this.groupEventsByRequest(events);
             const synchableRequests = this.calculateSynchableRequests([
@@ -140,7 +141,7 @@ export class EboProcessor {
 
             this.createMissingRequests(currentEpoch.number);
 
-            this.lastCheckedBlock = lastBlock;
+            this.lastCheckedBlock = lastBlock.number;
         } catch (err) {
             if (isNativeError(err)) {
                 this.logger.error(`Sync failed: ` + `${err.message}\n\n` + `${err.stack}`);
@@ -175,7 +176,7 @@ export class EboProcessor {
      *
      * @returns the last finalized block
      */
-    private async getLastFinalizedBlock(): Promise<bigint> {
+    private async getLastFinalizedBlock(): Promise<Block<bigint, boolean, "finalized">> {
         this.logger.info("Fetching last finalized block...");
 
         const lastBlock = await this.protocolProvider.getLastFinalizedBlock();
@@ -248,7 +249,7 @@ export class EboProcessor {
         requestId: RequestId,
         events: EboEventStream,
         currentEpoch: Epoch["number"],
-        lastBlock: bigint,
+        lastBlock: Block<bigint, boolean, "finalized">,
     ) {
         const firstEvent = events[0];
         const actor = this.getOrCreateActor(requestId, firstEvent);
@@ -261,10 +262,12 @@ export class EboProcessor {
 
         events.forEach((event) => actor.enqueue(event));
 
-        await actor.processEvents();
-        await actor.onLastBlockUpdated(lastBlock);
+        const lastBlockTimestamp = lastBlock.timestamp as UnixTimestamp;
 
-        if (actor.canBeTerminated(currentEpoch, lastBlock)) {
+        await actor.processEvents();
+        await actor.onLastBlockUpdated(lastBlockTimestamp);
+
+        if (actor.canBeTerminated(currentEpoch, lastBlockTimestamp)) {
             this.terminateActor(requestId);
         }
     }
