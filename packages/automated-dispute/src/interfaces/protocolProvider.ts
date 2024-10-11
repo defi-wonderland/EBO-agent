@@ -204,10 +204,10 @@ export interface IProtocolProvider {
 }
 
 /**
- * @interface DecodedLogArgsMap
+ * @type DecodedLogArgsMap
  * Represents the mapping of event names to their respective argument structures.
  */
-export interface DecodedLogArgsMap {
+export type DecodedLogArgsMap = {
     /**
      * Event arguments for the RequestCreated event.
      * @property {RequestId} requestId - The ID of the request.
@@ -277,4 +277,4 @@ export interface DecodedLogArgsMap {
         responseId: string;
         caller: string;
     };
-}
+};

@@ -178,6 +178,17 @@ export class ProtocolProvider implements IProtocolProvider {
         });
     }
 
+    /**
+     * Class-level attribute to store Oracle event names.
+     */
+    private static readonly ORACLE_EVENT_NAMES: EboEventName[] = [
+        "ResponseProposed",
+        "ResponseDisputed",
+        "DisputeStatusUpdated",
+        "DisputeEscalated",
+        "OracleRequestFinalized",
+    ];
+
     public write: IWriteProvider = {
         createRequest: this.createRequest.bind(this),
         proposeResponse: this.proposeResponse.bind(this),
@@ -247,6 +258,14 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
+     * Precomputed array of Oracle event ABIs.
+     */
+    private static readonly ORACLE_EVENTS_ABI: AbiEvent[] = ProtocolProvider.ORACLE_EVENT_NAMES.map(
+        (eventName) =>
+            oracleAbi.find((e) => e.name === eventName && e.type === "event") as AbiEvent,
+    );
+
+    /**
      * Returns the address of the account used for transactions.
      *
      * @returns {Address} The account address.
@@ -306,17 +325,9 @@ export class ProtocolProvider implements IProtocolProvider {
                 abi = eboRequestCreatorAbi;
                 break;
             case "ResponseProposed":
-                abi = oracleAbi;
-                break;
             case "ResponseDisputed":
-                abi = oracleAbi;
-                break;
             case "DisputeStatusUpdated":
-                abi = oracleAbi;
-                break;
             case "DisputeEscalated":
-                abi = oracleAbi;
-                break;
             case "OracleRequestFinalized":
                 abi = oracleAbi;
                 break;
@@ -397,20 +408,9 @@ export class ProtocolProvider implements IProtocolProvider {
      */
     // OPTIMIZE: could remove decodeLogData and improve typing if using getContractEvents for each function
     private async getOracleEvents(fromBlock: bigint, toBlock: bigint) {
-        const eventNames = [
-            "ResponseProposed",
-            "ResponseDisputed",
-            "DisputeStatusChanged",
-            "DisputeEscalated",
-            "RequestFinalized",
-        ];
-
         const logs = await this.l2ReadClient.getLogs({
             address: this.oracleContract.address,
-            events: eventNames.map(
-                (eventName) =>
-                    oracleAbi.find((e) => e.name === eventName && e.type === "event") as AbiEvent,
-            ),
+            events: ProtocolProvider.ORACLE_EVENTS_ABI,
             fromBlock,
             toBlock,
             strict: true,
