@@ -1,22 +1,30 @@
 import { ILogger } from "@ebo-agent/shared";
 
 import { CustomContractError } from "../exceptions/index.js";
-import { ErrorContext } from "../types/index.js";
+import { NotificationService } from "../services/index.js";
 
 export class ErrorHandler {
-    public static async handle(error: CustomContractError, logger: ILogger): Promise<void> {
+    private notificationService: NotificationService;
+    private logger: ILogger;
+
+    constructor(notificationService: NotificationService, logger: ILogger) {
+        this.notificationService = notificationService;
+        this.logger = logger;
+    }
+
+    public async handle(error: CustomContractError): Promise<void> {
         const strategy = error.strategy;
         const context = error.getContext();
 
-        logger.error(`Error occurred: ${error.message}`);
+        this.logger.error(`Error occurred: ${error.message}`);
 
         try {
             await error.executeCustomAction();
         } catch (actionError) {
-            logger.error(`Error executing custom action: ${actionError}`);
+            this.logger.error(`Error executing custom action: ${actionError}`);
         } finally {
             if (strategy.shouldNotify) {
-                await this.notifyError(error, context);
+                await this.notificationService.notifyError(error, context);
             }
 
             if (strategy.shouldReenqueue && context.reenqueueEvent) {
@@ -27,13 +35,5 @@ export class ErrorHandler {
                 context.terminateActor();
             }
         }
-    }
-
-    private static async notifyError(
-        error: CustomContractError,
-        context: ErrorContext,
-    ): Promise<void> {
-        // TODO: notification logic
-        console.log(error, context);
     }
 }
