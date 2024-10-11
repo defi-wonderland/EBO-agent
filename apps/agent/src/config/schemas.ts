@@ -30,6 +30,8 @@ export const envSchema = z.object({
     BLOCK_NUMBER_RPC_URLS_MAP: stringToJSONSchema.pipe(chainRpcUrlSchema),
     BLOCK_NUMBER_BLOCKMETA_TOKEN: z.string(),
     EBO_AGENT_CONFIG_FILE_PATH: z.string(),
+    DISCORD_BOT_TOKEN: z.string(),
+    DISCORD_CHANNEL_ID: z.string(),
 });
 
 const addressSchema = z.string().refine((address) => isAddress(address));

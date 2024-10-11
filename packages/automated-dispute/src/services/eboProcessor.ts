@@ -5,7 +5,7 @@ import { Block } from "viem";
 
 import { PendingModulesApproval, ProcessorAlreadyStarted } from "../exceptions/index.js";
 import { isRequestCreatedEvent } from "../guards.js";
-import { ProtocolProvider } from "../providers/protocolProvider.js";
+import { ProtocolProvider } from "../providers/index.js";
 import {
     alreadyDeletedActorWarning,
     droppingUnhandledEventsWarning,
@@ -20,6 +20,7 @@ import {
     RequestId,
 } from "../types/index.js";
 import { EboActorsManager } from "./eboActorsManager.js";
+import { NotificationService } from "./notificationService.js";
 
 const DEFAULT_MS_BETWEEN_CHECKS = 10 * 60 * 1000; // 10 minutes
 
@@ -35,6 +36,7 @@ export class EboProcessor {
         private readonly blockNumberService: BlockNumberService,
         private readonly actorsManager: EboActorsManager,
         private readonly logger: ILogger,
+        private readonly notifier: NotificationService,
     ) {}
 
     /**
@@ -54,6 +56,9 @@ export class EboProcessor {
                 await this.sync();
             } catch (err) {
                 this.logger.error(`Unhandled error during the event loop: ${err}`);
+                await this.notifier.notifyError(err as Error, {
+                    message: "Unhandled error during the event loop",
+                });
 
                 clearInterval(this.eventsInterval);
 
@@ -143,7 +148,10 @@ export class EboProcessor {
                 this.logger.error(`Sync failed: ${err}`);
             }
 
-            // TODO: notify
+            await this.notifier.notifyError(err as Error, {
+                message: "Error during synchronization",
+                stack: isNativeError(err) ? err.stack : undefined,
+            });
         }
     }
 
@@ -285,7 +293,11 @@ export class EboProcessor {
             } else {
                 this.logger.warn(`Chain ${chainId} not supported by the agent. Skipping...`);
 
-                // TODO: notify
+                this.notifier.notifyError(new Error(`Unsupported chain`), {
+                    message: `Chain ${chainId} not supported by the agent. Skipping...`,
+                    chainId,
+                    requestId,
+                });
 
                 return null;
             }
@@ -322,6 +334,7 @@ export class EboProcessor {
             this.protocolProvider,
             this.blockNumberService,
             this.logger,
+            this.notifier,
         );
 
         return actor;
@@ -334,7 +347,10 @@ export class EboProcessor {
                 `The request ${requestId} will stop being tracked by the system.`,
         );
 
-        // TODO: notify
+        this.notifier.notifyError(error, {
+            message: `Actor error for request ${requestId}`,
+            requestId,
+        });
 
         this.terminateActor(requestId);
     }
@@ -385,11 +401,14 @@ export class EboProcessor {
                     // retried during next sync.
 
                     // TODO: warn when getting a EBORequestCreator_RequestAlreadyCreated
-                    // TODO: notify under any other error
-
                     this.logger.error(
                         `Could not create a request for epoch ${epoch} and chain ${chain}.`,
                     );
+                    await this.notifier.notifyError(err as Error, {
+                        message: `Could not create a request for epoch ${epoch} and chain ${chain}.`,
+                        epoch,
+                        chain,
+                    });
                 }
             });
 
@@ -397,11 +416,13 @@ export class EboProcessor {
 
             this.logger.info("Missing requests created.");
         } catch (err) {
-            // TODO: notify
-
             this.logger.error(
                 `Requests creation missing: ${isNativeError(err) ? err.message : err}`,
             );
+            await this.notifier.notifyError(err as Error, {
+                message: "Error creating missing requests",
+                epoch,
+            });
         }
     }
 
@@ -419,12 +440,10 @@ export class EboProcessor {
             this.logger.info(`Actor handling request ${requestId} was terminated.`);
         } else {
             this.logger.warn(alreadyDeletedActorWarning(requestId));
-
-            // TODO: notify
+            this.notifier.notifyError(new Error(`Actor already deleted`), {
+                message: `Actor handling request ${requestId} was already terminated.`,
+                requestId,
+            });
         }
-    }
-
-    private async notifyError(_error: Error) {
-        // TODO
     }
 }

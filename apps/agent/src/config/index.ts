@@ -67,4 +67,6 @@ export const config = {
         },
     },
     processor: { ...configData.processor },
+    DISCORD_BOT_TOKEN: envData.DISCORD_BOT_TOKEN,
+    DISCORD_CHANNEL_ID: envData.DISCORD_CHANNEL_ID,
 } as const;
