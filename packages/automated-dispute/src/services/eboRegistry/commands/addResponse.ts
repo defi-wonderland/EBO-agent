@@ -19,7 +19,11 @@ export class AddResponse implements EboRegistryCommand {
 
         const response: Response = {
             id: Address.normalize(event.metadata.responseId) as ResponseId,
-            createdAt: event.blockNumber,
+            createdAt: {
+                timestamp: event.timestamp,
+                blockNumber: event.blockNumber,
+                logIndex: event.logIndex,
+            },
             decodedData: {
                 response: responseBody,
             },

@@ -1,5 +1,5 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber";
-import { Address } from "viem";
+import { Address, Block } from "viem";
 
 import type { Dispute, EboEvent, EboEventName, Epoch, Request, Response } from "../types/index.js";
 import { ProtocolContractsNames } from "../constants.js";
@@ -19,11 +19,11 @@ export interface IReadProvider {
     getCurrentEpoch(): Promise<Epoch>;
 
     /**
-     * Gets the last finalized block number.
+     * Gets the last finalized block.
      *
-     * @returns A promise that resolves with the block number of the last finalized block.
+     * @returns A promise that resolves with the last finalized block.
      */
-    getLastFinalizedBlock(): Promise<bigint>;
+    getLastFinalizedBlock(): Promise<Block<bigint, boolean, "finalized">>;
 
     /**
      * Retrieves events from the protocol within a specified block range.
