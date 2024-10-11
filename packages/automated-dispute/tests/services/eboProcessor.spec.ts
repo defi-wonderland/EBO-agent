@@ -4,7 +4,6 @@ import { Block } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PendingModulesApproval, ProcessorAlreadyStarted } from "../../src/exceptions/index.js";
-import { ProtocolProvider } from "../../src/providers/index.js";
 import { NotificationService } from "../../src/services/index.js";
 import {
     AccountingModules,
