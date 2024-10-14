@@ -1,7 +1,9 @@
 // Based on https://github.com/ChainAgnostic/CAIPs/blob/main/CAIPs/caip-2.md
 
-import { InvalidChainId } from "../../exceptions/invalidChain.js";
-import { Caip2ChainId } from "../../types.js";
+import { Hex, keccak256, toHex } from "viem";
+
+import { InvalidChainId } from "../exceptions/index.js";
+import { Caip2ChainId } from "../types/index.js";
 
 const NAMESPACE_FORMAT = /^[-a-z0-9]{3,8}$/;
 const REFERENCE_FORMAT = /^[-_a-zA-Z0-9]{1,32}$/;
@@ -51,5 +53,14 @@ export class Caip2Utils {
         const namespace = chainId.split(":")[0] as string;
 
         return namespace;
+    }
+
+    public static findByHash(
+        hashedChainId: Hex,
+        chainIds: Caip2ChainId[],
+    ): Caip2ChainId | undefined {
+        return chainIds.find(
+            (id) => keccak256(toHex(id)).toLowerCase() === hashedChainId.toLowerCase(),
+        );
     }
 }

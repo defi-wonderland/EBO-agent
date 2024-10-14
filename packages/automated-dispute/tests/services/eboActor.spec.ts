@@ -1,5 +1,5 @@
 import { UnixTimestamp } from "@ebo-agent/shared";
-import { Abi, ContractFunctionRevertedError, encodeErrorResult } from "viem";
+import { Abi, ContractFunctionRevertedError, encodeErrorResult, keccak256, toHex } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -25,7 +25,7 @@ describe("EboActor", () => {
         timestamp: BigInt(Date.UTC(2024, 0, 1, 0, 0, 0) / 1000) as UnixTimestamp,
         requestId: request.id,
         metadata: {
-            chainId: request.chainId,
+            chainId: keccak256(toHex(request.chainId)),
             epoch: request.epoch,
             requestId: request.id,
             request: request.prophetData,
@@ -452,7 +452,7 @@ describe("EboActor", () => {
                 timestamp: BigInt(Date.UTC(2024, 0, 1, 0, 0, 0) / 1000) as UnixTimestamp,
                 requestId: request.id,
                 metadata: {
-                    chainId: request.chainId,
+                    chainId: keccak256(toHex(request.chainId)),
                     epoch: request.epoch,
                     requestId: request.id,
                     request: request.prophetData,

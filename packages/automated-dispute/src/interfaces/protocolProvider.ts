@@ -1,4 +1,4 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber";
+import { Caip2ChainId } from "@ebo-agent/shared";
 import { Address, Block } from "viem";
 
 import type {

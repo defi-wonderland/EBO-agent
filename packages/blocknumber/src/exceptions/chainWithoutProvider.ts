@@ -1,4 +1,4 @@
-import { Caip2ChainId } from "../types.js";
+import { Caip2ChainId } from "@ebo-agent/shared";
 
 export class ChainWithoutProvider extends Error {
     constructor(chainId: Caip2ChainId) {

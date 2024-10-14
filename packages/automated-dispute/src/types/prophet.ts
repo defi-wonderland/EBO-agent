@@ -1,5 +1,4 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber";
-import { Branded, NormalizedAddress, UnixTimestamp } from "@ebo-agent/shared";
+import { Branded, Caip2ChainId, NormalizedAddress, UnixTimestamp } from "@ebo-agent/shared";
 import { Address, Hex } from "viem";
 
 export type RequestId = Branded<NormalizedAddress, "RequestId">;

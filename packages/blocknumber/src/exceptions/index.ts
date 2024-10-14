@@ -1,7 +1,6 @@
 export * from "./blockmetaConnectionFailed.js";
 export * from "./chainWithoutProvider.js";
 export * from "./emptyRpcUrls.js";
-export * from "./invalidChain.js";
 export * from "./invalidTimestamp.js";
 export * from "./lastBlockEpoch.js";
 export * from "./timestampNotFound.js";
