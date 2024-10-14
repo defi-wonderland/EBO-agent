@@ -1,4 +1,4 @@
-import { Caip2ChainId, Caip2Utils } from "@ebo-agent/blocknumber/src/index.js";
+import { Caip2ChainId, Caip2Utils } from "@ebo-agent/blocknumber";
 import { isAddress, isHex } from "viem";
 import { z } from "zod";
 

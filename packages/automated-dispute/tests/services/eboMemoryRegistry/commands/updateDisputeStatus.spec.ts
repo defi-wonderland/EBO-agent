@@ -14,8 +14,8 @@ describe("UpdateDisputeStatus", () => {
     const response = mocks.buildResponse(request);
     const dispute = mocks.buildDispute(request, response);
 
-    const event: EboEvent<"DisputeStatusChanged"> = {
-        name: "DisputeStatusChanged",
+    const event: EboEvent<"DisputeStatusUpdated"> = {
+        name: "DisputeStatusUpdated",
         blockNumber: 1n,
         logIndex: 1,
         requestId: request.id,

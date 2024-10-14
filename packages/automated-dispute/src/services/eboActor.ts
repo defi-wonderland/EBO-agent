@@ -1,5 +1,4 @@
-import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
+import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
 import { Address, ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
@@ -214,9 +213,9 @@ export class EboActor {
                     this.registry,
                 );
 
-            case "DisputeStatusChanged":
+            case "DisputeStatusUpdated":
                 return UpdateDisputeStatus.buildFromEvent(
-                    event as EboEvent<"DisputeStatusChanged">,
+                    event as EboEvent<"DisputeStatusUpdated">,
                     this.registry,
                 );
 
@@ -226,9 +225,9 @@ export class EboActor {
                     this.registry,
                 );
 
-            case "RequestFinalized":
+            case "OracleRequestFinalized":
                 return FinalizeRequest.buildFromEvent(
-                    event as EboEvent<"RequestFinalized">,
+                    event as EboEvent<"OracleRequestFinalized">,
                     this.registry,
                 );
 
@@ -261,8 +260,8 @@ export class EboActor {
 
                 break;
 
-            case "DisputeStatusChanged":
-                await this.onDisputeStatusChanged(event as EboEvent<"DisputeStatusChanged">);
+            case "DisputeStatusUpdated":
+                await this.onDisputeStatusChanged(event as EboEvent<"DisputeStatusUpdated">);
 
                 break;
 
@@ -271,8 +270,8 @@ export class EboActor {
 
                 break;
 
-            case "RequestFinalized":
-                await this.onRequestFinalized(event as EboEvent<"RequestFinalized">);
+            case "OracleRequestFinalized":
+                await this.onRequestFinalized(event as EboEvent<"OracleRequestFinalized">);
 
                 break;
 
@@ -857,7 +856,7 @@ export class EboActor {
      *
      * @param event `DisputeStatusChanged` event
      */
-    private async onDisputeStatusChanged(event: EboEvent<"DisputeStatusChanged">): Promise<void> {
+    private async onDisputeStatusChanged(event: EboEvent<"DisputeStatusUpdated">): Promise<void> {
         const request = this.getActorRequest();
         const disputeId = event.metadata.disputeId;
         const disputeStatus = event.metadata.status;
@@ -921,7 +920,7 @@ export class EboActor {
      *
      * @param event `ResponseFinalized` event
      */
-    private async onRequestFinalized(_event: EboEvent<"RequestFinalized">): Promise<void> {
+    private async onRequestFinalized(_event: EboEvent<"OracleRequestFinalized">): Promise<void> {
         const request = this.getActorRequest();
 
         this.logger.info(`Request ${request.id} has been finalized.`);

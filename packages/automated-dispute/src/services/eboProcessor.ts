@@ -1,6 +1,5 @@
 import { isNativeError } from "util/types";
-import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
+import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
 import { Address, EBO_SUPPORTED_CHAIN_IDS, ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import { Block } from "viem";
 
