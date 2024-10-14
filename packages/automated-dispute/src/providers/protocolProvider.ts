@@ -1,6 +1,7 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
+import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import { UnixTimestamp } from "@ebo-agent/shared";
 import {
+    AbiEvent,
     Address,
     BaseError,
     Block,
@@ -9,6 +10,7 @@ import {
     createPublicClient,
     createWalletClient,
     decodeAbiParameters,
+    decodeEventLog,
     encodeAbiParameters,
     fallback,
     FallbackTransport,
@@ -17,13 +19,22 @@ import {
     Hex,
     http,
     HttpTransport,
+    Log,
     PublicClient,
     WalletClient,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum, mainnet } from "viem/chains";
 
-import type { Dispute, EboEvent, EboEventName, Epoch, Request, Response } from "../types/index.js";
+import type {
+    Dispute,
+    EboEvent,
+    EboEventName,
+    Epoch,
+    Request,
+    RequestId,
+    Response,
+} from "../types/index.js";
 import {
     bondEscalationModuleAbi,
     eboRequestCreatorAbi,
@@ -32,12 +43,16 @@ import {
     oracleAbi,
 } from "../abis/index.js";
 import {
+    DecodeLogDataFailure,
     ErrorFactory,
     InvalidAccountOnClient,
+    InvalidBlockRangeError,
     RpcUrlsEmpty,
     TransactionExecutionError,
+    UnsupportedEvent,
 } from "../exceptions/index.js";
 import {
+    DecodedLogArgsMap,
     IProtocolProvider,
     IReadProvider,
     IWriteProvider,
@@ -163,6 +178,17 @@ export class ProtocolProvider implements IProtocolProvider {
         });
     }
 
+    /**
+     * Class-level attribute to store Oracle event names.
+     */
+    private static readonly ORACLE_EVENT_NAMES: EboEventName[] = [
+        "ResponseProposed",
+        "ResponseDisputed",
+        "DisputeStatusUpdated",
+        "DisputeEscalated",
+        "OracleRequestFinalized",
+    ];
+
     public write: IWriteProvider = {
         createRequest: this.createRequest.bind(this),
         proposeResponse: this.proposeResponse.bind(this),
@@ -232,6 +258,14 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
+     * Precomputed array of Oracle event ABIs.
+     */
+    private static readonly ORACLE_EVENTS_ABI: AbiEvent[] = ProtocolProvider.ORACLE_EVENT_NAMES.map(
+        (eventName) =>
+            oracleAbi.find((e) => e.name === eventName && e.type === "event") as AbiEvent,
+    );
+
+    /**
      * Returns the address of the account used for transactions.
      *
      * @returns {Address} The account address.
@@ -274,21 +308,178 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Gets a list of events between two blocks.
+     * Decodes the log data for a specific event.
      *
-     * @param {bigint} _fromBlock - The starting block number.
-     * @param {bigint} _toBlock - The ending block number.
-     * @returns {Promise<EboEvent<EboEventName>[]>} A list of EBO events.
+     * @param eventName - The name of the event to decode.
+     * @param log - The log object containing the event data.
+     * @returns The decoded log data as an object.
+     * @throws {Error} If the event name is unsupported or if there's an error during decoding.
      */
-    async getEvents(_fromBlock: bigint, _toBlock: bigint): Promise<EboEvent<EboEventName>[]> {
-        // TODO: implement actual method.
-        //
-        // We should decode events using the corresponding ABI and also "fabricate" new events
-        // if for some triggers there are no events (e.g. dispute window ended)
-        const eboRequestCreatorEvents: EboEvent<EboEventName>[] = [];
-        const oracleEvents: EboEvent<EboEventName>[] = [];
+    private decodeLogData<TEventName extends EboEventName>(
+        eventName: TEventName,
+        log: Log,
+    ): DecodedLogArgsMap[TEventName] {
+        let abi;
+        switch (eventName) {
+            case "RequestCreated":
+                abi = eboRequestCreatorAbi;
+                break;
+            case "ResponseProposed":
+            case "ResponseDisputed":
+            case "DisputeStatusUpdated":
+            case "DisputeEscalated":
+            case "OracleRequestFinalized":
+                abi = oracleAbi;
+                break;
+            default:
+                throw new UnsupportedEvent(`Unsupported event name: ${eventName}`);
+        }
 
-        return this.mergeEventStreams(eboRequestCreatorEvents, oracleEvents);
+        try {
+            const decodedLog = decodeEventLog({
+                abi,
+                data: log.data,
+                topics: log.topics,
+                eventName,
+                strict: true,
+            });
+
+            return decodedLog.args as DecodedLogArgsMap[TEventName];
+        } catch (error) {
+            throw new DecodeLogDataFailure(error);
+        }
+    }
+
+    /**
+     * Parses an Oracle event log into an EboEvent.
+     *
+     * @param eventName - The name of the event.
+     * @param log - The event log to parse.
+     * @returns An EboEvent object.
+     */
+    private parseOracleEvent(eventName: EboEventName, log: Log) {
+        const baseEvent = {
+            name: eventName,
+            blockNumber: log.blockNumber,
+            logIndex: log.logIndex,
+            rawLog: log,
+        };
+
+        const decodedLog = this.decodeLogData(eventName, log);
+
+        let requestId: RequestId;
+        switch (eventName) {
+            // TODO: extract request ID properly from decoded log
+            case "ResponseProposed":
+                // @ts-expect-error: must extract request ID properly
+                requestId = decodedLog.requestId;
+                break;
+            case "ResponseDisputed":
+                // @ts-expect-error: must extract request ID properly
+                requestId = decodedLog.requestId;
+                break;
+            case "DisputeStatusUpdated":
+            case "DisputeEscalated":
+                // @ts-expect-error: must extract request ID properly
+                requestId = decodedLog.requestId;
+                break;
+            case "OracleRequestFinalized":
+                // @ts-expect-error: must extract request ID properly
+                requestId = decodedLog.requestId;
+                break;
+            default:
+                throw new UnsupportedEvent(`Unsupported event name: ${eventName}`);
+        }
+
+        return {
+            ...baseEvent,
+            requestId,
+            metadata: decodedLog,
+        };
+    }
+
+    /**
+     * Fetches events from the Oracle contract.
+     *
+     * @param fromBlock - The starting block number to fetch events from.
+     * @param toBlock - The ending block number to fetch events to.
+     * @returns A promise that resolves to an array of EboEvents.
+     *
+     */
+    // OPTIMIZE: could remove decodeLogData and improve typing if using getContractEvents for each function
+    private async getOracleEvents(fromBlock: bigint, toBlock: bigint) {
+        const logs = await this.l2ReadClient.getLogs({
+            address: this.oracleContract.address,
+            events: ProtocolProvider.ORACLE_EVENTS_ABI,
+            fromBlock,
+            toBlock,
+            strict: true,
+        });
+
+        return logs.map((log) => {
+            const eventName = log.eventName as EboEventName;
+            return this.parseOracleEvent(eventName, log);
+        });
+    }
+    /**
+     * Fetches events from the EBORequestCreator contract.
+     *
+     * @param fromBlock - The starting block number to fetch events from.
+     * @param toBlock - The ending block number to fetch events to.
+     * @returns A promise that resolves to an array of EboEvents.
+     */
+    private async getEBORequestCreatorEvents(fromBlock: bigint, toBlock: bigint) {
+        const events = await this.l2ReadClient.getContractEvents({
+            address: this.eboRequestCreatorContract.address,
+            abi: eboRequestCreatorAbi,
+            eventName: "RequestCreated",
+            fromBlock,
+            toBlock,
+            strict: true,
+        });
+
+        return events.map((event) => {
+            if (event.blockNumber === null || event.logIndex === null) {
+                throw new Error("event.blockNumber or event.logIndex is null");
+            }
+
+            return {
+                name: "RequestCreated" as const,
+                blockNumber: event.blockNumber,
+                logIndex: event.logIndex,
+                rawLog: event,
+
+                requestId: event.args._requestId,
+                metadata: {
+                    requestId: event.args._requestId,
+                    epoch: event.args._epoch,
+                    chainId: event.args._chainId,
+                },
+            } as unknown as EboEvent<"RequestCreated">;
+        });
+    }
+
+    /**
+     * Retrieves events from all relevant contracts within a specified block range.
+     *
+     * @param fromBlock - The starting block number to fetch events from.
+     * @param toBlock - The ending block number to fetch events to.
+     * @returns A promise that resolves to an array of EboEvents sorted by block number and log index.
+     * @throws {Error} If the block range is invalid or if there's an error fetching events.
+     */
+    async getEvents(fromBlock: bigint, toBlock: bigint) {
+        if (fromBlock > toBlock) {
+            throw new InvalidBlockRangeError(fromBlock, toBlock);
+        }
+
+        const [requestCreatorEvents, oracleEvents] = await Promise.all([
+            this.getEBORequestCreatorEvents(fromBlock, toBlock),
+            this.getOracleEvents(fromBlock, toBlock),
+        ]);
+
+        // TODO: update after requestId extracted properly
+        // @ts-expect-error: will error  until requestId extracted from each event properly
+        return this.mergeEventStreams(requestCreatorEvents, oracleEvents);
     }
 
     /**
@@ -302,11 +493,11 @@ export class ProtocolProvider implements IProtocolProvider {
         return streams
             .reduce((acc, curr) => acc.concat(curr), [])
             .sort((a, b) => {
-                if (a.blockNumber < b.blockNumber) return 1;
-                if (a.blockNumber > b.blockNumber) return -1;
+                if (a.blockNumber > b.blockNumber) return 1;
+                if (a.blockNumber < b.blockNumber) return -1;
 
-                if (a.logIndex < b.logIndex) return 1;
-                if (a.logIndex > b.logIndex) return -1;
+                if (a.logIndex > b.logIndex) return 1;
+                if (a.logIndex < b.logIndex) return -1;
 
                 return 0;
             });

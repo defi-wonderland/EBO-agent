@@ -1,12 +1,17 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
+import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import {
+    AbiEvent,
     ContractFunctionRevertedError,
     createPublicClient,
     createWalletClient,
+    encodeAbiParameters,
     fallback,
     getContract,
+    getEventSelector,
     http,
     isHex,
+    keccak256,
+    Log,
     WaitForTransactionReceiptTimeoutError,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -24,6 +29,7 @@ import {
     InvalidAccountOnClient,
     RpcUrlsEmpty,
     TransactionExecutionError,
+    UnsupportedEvent,
 } from "../../src/exceptions/index.js";
 import { ProtocolContractsAddresses } from "../../src/interfaces/index.js";
 import { ProtocolProvider } from "../../src/providers/index.js";
@@ -845,6 +851,330 @@ describe("ProtocolProvider", () => {
             await expect(protocolProvider.getApprovedModules(mockUserAddress)).rejects.toThrow(
                 error,
             );
+        });
+    });
+
+    describe("decodeLogData", () => {
+        it("successfully decodes RequestCreated event", () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const eboRequestCreatorAbi = [
+                {
+                    type: "event",
+                    name: "RequestCreated",
+                    inputs: [
+                        {
+                            name: "_requestId",
+                            type: "bytes32",
+                            indexed: true,
+                            internalType: "bytes32",
+                        },
+                        { name: "_epoch", type: "uint256", indexed: true, internalType: "uint256" },
+                        { name: "_chainId", type: "string", indexed: true, internalType: "string" },
+                    ],
+                    anonymous: false,
+                },
+            ];
+
+            const eventAbi = eboRequestCreatorAbi[0];
+            const eventSignature = getEventSelector(eventAbi as AbiEvent);
+
+            const _requestId = "0x" + "123".padStart(64, "0");
+            const _epoch = 1n;
+            const _chainId = "eip155:1";
+
+            const epochHex = "0x" + _epoch.toString(16).padStart(64, "0");
+            const chainIdHash = keccak256(encodeAbiParameters([{ type: "string" }], [_chainId]));
+
+            const topics = [eventSignature, _requestId, epochHex, chainIdHash] as [
+                `0x${string}`,
+                ...`0x${string}`[],
+            ];
+
+            const mockLog: Log = {
+                address: "0x1234567890123456789012345678901234567890",
+                topics,
+                data: "0x",
+                blockNumber: 1n,
+                transactionHash:
+                    "0x1234567890123456789012345678901234567890123456789012345678901234",
+                transactionIndex: 1,
+                blockHash: "0x1234567890123456789012345678901234567890123456789012345678901234",
+                logIndex: 1,
+                removed: false,
+            };
+
+            const result = (protocolProvider as any).decodeLogData("RequestCreated", mockLog);
+
+            expect(result).toBeDefined();
+            expect(result).toEqual({
+                _requestId,
+                _epoch,
+                _chainId: chainIdHash,
+            });
+        });
+
+        it("throws an error for unsupported event name", () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockLog: Log = {
+                address: "0x1234567890123456789012345678901234567890",
+                topics: ["0x0000000000000000000000000000000000000000000000000000000000000001"],
+                data: "0x",
+                blockNumber: 1n,
+                transactionHash:
+                    "0x1234567890123456789012345678901234567890123456789012345678901234",
+                transactionIndex: 1,
+                blockHash: "0x1234567890123456789012345678901234567890123456789012345678901234",
+                logIndex: 1,
+                removed: false,
+            };
+
+            expect(() =>
+                (protocolProvider as any).parseOracleEvent("UnsupportedEvent", mockLog),
+            ).toThrow("Unsupported event name: UnsupportedEvent");
+        });
+    });
+
+    describe("parseOracleEvent", () => {
+        it("successfully parses ResponseProposed event", () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockLog: Log = {
+                address: "0x1234567890123456789012345678901234567890",
+                topics: [
+                    "0x0000000000000000000000000000000000000000000000000000000000000001",
+                    "0x0000000000000000000000000000000000000000000000000000000000000002",
+                ],
+                data: "0x0000000000000000000000000000000000000000000000000000000000000003",
+                blockNumber: 1n,
+                transactionHash:
+                    "0x1234567890123456789012345678901234567890123456789012345678901234",
+                transactionIndex: 1,
+                blockHash: "0x1234567890123456789012345678901234567890123456789012345678901234",
+                logIndex: 1,
+                removed: false,
+            };
+
+            vi.spyOn(protocolProvider as any, "decodeLogData").mockReturnValue({
+                requestId: "0x0000000000000000000000000000000000000000000000000000000000000002",
+                responseId: "0x456",
+                response: "0x789",
+                blockNumber: 1n,
+            });
+
+            const result = (protocolProvider as any).parseOracleEvent("ResponseProposed", mockLog);
+
+            expect(result).toEqual({
+                name: "ResponseProposed",
+                blockNumber: 1n,
+                logIndex: 1,
+                rawLog: mockLog,
+                requestId: "0x0000000000000000000000000000000000000000000000000000000000000002",
+                metadata: {
+                    requestId: "0x0000000000000000000000000000000000000000000000000000000000000002",
+                    responseId: "0x456",
+                    response: "0x789",
+                    blockNumber: 1n,
+                },
+            });
+        });
+
+        it("throws UnsupportedEvent for unsupported event name", () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockLog: Log = {
+                address: "0x1234567890123456789012345678901234567890",
+                topics: ["0x0000000000000000000000000000000000000000000000000000000000000001"],
+                data: "0x",
+                blockNumber: 1n,
+                transactionHash:
+                    "0x1234567890123456789012345678901234567890123456789012345678901234",
+                transactionIndex: 1,
+                blockHash: "0x1234567890123456789012345678901234567890123456789012345678901234",
+                logIndex: 1,
+                removed: false,
+            };
+
+            expect(() =>
+                (protocolProvider as any).parseOracleEvent("UnsupportedEvent", mockLog),
+            ).toThrow(UnsupportedEvent);
+
+            expect(() =>
+                (protocolProvider as any).parseOracleEvent("UnsupportedEvent", mockLog),
+            ).toThrow("Unsupported event name: UnsupportedEvent");
+        });
+    });
+
+    describe("getOracleEvents", () => {
+        it("successfully fetches and parses Oracle events", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockLogs: Log[] = [
+                {
+                    address: "0x1234567890123456789012345678901234567890",
+                    topics: [
+                        "0x0000000000000000000000000000000000000000000000000000000000000001",
+                        "0x0000000000000000000000000000000000000000000000000000000000000002",
+                    ],
+                    data: "0x0000000000000000000000000000000000000000000000000000000000000003",
+                    blockNumber: 1n,
+                    transactionHash:
+                        "0x1234567890123456789012345678901234567890123456789012345678901234",
+                    transactionIndex: 1,
+                    blockHash: "0x1234567890123456789012345678901234567890123456789012345678901234",
+                    logIndex: 1,
+                    removed: false,
+                },
+            ];
+
+            (protocolProvider["l2ReadClient"] as any).getLogs = vi.fn().mockResolvedValue(mockLogs);
+
+            vi.spyOn(protocolProvider as any, "parseOracleEvent").mockReturnValue({
+                name: "ResponseProposed",
+                blockNumber: 1n,
+                logIndex: 1,
+                rawLog: mockLogs[0],
+                requestId: "0x123",
+                metadata: {},
+            });
+
+            const result = await (protocolProvider as any).getOracleEvents(0n, 100n);
+
+            expect(result).toHaveLength(1);
+            expect(result[0]).toEqual({
+                name: "ResponseProposed",
+                blockNumber: 1n,
+                logIndex: 1,
+                rawLog: mockLogs[0],
+                requestId: "0x123",
+                metadata: {},
+            });
+        });
+    });
+
+    describe("getEBORequestCreatorEvents", () => {
+        it("successfully fetches and parses EBORequestCreator events", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            (protocolProvider["l2ReadClient"] as any).getContractEvents = vi
+                .fn()
+                .mockResolvedValue([
+                    {
+                        address: "0x1234567890123456789012345678901234567890",
+                        args: {
+                            _requestId: "0x123",
+                            _epoch: 1n,
+                            _chainId: "eip155:1",
+                        },
+                        blockNumber: 1n,
+                        logIndex: 1,
+                        blockHash:
+                            "0x1234567890123456789012345678901234567890123456789012345678901234",
+                        transactionHash: "0x1234567890123456789012345678901234567890",
+                        transactionIndex: 1,
+                        data: "0x0000000000000000000000000000000000000000000000000000000000000003",
+                        removed: false,
+                        topics: [
+                            "0x0000000000000000000000000000000000000000000000000000000000000001",
+                            "0x0000000000000000000000000000000000000000000000000000000000000002",
+                        ],
+                    },
+                ]);
+
+            const result = await (protocolProvider as any).getEBORequestCreatorEvents(0n, 100n);
+
+            expect(result).toHaveLength(1);
+            expect(result[0]).toEqual({
+                name: "RequestCreated",
+                blockNumber: 1n,
+                logIndex: 1,
+                requestId: "0x123",
+                metadata: {
+                    requestId: "0x123",
+                    epoch: 1n,
+                    chainId: "eip155:1",
+                },
+                rawLog: {
+                    address: "0x1234567890123456789012345678901234567890",
+                    args: {
+                        _chainId: "eip155:1",
+                        _epoch: 1n,
+                        _requestId: "0x123",
+                    },
+                    blockHash: "0x1234567890123456789012345678901234567890123456789012345678901234",
+                    blockNumber: 1n,
+                    data: "0x0000000000000000000000000000000000000000000000000000000000000003",
+                    logIndex: 1,
+                    removed: false,
+                    topics: [
+                        "0x0000000000000000000000000000000000000000000000000000000000000001",
+                        "0x0000000000000000000000000000000000000000000000000000000000000002",
+                    ],
+                    transactionHash: "0x1234567890123456789012345678901234567890",
+                    transactionIndex: 1,
+                },
+            });
+        });
+    });
+
+    describe("getEvents", () => {
+        it("successfully merges and sorts events from all sources", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const mockRequestCreatorEvents = [
+                { name: "RequestCreated", blockNumber: 1n, logIndex: 0 },
+                { name: "RequestCreated", blockNumber: 3n, logIndex: 0 },
+            ];
+
+            const mockOracleEvents = [
+                { name: "ResponseDisputed", blockNumber: 2n, logIndex: 0 },
+                { name: "ResponseProposed", blockNumber: 2n, logIndex: 1 },
+            ];
+
+            vi.spyOn(protocolProvider as any, "getEBORequestCreatorEvents").mockResolvedValue(
+                mockRequestCreatorEvents,
+            );
+            vi.spyOn(protocolProvider as any, "getOracleEvents").mockResolvedValue(
+                mockOracleEvents,
+            );
+
+            const result = await protocolProvider.getEvents(0n, 100n);
+
+            expect(result).toEqual([
+                { name: "RequestCreated", blockNumber: 1n, logIndex: 0 },
+                { name: "ResponseDisputed", blockNumber: 2n, logIndex: 0 },
+                { name: "ResponseProposed", blockNumber: 2n, logIndex: 1 },
+                { name: "RequestCreated", blockNumber: 3n, logIndex: 0 },
+            ]);
         });
     });
 });
