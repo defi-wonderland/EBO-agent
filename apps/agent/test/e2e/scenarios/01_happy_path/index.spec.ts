@@ -108,10 +108,18 @@ describe.sequential("single agent", () => {
 
         const protocolProvider = new ProtocolProvider(
             {
-                urls: ["http://127.0.0.1:8545/1"],
-                transactionReceiptConfirmations: 1,
-                timeout: 1_000,
-                retryInterval: 500,
+                l1: {
+                    urls: ["http://127.0.0.1:8545/1"],
+                    transactionReceiptConfirmations: 1,
+                    timeout: 1_000,
+                    retryInterval: 500,
+                },
+                l2: {
+                    urls: ["http://127.0.0.1:8545/1"],
+                    transactionReceiptConfirmations: 1,
+                    timeout: 1_000,
+                    retryInterval: 500,
+                },
             },
             {
                 bondEscalationModule: protocolContracts["BondEscalationModule"],
