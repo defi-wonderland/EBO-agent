@@ -60,5 +60,21 @@ describe("Caip2Utils", () => {
 
             expect(foundChainId).toBeUndefined();
         });
+
+        it("returns the found chain when no array specified", () => {
+            const hash = keccak256(toHex("eip155:1"));
+
+            const foundChainId = Caip2Utils.findByHash(hash);
+
+            expect(foundChainId).toEqual("eip155:1");
+        });
+
+        it("returns undefined when no array specified and not found", () => {
+            const hash = keccak256(toHex("eip000:0123456789"));
+
+            const foundChainId = Caip2Utils.findByHash(hash);
+
+            expect(foundChainId).toBeUndefined();
+        });
     });
 });

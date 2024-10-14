@@ -2,6 +2,7 @@
 
 import { Hex, keccak256, toHex } from "viem";
 
+import { EBO_SUPPORTED_CHAIN_IDS } from "../constants.js";
 import { InvalidChainId } from "../exceptions/index.js";
 import { Caip2ChainId } from "../types/index.js";
 
@@ -9,6 +10,18 @@ const NAMESPACE_FORMAT = /^[-a-z0-9]{3,8}$/;
 const REFERENCE_FORMAT = /^[-_a-zA-Z0-9]{1,32}$/;
 
 export class Caip2Utils {
+    private static DEFAULT_SUPPORTED_CHAINS_HASHES: Record<Hex, Caip2ChainId> =
+        EBO_SUPPORTED_CHAIN_IDS.reduce(
+            (prev, curr) => {
+                const hash = keccak256(toHex(curr)).toLowerCase() as Hex;
+
+                prev[hash] = curr;
+
+                return prev;
+            },
+            {} as Record<Hex, Caip2ChainId>,
+        );
+
     /**
      * Parses a CAIP-2 compliant string.
      *
@@ -55,12 +68,23 @@ export class Caip2Utils {
         return namespace;
     }
 
+    /**
+     * Fetches the raw chain ID with its keccak256 hash.
+     *
+     * @param hashedChainId a kecccak256 hashed caip2 chain id
+     * @param chainIds a list of chain ids. If not specified, will use `EBO_SUPPORTED_CHAIN_IDS` search space.
+     * @returns the CAIP-2 compliant chain ID if hash found, undefined otherwise.
+     */
     public static findByHash(
         hashedChainId: Hex,
-        chainIds: Caip2ChainId[],
+        chainIds?: Caip2ChainId[],
     ): Caip2ChainId | undefined {
-        return chainIds.find(
-            (id) => keccak256(toHex(id)).toLowerCase() === hashedChainId.toLowerCase(),
-        );
+        if (chainIds) {
+            return chainIds.find(
+                (id) => keccak256(toHex(id)).toLowerCase() === hashedChainId.toLowerCase(),
+            );
+        } else {
+            return this.DEFAULT_SUPPORTED_CHAINS_HASHES[hashedChainId.toLowerCase() as Hex];
+        }
     }
 }

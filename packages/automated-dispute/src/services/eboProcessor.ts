@@ -1,13 +1,6 @@
 import { isNativeError } from "util/types";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
-import {
-    Address,
-    Caip2ChainId,
-    Caip2Utils,
-    EBO_SUPPORTED_CHAIN_IDS,
-    ILogger,
-    UnixTimestamp,
-} from "@ebo-agent/shared";
+import { Address, Caip2ChainId, Caip2Utils, ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import { Block } from "viem";
 
 import { PendingModulesApproval, ProcessorAlreadyStarted } from "../exceptions/index.js";
@@ -292,7 +285,7 @@ export class EboProcessor {
 
         if (firstEvent && isRequestCreatedEvent(firstEvent)) {
             const hashedChainId = firstEvent.metadata.chainId;
-            const chainId = Caip2Utils.findByHash(hashedChainId, EBO_SUPPORTED_CHAIN_IDS);
+            const chainId = Caip2Utils.findByHash(hashedChainId);
 
             if (chainId) {
                 const requestId = Address.normalize(firstEvent.requestId) as RequestId;

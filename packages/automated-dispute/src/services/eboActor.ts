@@ -1,12 +1,5 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
-import {
-    Address,
-    Caip2ChainId,
-    Caip2Utils,
-    EBO_SUPPORTED_CHAIN_IDS,
-    ILogger,
-    UnixTimestamp,
-} from "@ebo-agent/shared";
+import { Address, Caip2ChainId, Caip2Utils, ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
 import { ContractFunctionRevertedError } from "viem";
@@ -514,7 +507,7 @@ export class EboActor {
      */
     private async onRequestCreated(event: EboEvent<"RequestCreated">): Promise<void> {
         const { chainId: hashedChainId } = event.metadata;
-        const chainId = Caip2Utils.findByHash(hashedChainId, EBO_SUPPORTED_CHAIN_IDS);
+        const chainId = Caip2Utils.findByHash(hashedChainId);
 
         if (chainId === undefined) {
             this.logger.error(`Unsupported chain hash ${hashedChainId}`);

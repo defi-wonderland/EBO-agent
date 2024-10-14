@@ -1,5 +1,5 @@
 import { UnsupportedChain } from "@ebo-agent/blocknumber";
-import { Caip2Utils, EBO_SUPPORTED_CHAIN_IDS } from "@ebo-agent/shared";
+import { Caip2Utils } from "@ebo-agent/shared";
 
 import { CommandAlreadyRun, CommandNotRun } from "../../../exceptions/index.js";
 import { EboRegistry, EboRegistryCommand } from "../../../interfaces/index.js";
@@ -20,7 +20,7 @@ export class AddRequest implements EboRegistryCommand {
     ): AddRequest {
         // @ts-expect-error: must fetch request differently
         const eventRequest = event.metadata.request;
-        const chainId = Caip2Utils.findByHash(event.metadata.chainId, EBO_SUPPORTED_CHAIN_IDS);
+        const chainId = Caip2Utils.findByHash(event.metadata.chainId);
 
         if (chainId === undefined) throw new UnsupportedChain(event.metadata.chainId);
 
