@@ -5,6 +5,7 @@ import { Block } from "viem";
 
 import { PendingModulesApproval, ProcessorAlreadyStarted } from "../exceptions/index.js";
 import { isRequestCreatedEvent } from "../guards.js";
+import { NotificationService } from "../interfaces/index.js";
 import { ProtocolProvider } from "../providers/index.js";
 import {
     alreadyDeletedActorWarning,
@@ -20,7 +21,6 @@ import {
     RequestId,
 } from "../types/index.js";
 import { EboActorsManager } from "./eboActorsManager.js";
-import { NotificationService } from "./notificationService.js";
 
 const DEFAULT_MS_BETWEEN_CHECKS = 10 * 60 * 1000; // 10 minutes
 

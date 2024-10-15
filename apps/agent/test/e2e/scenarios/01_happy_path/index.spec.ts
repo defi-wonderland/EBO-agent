@@ -1,5 +1,9 @@
-import { EboActorsManager, EboProcessor, ProtocolProvider } from "@ebo-agent/automated-dispute";
-import { DiscordNotifier } from "@ebo-agent/automated-dispute/dist/services/discordNotifier.js";
+import {
+    EboActorsManager,
+    EboProcessor,
+    NotificationService,
+    ProtocolProvider,
+} from "@ebo-agent/automated-dispute";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId, Logger } from "@ebo-agent/shared";
 import { CreateServerReturnType } from "prool";
@@ -166,7 +170,7 @@ describe.sequential("single agent", () => {
             logger,
             {
                 notifyError: vi.fn(),
-            } as unknown as DiscordNotifier,
+            } as unknown as NotificationService,
         );
 
         const anvilClient = createTestClient({

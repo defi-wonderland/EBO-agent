@@ -29,14 +29,13 @@ import {
     ResponseNotFound,
     UnknownEvent,
 } from "../exceptions/index.js";
-import { EboRegistry, EboRegistryCommand } from "../interfaces/index.js";
+import { EboRegistry, EboRegistryCommand, NotificationService } from "../interfaces/index.js";
 import { ProtocolProvider } from "../providers/index.js";
 import {
     AddDispute,
     AddRequest,
     AddResponse,
     FinalizeRequest,
-    NotificationService,
     UpdateDisputeStatus,
 } from "../services/index.js";
 import { ActorRequest } from "../types/index.js";

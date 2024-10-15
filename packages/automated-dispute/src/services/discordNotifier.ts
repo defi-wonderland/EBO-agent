@@ -2,7 +2,7 @@ import { ILogger } from "@ebo-agent/shared";
 import { Client, IntentsBitField, TextChannel } from "discord.js";
 import { stringify } from "viem";
 
-import { NotificationService } from "./notificationService.js";
+import { NotificationService } from "../interfaces/index.js";
 
 interface DiscordNotifierConfig {
     discordBotToken: string;
