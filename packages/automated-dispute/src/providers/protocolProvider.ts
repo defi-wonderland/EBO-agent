@@ -1,7 +1,6 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import { UnixTimestamp } from "@ebo-agent/shared";
 import {
-    AbiEvent,
     Address,
     BaseError,
     Block,
@@ -10,7 +9,6 @@ import {
     createPublicClient,
     createWalletClient,
     decodeAbiParameters,
-    decodeEventLog,
     encodeAbiParameters,
     fallback,
     FallbackTransport,
@@ -19,7 +17,6 @@ import {
     Hex,
     http,
     HttpTransport,
-    Log,
     PublicClient,
     WalletClient,
 } from "viem";
@@ -44,16 +41,13 @@ import {
     oracleAbi,
 } from "../abis/index.js";
 import {
-    DecodeLogDataFailure,
     ErrorFactory,
     InvalidAccountOnClient,
     InvalidBlockRangeError,
     RpcUrlsEmpty,
     TransactionExecutionError,
-    UnsupportedEvent,
 } from "../exceptions/index.js";
 import {
-    DecodedLogArgsMap,
     IProtocolProvider,
     IReadProvider,
     IWriteProvider,
@@ -186,18 +180,6 @@ export class ProtocolProvider implements IProtocolProvider {
         });
     }
 
-    /**
-     * Class-level attribute to store Oracle event names.
-     */
-    private static readonly ORACLE_EVENT_NAMES: EboEventName[] = [
-        "RequestCreated",
-        "ResponseProposed",
-        "ResponseDisputed",
-        "DisputeStatusUpdated",
-        "DisputeEscalated",
-        "OracleRequestFinalized",
-    ];
-
     public write: IWriteProvider = {
         createRequest: this.createRequest.bind(this),
         proposeResponse: this.proposeResponse.bind(this),
@@ -267,14 +249,6 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Precomputed array of Oracle event ABIs.
-     */
-    private static readonly ORACLE_EVENTS_ABI: AbiEvent[] = ProtocolProvider.ORACLE_EVENT_NAMES.map(
-        (eventName) =>
-            oracleAbi.find((e) => e.name === eventName && e.type === "event") as AbiEvent,
-    );
-
-    /**
      * Returns the address of the account used for transactions.
      *
      * @returns {Address} The account address.
@@ -317,49 +291,6 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Decodes the log data for a specific event.
-     *
-     * @param eventName - The name of the event to decode.
-     * @param log - The log object containing the event data.
-     * @returns The decoded log data as an object.
-     * @throws {Error} If the event name is unsupported or if there's an error during decoding.
-     */
-    private decodeLogData<TEventName extends EboEventName>(
-        eventName: TEventName,
-        log: Log,
-    ): DecodedLogArgsMap[TEventName] {
-        let abi;
-        switch (eventName) {
-            case "RequestCreated":
-                abi = eboRequestCreatorAbi;
-                break;
-            case "ResponseProposed":
-            case "ResponseDisputed":
-            case "DisputeStatusUpdated":
-            case "DisputeEscalated":
-            case "OracleRequestFinalized":
-                abi = oracleAbi;
-                break;
-            default:
-                throw new UnsupportedEvent(`Unsupported event name: ${eventName}`);
-        }
-
-        try {
-            const decodedLog = decodeEventLog({
-                abi,
-                data: log.data,
-                topics: log.topics,
-                eventName,
-                strict: true,
-            });
-
-            return decodedLog.args as DecodedLogArgsMap[TEventName];
-        } catch (error) {
-            throw new DecodeLogDataFailure(error);
-        }
-    }
-
-    /**
      * Decodes a dispute data bytes into an object.
      *
      * @param {Hex} dispute - The dispute data bytes.
@@ -379,6 +310,14 @@ export class ProtocolProvider implements IProtocolProvider {
         };
     }
 
+    /**
+     * Fetches `ResponseProposed` events from the Oracle contract within a specified block range.
+     *
+     * @param {bigint} fromBlock - The starting block number to fetch events from.
+     * @param {bigint} toBlock - The ending block number to fetch events up to.
+     * @returns {Promise<EboEvent<"ResponseProposed">[]>} A promise that resolves to an array of `ResponseProposed` events.
+     * @throws {Error} If event block number or log index is null.
+     */
     private async getResponseProposedEvents(
         fromBlock: bigint,
         toBlock: bigint,
@@ -415,6 +354,14 @@ export class ProtocolProvider implements IProtocolProvider {
         });
     }
 
+    /**
+     * Fetches `ResponseDisputed` events from the Oracle contract within a specified block range.
+     *
+     * @param {bigint} fromBlock - The starting block number to fetch events from.
+     * @param {bigint} toBlock - The ending block number to fetch events up to.
+     * @returns {Promise<EboEvent<"ResponseDisputed">[]>} A promise that resolves to an array of `ResponseDisputed` events.
+     * @throws {Error} If event block number or log index is null.
+     */
     private async getResponseDisputedEvents(
         fromBlock: bigint,
         toBlock: bigint,
@@ -435,8 +382,7 @@ export class ProtocolProvider implements IProtocolProvider {
 
             const { _responseId, _disputeId, _dispute } = event.args;
 
-            const decodedDispute = ProtocolProvider.decodeDispute(_dispute);
-            const { requestId } = decodedDispute;
+            const { requestId } = _dispute;
 
             return {
                 name: "ResponseDisputed",
@@ -454,6 +400,14 @@ export class ProtocolProvider implements IProtocolProvider {
         });
     }
 
+    /**
+     * Fetches `DisputeStatusUpdated` events from the Oracle contract within a specified block range.
+     *
+     * @param {bigint} fromBlock - The starting block number to fetch events from.
+     * @param {bigint} toBlock - The ending block number to fetch events up to.
+     * @returns {Promise<EboEvent<"DisputeStatusUpdated">[]>} A promise that resolves to an array of `DisputeStatusUpdated` events.
+     * @throws {Error} If event block number or log index is null.
+     */
     private async getDisputeStatusUpdatedEvents(
         fromBlock: bigint,
         toBlock: bigint,
@@ -474,8 +428,7 @@ export class ProtocolProvider implements IProtocolProvider {
 
             const { _disputeId, _dispute, _status } = event.args;
 
-            const decodedDispute = ProtocolProvider.decodeDispute(_dispute);
-            const { requestId } = decodedDispute;
+            const { requestId } = _dispute;
 
             return {
                 name: "DisputeStatusUpdated",
@@ -493,6 +446,14 @@ export class ProtocolProvider implements IProtocolProvider {
         });
     }
 
+    /**
+     * Fetches `DisputeEscalated` events from the Oracle contract within a specified block range.
+     *
+     * @param {bigint} fromBlock - The starting block number to fetch events from.
+     * @param {bigint} toBlock - The ending block number to fetch events up to.
+     * @returns {Promise<EboEvent<"DisputeEscalated">[]>} A promise that resolves to an array of `DisputeEscalated` events.
+     * @throws {Error} If event block number or log index is null.
+     */
     private async getDisputeEscalatedEvents(
         fromBlock: bigint,
         toBlock: bigint,
@@ -513,8 +474,7 @@ export class ProtocolProvider implements IProtocolProvider {
 
             const { _disputeId, _dispute, _caller } = event.args;
 
-            const decodedDispute = ProtocolProvider.decodeDispute(_dispute);
-            const { requestId } = decodedDispute;
+            const { requestId } = _dispute;
 
             return {
                 name: "DisputeEscalated",
@@ -532,6 +492,14 @@ export class ProtocolProvider implements IProtocolProvider {
         });
     }
 
+    /**
+     * Fetches `OracleRequestFinalized` events from the Oracle contract within a specified block range.
+     *
+     * @param {bigint} fromBlock - The starting block number to fetch events from.
+     * @param {bigint} toBlock - The ending block number to fetch events up to.
+     * @returns {Promise<EboEvent<"OracleRequestFinalized">[]>} A promise that resolves to an array of `OracleRequestFinalized` events.
+     * @throws {Error} If event block number or log index is null.
+     */
     private async getOracleRequestFinalizedEvents(
         fromBlock: bigint,
         toBlock: bigint,
@@ -569,13 +537,13 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Fetches events from the Oracle contract.
+     * Fetches all relevant events from the Oracle contract within a specified block range.
      *
-     * @param fromBlock - The starting block number to fetch events from.
-     * @param toBlock - The ending block number to fetch events to.
-     * @returns A promise that resolves to an array of EboEvents.
+     * @param {bigint} fromBlock - The starting block number to fetch events from.
+     * @param {bigint} toBlock - The ending block number to fetch events up to.
+     * @returns {Promise<EboEvent<EboEventName>[]>} A promise that resolves to an array of Oracle events.
      */
-    private async getOracleEvents(fromBlock: bigint, toBlock: bigint) {
+    async getOracleEvents(fromBlock: bigint, toBlock: bigint) {
         const [
             responseProposedEvents,
             responseDisputedEvents,
@@ -600,11 +568,12 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Fetches events from the EBORequestCreator contract.
+     * Fetches `RequestCreated` events from the EBORequestCreator contract within a specified block range.
      *
-     * @param fromBlock - The starting block number to fetch events from.
-     * @param toBlock - The ending block number to fetch events to.
-     * @returns A promise that resolves to an array of EboEvents.
+     * @param {bigint} fromBlock - The starting block number to fetch events from.
+     * @param {bigint} toBlock - The ending block number to fetch events up to.
+     * @returns {Promise<EboEvent<"RequestCreated">[]>} A promise that resolves to an array of `RequestCreated` events.
+     * @throws {Error} If event block number or log index is null.
      */
     private async getEBORequestCreatorEvents(fromBlock: bigint, toBlock: bigint) {
         const events = await this.l2ReadClient.getContractEvents({
