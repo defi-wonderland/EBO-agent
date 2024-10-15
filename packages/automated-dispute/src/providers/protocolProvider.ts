@@ -34,6 +34,7 @@ import type {
     Request,
     RequestId,
     Response,
+    ResponseId,
 } from "../types/index.js";
 import {
     bondEscalationModuleAbi,
@@ -87,6 +88,13 @@ export const REQUEST_DISPUTE_MODULE_DATA_ABI_FIELDS = [
     { name: "bondEscalationDeadline", type: "uint256" },
     { name: "tyingBuffer", type: "uint256" },
     { name: "disputeWindow", type: "uint256" },
+] as const;
+
+export const DISPUTE_ABI_FIELDS = [
+    { name: "disputer", type: "address" },
+    { name: "proposer", type: "address" },
+    { name: "responseId", type: "bytes32" },
+    { name: "requestId", type: "bytes32" },
 ] as const;
 
 export const RESPONSE_ABI_FIELDS = [{ name: "block", type: "uint256" }] as const;
@@ -182,6 +190,7 @@ export class ProtocolProvider implements IProtocolProvider {
      * Class-level attribute to store Oracle event names.
      */
     private static readonly ORACLE_EVENT_NAMES: EboEventName[] = [
+        "RequestCreated",
         "ResponseProposed",
         "ResponseDisputed",
         "DisputeStatusUpdated",
@@ -351,51 +360,212 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Parses an Oracle event log into an EboEvent.
+     * Decodes a dispute data bytes into an object.
      *
-     * @param eventName - The name of the event.
-     * @param log - The event log to parse.
-     * @returns An EboEvent object.
+     * @param {Hex} dispute - The dispute data bytes.
+     * @returns {Dispute["prophetData"]} Decoded dispute object.
      */
-    private parseOracleEvent(eventName: EboEventName, log: Log) {
-        const baseEvent = {
-            name: eventName,
-            blockNumber: log.blockNumber,
-            logIndex: log.logIndex,
-            rawLog: log,
-        };
-
-        const decodedLog = this.decodeLogData(eventName, log);
-
-        let requestId: RequestId;
-        switch (eventName) {
-            // TODO: extract request ID properly from decoded log
-            case "ResponseProposed":
-                // @ts-expect-error: must extract request ID properly
-                requestId = decodedLog.requestId;
-                break;
-            case "ResponseDisputed":
-                // @ts-expect-error: must extract request ID properly
-                requestId = decodedLog.requestId;
-                break;
-            case "DisputeStatusUpdated":
-            case "DisputeEscalated":
-                // @ts-expect-error: must extract request ID properly
-                requestId = decodedLog.requestId;
-                break;
-            case "OracleRequestFinalized":
-                // @ts-expect-error: must extract request ID properly
-                requestId = decodedLog.requestId;
-                break;
-            default:
-                throw new UnsupportedEvent(`Unsupported event name: ${eventName}`);
-        }
+    static decodeDispute(dispute: Hex): Dispute["prophetData"] {
+        const [disputer, proposer, responseIdDecoded, requestIdDecoded] = decodeAbiParameters(
+            DISPUTE_ABI_FIELDS,
+            dispute,
+        );
 
         return {
-            ...baseEvent,
-            requestId,
-            metadata: decodedLog,
+            disputer: disputer,
+            proposer: proposer,
+            responseId: responseIdDecoded as ResponseId,
+            requestId: requestIdDecoded as RequestId,
         };
+    }
+
+    private async getResponseProposedEvents(
+        fromBlock: bigint,
+        toBlock: bigint,
+    ): Promise<EboEvent<"ResponseProposed">[]> {
+        const events = await this.l2ReadClient.getContractEvents({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            eventName: "ResponseProposed",
+            fromBlock,
+            toBlock,
+            strict: true,
+        });
+
+        return events.map((event) => {
+            if (event.blockNumber === null || event.logIndex === null) {
+                throw new Error("event.blockNumber or event.logIndex is null");
+            }
+
+            const { _requestId, _responseId, _response } = event.args;
+
+            return {
+                name: "ResponseProposed",
+                blockNumber: event.blockNumber,
+                logIndex: event.logIndex,
+                rawLog: event,
+
+                requestId: _requestId,
+                metadata: {
+                    requestId: _requestId,
+                    responseId: _responseId,
+                    response: _response,
+                },
+            } as unknown as EboEvent<"ResponseProposed">;
+        });
+    }
+
+    private async getResponseDisputedEvents(
+        fromBlock: bigint,
+        toBlock: bigint,
+    ): Promise<EboEvent<"ResponseDisputed">[]> {
+        const events = await this.l2ReadClient.getContractEvents({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            eventName: "ResponseDisputed",
+            fromBlock,
+            toBlock,
+            strict: true,
+        });
+
+        return events.map((event) => {
+            if (event.blockNumber === null || event.logIndex === null) {
+                throw new Error("event.blockNumber or event.logIndex is null");
+            }
+
+            const { _responseId, _disputeId, _dispute } = event.args;
+
+            const decodedDispute = ProtocolProvider.decodeDispute(_dispute);
+            const { requestId } = decodedDispute;
+
+            return {
+                name: "ResponseDisputed",
+                blockNumber: event.blockNumber,
+                logIndex: event.logIndex,
+                rawLog: event,
+
+                requestId,
+                metadata: {
+                    responseId: _responseId,
+                    disputeId: _disputeId,
+                    dispute: _dispute,
+                },
+            } as unknown as EboEvent<"ResponseDisputed">;
+        });
+    }
+
+    private async getDisputeStatusUpdatedEvents(
+        fromBlock: bigint,
+        toBlock: bigint,
+    ): Promise<EboEvent<"DisputeStatusUpdated">[]> {
+        const events = await this.l2ReadClient.getContractEvents({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            eventName: "DisputeStatusUpdated",
+            fromBlock,
+            toBlock,
+            strict: true,
+        });
+
+        return events.map((event) => {
+            if (event.blockNumber === null || event.logIndex === null) {
+                throw new Error("event.blockNumber or event.logIndex is null");
+            }
+
+            const { _disputeId, _dispute, _status } = event.args;
+
+            const decodedDispute = ProtocolProvider.decodeDispute(_dispute);
+            const { requestId } = decodedDispute;
+
+            return {
+                name: "DisputeStatusUpdated",
+                blockNumber: event.blockNumber,
+                logIndex: event.logIndex,
+                rawLog: event,
+
+                requestId,
+                metadata: {
+                    disputeId: _disputeId,
+                    dispute: _dispute,
+                    status: _status,
+                },
+            } as unknown as EboEvent<"DisputeStatusUpdated">;
+        });
+    }
+
+    private async getDisputeEscalatedEvents(
+        fromBlock: bigint,
+        toBlock: bigint,
+    ): Promise<EboEvent<"DisputeEscalated">[]> {
+        const events = await this.l2ReadClient.getContractEvents({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            eventName: "DisputeEscalated",
+            fromBlock,
+            toBlock,
+            strict: true,
+        });
+
+        return events.map((event) => {
+            if (event.blockNumber === null || event.logIndex === null) {
+                throw new Error("event.blockNumber or event.logIndex is null");
+            }
+
+            const { _disputeId, _dispute, _caller } = event.args;
+
+            const decodedDispute = ProtocolProvider.decodeDispute(_dispute);
+            const { requestId } = decodedDispute;
+
+            return {
+                name: "DisputeEscalated",
+                blockNumber: event.blockNumber,
+                logIndex: event.logIndex,
+                rawLog: event,
+
+                requestId,
+                metadata: {
+                    disputeId: _disputeId,
+                    dispute: _dispute,
+                    caller: _caller,
+                },
+            } as unknown as EboEvent<"DisputeEscalated">;
+        });
+    }
+
+    private async getOracleRequestFinalizedEvents(
+        fromBlock: bigint,
+        toBlock: bigint,
+    ): Promise<EboEvent<"OracleRequestFinalized">[]> {
+        const events = await this.l2ReadClient.getContractEvents({
+            address: this.oracleContract.address,
+            abi: oracleAbi,
+            eventName: "OracleRequestFinalized",
+            fromBlock,
+            toBlock,
+            strict: true,
+        });
+
+        return events.map((event) => {
+            if (event.blockNumber === null || event.logIndex === null) {
+                throw new Error("event.blockNumber or event.logIndex is null");
+            }
+
+            const { _requestId, _responseId, _caller } = event.args;
+
+            return {
+                name: "OracleRequestFinalized",
+                blockNumber: event.blockNumber,
+                logIndex: event.logIndex,
+                rawLog: event,
+
+                requestId: _requestId,
+                metadata: {
+                    requestId: _requestId,
+                    responseId: _responseId,
+                    caller: _caller,
+                },
+            } as unknown as EboEvent<"OracleRequestFinalized">;
+        });
     }
 
     /**
@@ -404,23 +574,31 @@ export class ProtocolProvider implements IProtocolProvider {
      * @param fromBlock - The starting block number to fetch events from.
      * @param toBlock - The ending block number to fetch events to.
      * @returns A promise that resolves to an array of EboEvents.
-     *
      */
-    // OPTIMIZE: could remove decodeLogData and improve typing if using getContractEvents for each function
     private async getOracleEvents(fromBlock: bigint, toBlock: bigint) {
-        const logs = await this.l2ReadClient.getLogs({
-            address: this.oracleContract.address,
-            events: ProtocolProvider.ORACLE_EVENTS_ABI,
-            fromBlock,
-            toBlock,
-            strict: true,
-        });
+        const [
+            responseProposedEvents,
+            responseDisputedEvents,
+            disputeStatusUpdatedEvents,
+            disputeEscalatedEvents,
+            oracleRequestFinalizedEvents,
+        ] = await Promise.all([
+            this.getResponseProposedEvents(fromBlock, toBlock),
+            this.getResponseDisputedEvents(fromBlock, toBlock),
+            this.getDisputeStatusUpdatedEvents(fromBlock, toBlock),
+            this.getDisputeEscalatedEvents(fromBlock, toBlock),
+            this.getOracleRequestFinalizedEvents(fromBlock, toBlock),
+        ]);
 
-        return logs.map((log) => {
-            const eventName = log.eventName as EboEventName;
-            return this.parseOracleEvent(eventName, log);
-        });
+        return this.mergeEventStreams(
+            responseProposedEvents,
+            responseDisputedEvents,
+            disputeStatusUpdatedEvents,
+            disputeEscalatedEvents,
+            oracleRequestFinalizedEvents,
+        );
     }
+
     /**
      * Fetches events from the EBORequestCreator contract.
      *
@@ -477,8 +655,6 @@ export class ProtocolProvider implements IProtocolProvider {
             this.getOracleEvents(fromBlock, toBlock),
         ]);
 
-        // TODO: update after requestId extracted properly
-        // @ts-expect-error: will error  until requestId extracted from each event properly
         return this.mergeEventStreams(requestCreatorEvents, oracleEvents);
     }
 
