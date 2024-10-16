@@ -3,11 +3,11 @@ import { Address, ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 
 import { RequestAlreadyHandled } from "../exceptions/index.js";
+import { NotificationService } from "../interfaces/index.js";
 import { ProtocolProvider } from "../providers/protocolProvider.js";
 import { ActorRequest, RequestId } from "../types/index.js";
 import { EboActor } from "./eboActor.js";
 import { EboMemoryRegistry } from "./eboRegistry/eboMemoryRegistry.js";
-import { NotificationService } from "./notificationService.js";
 
 export class EboActorsManager {
     private readonly requestActorMap: Map<RequestId, EboActor>;

@@ -1,5 +1,5 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber";
-import { ILogger } from "@ebo-agent/shared";
+import { Caip2ChainId, ILogger, UnixTimestamp } from "@ebo-agent/shared";
+import { keccak256, toHex } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ResponseAlreadyProposed } from "../../../src/exceptions/index.js";
@@ -28,7 +28,7 @@ describe("EboActor", () => {
             const protocolEpoch: Epoch = {
                 number: request.epoch,
                 firstBlockNumber: 1n,
-                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
             const requestCreatedEvent: EboEvent<"RequestCreated"> = {
@@ -37,7 +37,7 @@ describe("EboActor", () => {
                 logIndex: 1,
                 name: "RequestCreated",
                 metadata: {
-                    chainId: indexedChainId,
+                    chainId: keccak256(toHex(indexedChainId)),
                     epoch: protocolEpoch.number,
                     requestId: requestId,
                     request: request.prophetData,
@@ -90,8 +90,6 @@ describe("EboActor", () => {
                         requestId: requestCreatedEvent.metadata.requestId,
                         response: ProtocolProvider.encodeResponse({
                             block: indexedEpochBlockNumber,
-                            chainId: requestCreatedEvent.metadata.chainId,
-                            epoch: protocolEpoch.number,
                         }),
                     }),
                 );

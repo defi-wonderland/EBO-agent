@@ -1,5 +1,4 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber";
-import { UnixTimestamp } from "@ebo-agent/shared";
+import { Caip2ChainId, UnixTimestamp } from "@ebo-agent/shared";
 import {
     Address,
     BaseError,

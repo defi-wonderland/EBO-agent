@@ -1,7 +1,7 @@
 import { ILogger } from "@ebo-agent/shared";
 
 import { CustomContractError } from "../exceptions/index.js";
-import { NotificationService } from "../services/index.js";
+import { NotificationService } from "../interfaces/index.js";
 
 export class ErrorHandler {
     private notificationService: NotificationService;

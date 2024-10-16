@@ -1,4 +1,3 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import { UnixTimestamp } from "@ebo-agent/shared";
 import { Address, Log } from "viem";
 
@@ -20,7 +19,7 @@ export interface ResponseProposed {
 
 export interface RequestCreated {
     epoch: bigint;
-    chainId: Caip2ChainId;
+    chainId: Hex; // keccak256 CAIP-2 chain ID
     requestId: RequestId;
 }
 

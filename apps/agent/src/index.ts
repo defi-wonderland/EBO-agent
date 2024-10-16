@@ -1,7 +1,11 @@
 import { inspect } from "util";
 import { isNativeError } from "util/types";
-import { EboActorsManager, EboProcessor, ProtocolProvider } from "@ebo-agent/automated-dispute";
-import { DiscordNotifier } from "@ebo-agent/automated-dispute/src/services/index.js";
+import {
+    DiscordNotifier,
+    EboActorsManager,
+    EboProcessor,
+    ProtocolProvider,
+} from "@ebo-agent/automated-dispute";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Logger } from "@ebo-agent/shared";
 

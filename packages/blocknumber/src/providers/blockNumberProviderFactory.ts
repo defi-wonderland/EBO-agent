@@ -1,9 +1,7 @@
-import { EBO_SUPPORTED_CHAINS_CONFIG, ILogger } from "@ebo-agent/shared";
+import { Caip2ChainId, Caip2Utils, EBO_SUPPORTED_CHAINS_CONFIG, ILogger } from "@ebo-agent/shared";
 import { FallbackTransport, HttpTransport, PublicClient } from "viem";
 
 import { UnsupportedChain } from "../exceptions/unsupportedChain.js";
-import { Caip2ChainId } from "../types.js";
-import { Caip2Utils } from "../utils/index.js";
 import {
     BlockmetaClientConfig,
     BlockmetaJsonBlockNumberProvider,

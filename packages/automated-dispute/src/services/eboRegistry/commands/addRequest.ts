@@ -1,3 +1,6 @@
+import { UnsupportedChain } from "@ebo-agent/blocknumber";
+import { Caip2Utils } from "@ebo-agent/shared";
+
 import { CommandAlreadyRun, CommandNotRun } from "../../../exceptions/index.js";
 import { EboRegistry, EboRegistryCommand } from "../../../interfaces/index.js";
 import { ProtocolProvider } from "../../../providers/index.js";
@@ -17,9 +20,14 @@ export class AddRequest implements EboRegistryCommand {
     ): AddRequest {
         // @ts-expect-error: must fetch request differently
         const eventRequest = event.metadata.request;
+        const chainId = Caip2Utils.findByHash(event.metadata.chainId);
+
+        if (chainId === undefined) throw new UnsupportedChain(event.metadata.chainId);
+
         const request: Request = {
             id: event.requestId,
-            chainId: event.metadata.chainId,
+            // TODO: move chainId and epoch into decodedData + add request property to it
+            chainId: chainId,
             epoch: event.metadata.epoch,
             createdAt: {
                 timestamp: event.timestamp,
