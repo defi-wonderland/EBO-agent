@@ -1,5 +1,5 @@
 import { UnixTimestamp } from "@ebo-agent/shared";
-import { Address, Log } from "viem";
+import { Address, Hex, Log } from "viem";
 
 import { Dispute, DisputeId, DisputeStatus, RequestId, Response, ResponseId } from "./prophet.js";
 
