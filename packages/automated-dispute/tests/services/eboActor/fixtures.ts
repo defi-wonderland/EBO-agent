@@ -24,12 +24,14 @@ export const DEFAULT_MOCKED_PROTOCOL_CONTRACTS: ProtocolContractsAddresses = {
 
 export const DEFAULT_MOCKED_RESPONSE_DATA: Response = {
     id: "0x1234567890123456789012345678901234567890" as ResponseId,
-    createdAt: 1625097600n,
+    createdAt: {
+        timestamp: 1625097600n as UnixTimestamp,
+        blockNumber: 1n,
+        logIndex: 0,
+    },
     decodedData: {
         response: {
-            chainId: "eip155:1",
             block: 123456n,
-            epoch: 1n,
         },
     },
     prophetData: {

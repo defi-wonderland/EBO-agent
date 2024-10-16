@@ -1,7 +1,8 @@
+import { keccak256, toHex } from "viem";
 import { describe, expect, it } from "vitest";
 
-import { InvalidChainId } from "../../../src/exceptions/invalidChain.js";
-import { Caip2Utils } from "../../../src/utils/caip/index.js";
+import { InvalidChainId } from "../../src/exceptions/index.js";
+import { Caip2Utils } from "../../src/services/index.js";
 
 describe("Caip2Utils", () => {
     describe("validateChainId", () => {
@@ -42,6 +43,38 @@ describe("Caip2Utils", () => {
             const chainId = "foo:!nval!d";
 
             expect(() => Caip2Utils.getNamespace(chainId)).toThrowError();
+        });
+    });
+
+    describe("findByHash", () => {
+        it("returns the found chain", () => {
+            const hash = keccak256(toHex("eip155:137"));
+            const foundChainId = Caip2Utils.findByHash(hash, ["eip155:137", "eip155:1"]);
+
+            expect(foundChainId).toEqual("eip155:137");
+        });
+
+        it("returns undefined if not found", () => {
+            const hash = keccak256(toHex("eip155:137"));
+            const foundChainId = Caip2Utils.findByHash(hash, ["eip155:1"]);
+
+            expect(foundChainId).toBeUndefined();
+        });
+
+        it("returns the found chain when no array specified", () => {
+            const hash = keccak256(toHex("eip155:1"));
+
+            const foundChainId = Caip2Utils.findByHash(hash);
+
+            expect(foundChainId).toEqual("eip155:1");
+        });
+
+        it("returns undefined when no array specified and not found", () => {
+            const hash = keccak256(toHex("eip000:0123456789"));
+
+            const foundChainId = Caip2Utils.findByHash(hash);
+
+            expect(foundChainId).toBeUndefined();
         });
     });
 });

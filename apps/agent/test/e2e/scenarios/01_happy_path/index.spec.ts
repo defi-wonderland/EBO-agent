@@ -1,6 +1,11 @@
-import { EboActorsManager, EboProcessor, ProtocolProvider } from "@ebo-agent/automated-dispute";
-import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
-import { Logger } from "@ebo-agent/shared";
+import {
+    EboActorsManager,
+    EboProcessor,
+    NotificationService,
+    ProtocolProvider,
+} from "@ebo-agent/automated-dispute";
+import { BlockNumberService } from "@ebo-agent/blocknumber";
+import { Caip2ChainId, Logger } from "@ebo-agent/shared";
 import { CreateServerReturnType } from "prool";
 import {
     Account,
@@ -89,7 +94,7 @@ describe.sequential("single agent", () => {
         await setUpProphet({
             accounts: accounts.map((account) => account.account),
             arbitratorAddress: ARBITRATOR_ADDRESS,
-            chainsToAdd: ["eip155:42161"],
+            chainsToAdd: [ARBITRUM_ID],
             anvilClient: createTestClient({
                 mode: "anvil",
                 transport: http(url),
@@ -163,6 +168,9 @@ describe.sequential("single agent", () => {
             blockNumberService,
             actorsManager,
             logger,
+            {
+                notifyError: vi.fn(),
+            } as unknown as NotificationService,
         );
 
         const anvilClient = createTestClient({

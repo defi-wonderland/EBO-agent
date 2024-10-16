@@ -24,5 +24,8 @@
     "author": "",
     "dependencies": {
         "winston": "3.13.1"
+    },
+    "devDependencies": {
+        "viem": "2.21.25"
     }
 }

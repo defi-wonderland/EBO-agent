@@ -1,11 +1,10 @@
-import { EBO_SUPPORTED_CHAIN_IDS, ILogger, UnixTimestamp } from "@ebo-agent/shared";
+import { Caip2ChainId, EBO_SUPPORTED_CHAIN_IDS, ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import { createPublicClient, fallback, http } from "viem";
 
 import { ChainWithoutProvider, EmptyRpcUrls, UnsupportedChain } from "../exceptions/index.js";
 import { BlockmetaClientConfig } from "../providers/blockmetaJsonBlockNumberProvider.js";
 import { BlockNumberProvider } from "../providers/blockNumberProvider.js";
 import { BlockNumberProviderFactory } from "../providers/blockNumberProviderFactory.js";
-import { Caip2ChainId } from "../types.js";
 
 type RpcUrl = NonNullable<Parameters<typeof http>[0]>;
 

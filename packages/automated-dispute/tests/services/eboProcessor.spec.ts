@@ -1,6 +1,6 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
 import { UnixTimestamp } from "@ebo-agent/shared";
-import { Block } from "viem";
+import { Block, keccak256, toHex } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PendingModulesApproval, ProcessorAlreadyStarted } from "../../src/exceptions/index.js";
@@ -81,7 +81,7 @@ describe("EboProcessor", () => {
                 metadata: {
                     requestId: request.id,
                     epoch: request.epoch,
-                    chainId: request.chainId,
+                    chainId: keccak256(toHex(request.chainId)),
                     request: request.prophetData,
                 },
             };
@@ -137,7 +137,7 @@ describe("EboProcessor", () => {
                 metadata: {
                     requestId: request.id,
                     epoch: request.epoch,
-                    chainId: request.chainId,
+                    chainId: keccak256(toHex(request.chainId)),
                     request: request.prophetData,
                 },
             };
@@ -216,7 +216,7 @@ describe("EboProcessor", () => {
                 metadata: {
                     requestId: request.id,
                     epoch: request.epoch,
-                    chainId: request.chainId,
+                    chainId: keccak256(toHex(request.chainId)),
                     request: request.prophetData,
                 },
             };
@@ -334,12 +334,12 @@ describe("EboProcessor", () => {
                 blockNumber: 6n,
                 timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                 logIndex: 1,
-                requestId: DEFAULT_MOCKED_REQUEST_CREATED_DATA.id,
+                requestId: request.id,
                 metadata: {
-                    requestId: DEFAULT_MOCKED_REQUEST_CREATED_DATA.id,
-                    epoch: DEFAULT_MOCKED_REQUEST_CREATED_DATA.epoch,
-                    chainId: DEFAULT_MOCKED_REQUEST_CREATED_DATA.chainId,
-                    request: DEFAULT_MOCKED_REQUEST_CREATED_DATA["prophetData"],
+                    requestId: request.id,
+                    epoch: request.epoch,
+                    chainId: keccak256(toHex(request.chainId)),
+                    request: request["prophetData"],
                 },
             };
 
@@ -399,7 +399,7 @@ describe("EboProcessor", () => {
                     metadata: {
                         requestId: request.id,
                         epoch: request.epoch,
-                        chainId: request.chainId,
+                        chainId: keccak256(toHex(request.chainId)),
                         request: request["prophetData"],
                     },
                 },

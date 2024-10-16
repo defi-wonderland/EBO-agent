@@ -1,10 +1,11 @@
 import { isNativeError } from "util/types";
-import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
-import { Address, EBO_SUPPORTED_CHAIN_IDS, ILogger, UnixTimestamp } from "@ebo-agent/shared";
+import { BlockNumberService } from "@ebo-agent/blocknumber";
+import { Address, Caip2ChainId, Caip2Utils, ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import { Block } from "viem";
 
 import { PendingModulesApproval, ProcessorAlreadyStarted } from "../exceptions/index.js";
 import { isRequestCreatedEvent } from "../guards.js";
+import { NotificationService } from "../interfaces/index.js";
 import { ProtocolProvider } from "../providers/index.js";
 import {
     alreadyDeletedActorWarning,
@@ -20,7 +21,6 @@ import {
     RequestId,
 } from "../types/index.js";
 import { EboActorsManager } from "./eboActorsManager.js";
-import { NotificationService } from "./notificationService.js";
 
 const DEFAULT_MS_BETWEEN_CHECKS = 10 * 60 * 1000; // 10 minutes
 
@@ -284,12 +284,16 @@ export class EboProcessor {
         if (actor) return actor;
 
         if (firstEvent && isRequestCreatedEvent(firstEvent)) {
-            const chainId = firstEvent.metadata.chainId;
+            const hashedChainId = firstEvent.metadata.chainId;
+            const chainId = Caip2Utils.findByHash(hashedChainId);
 
-            if (this.isChainSupported(chainId)) {
+            if (chainId) {
+                const requestId = Address.normalize(firstEvent.requestId) as RequestId;
+                const epoch = firstEvent.metadata.epoch;
+
                 this.logger.info(`Creating a new EboActor to handle request ${requestId}...`);
 
-                return this.createNewActor(firstEvent);
+                return this.createNewActor(requestId, epoch, chainId);
             } else {
                 this.logger.warn(`Chain ${chainId} not supported by the agent. Skipping...`);
 
@@ -307,27 +311,12 @@ export class EboProcessor {
     }
 
     /**
-     * Returns true if the CAIP2 compliant chain ID is supported by the EBO agent.
-     *
-     * @param chainId CAIP2 chain ID
-     * @returns true if the chain is supported, otherwise false
-     */
-    private isChainSupported(chainId: Caip2ChainId): boolean {
-        return EBO_SUPPORTED_CHAIN_IDS.includes(chainId);
-    }
-
-    /**
      * Create a new actor based on the data provided by a `RequestCreated` event.
      *
-     * @param event a `RequestCreated` event
      * @returns a new `EboActor` instance, `null` if the actor was not created
      */
-    private createNewActor(event: EboEvent<"RequestCreated">) {
-        const actorRequest: ActorRequest = {
-            id: Address.normalize(event.requestId) as RequestId,
-            epoch: event.metadata.epoch,
-            chainId: event.metadata.chainId,
-        };
+    private createNewActor(id: RequestId, epoch: bigint, chainId: Caip2ChainId) {
+        const actorRequest: ActorRequest = { id, epoch, chainId };
 
         const actor = this.actorsManager.createActor(
             actorRequest,
@@ -404,6 +393,9 @@ export class EboProcessor {
                     this.logger.error(
                         `Could not create a request for epoch ${epoch} and chain ${chain}.`,
                     );
+
+                    this.logger.error(err as Error);
+
                     await this.notifier.notifyError(err as Error, {
                         message: `Could not create a request for epoch ${epoch} and chain ${chain}.`,
                         epoch,
