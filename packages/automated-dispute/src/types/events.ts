@@ -1,6 +1,6 @@
 import { Caip2ChainId } from "@ebo-agent/blocknumber";
 import { UnixTimestamp } from "@ebo-agent/shared";
-import { Address, Hex, Log } from "viem";
+import { Address, Log } from "viem";
 
 import { Dispute, DisputeId, DisputeStatus, RequestId, Response, ResponseId } from "./prophet.js";
 
@@ -13,8 +13,8 @@ export type EboEventName =
     | "OracleRequestFinalized";
 
 export interface ResponseProposed {
-    requestId: Hex;
-    responseId: Hex;
+    requestId: RequestId;
+    responseId: ResponseId;
     response: Response["prophetData"];
 }
 

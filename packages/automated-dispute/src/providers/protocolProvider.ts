@@ -17,6 +17,7 @@ import {
     Hex,
     http,
     HttpTransport,
+    Log,
     PublicClient,
     WalletClient,
 } from "viem";
@@ -25,6 +26,8 @@ import { arbitrum, mainnet } from "viem/chains";
 
 import type {
     Dispute,
+    DisputeId,
+    DisputeStatus,
     EboEvent,
     EboEventName,
     Epoch,
@@ -43,6 +46,7 @@ import {
 import {
     ErrorFactory,
     InvalidAccountOnClient,
+    InvalidBlockHashError,
     InvalidBlockRangeError,
     RpcUrlsEmpty,
     TransactionExecutionError,
@@ -66,6 +70,8 @@ type ProtocolRpcConfig = {
     l2: RpcConfig;
 };
 
+// TODO: add default caching strategy for RPC client
+
 export const REQUEST_RESPONSE_MODULE_DATA_ABI_FIELDS = [
     { name: "accountingExtension", type: "address" },
     { name: "bondToken", type: "address" },
@@ -82,13 +88,6 @@ export const REQUEST_DISPUTE_MODULE_DATA_ABI_FIELDS = [
     { name: "bondEscalationDeadline", type: "uint256" },
     { name: "tyingBuffer", type: "uint256" },
     { name: "disputeWindow", type: "uint256" },
-] as const;
-
-export const DISPUTE_ABI_FIELDS = [
-    { name: "disputer", type: "address" },
-    { name: "proposer", type: "address" },
-    { name: "responseId", type: "bytes32" },
-    { name: "requestId", type: "bytes32" },
 ] as const;
 
 export const RESPONSE_ABI_FIELDS = [{ name: "block", type: "uint256" }] as const;
@@ -291,23 +290,21 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Decodes a dispute data bytes into an object.
+     * Fetches the timestamp for a given event by using its block hash.
      *
-     * @param {Hex} dispute - The dispute data bytes.
-     * @returns {Dispute["prophetData"]} Decoded dispute object.
+     * Note: We use block hash instead of block number due to an Anvil bug where events are generated with L1 block numbers
+     * instead of L2 block numbers when forking Arbitrum. By using the block hash, we can get the correct timestamp
+     * even if the block number is incorrect.
+     *
+     * @param event - The event for which to fetch the timestamp.
+     * @returns The timestamp of the block in which the event was included.
      */
-    static decodeDispute(dispute: Hex): Dispute["prophetData"] {
-        const [disputer, proposer, responseIdDecoded, requestIdDecoded] = decodeAbiParameters(
-            DISPUTE_ABI_FIELDS,
-            dispute,
-        );
-
-        return {
-            disputer: disputer,
-            proposer: proposer,
-            responseId: responseIdDecoded as ResponseId,
-            requestId: requestIdDecoded as RequestId,
-        };
+    private async getEventTimestamp(event: Log): Promise<UnixTimestamp> {
+        if (event.blockHash === null) {
+            throw new InvalidBlockHashError();
+        }
+        const block = await this.l2ReadClient.getBlock({ blockHash: event.blockHash });
+        return block.timestamp as UnixTimestamp;
     }
 
     /**
@@ -331,27 +328,43 @@ export class ProtocolProvider implements IProtocolProvider {
             strict: true,
         });
 
-        return events.map((event) => {
-            if (event.blockNumber === null || event.logIndex === null) {
-                throw new Error("event.blockNumber or event.logIndex is null");
-            }
+        const blockNumbers = events.map((event) => event.blockNumber);
+        const uniqueBlockNumbers = Array.from(new Set(blockNumbers));
 
+        const blockNumberToTimestamp = new Map<bigint, UnixTimestamp>();
+
+        await Promise.all(
+            uniqueBlockNumbers.map(async (blockNumber) => {
+                const block = await this.l2ReadClient.getBlock({ blockNumber });
+                blockNumberToTimestamp.set(blockNumber, block.timestamp as UnixTimestamp);
+            }),
+        );
+
+        const eventsWithTimestamps = events.map((event) => {
             const { _requestId, _responseId, _response } = event.args;
+
+            const timestamp = blockNumberToTimestamp.get(event.blockNumber);
 
             return {
                 name: "ResponseProposed",
                 blockNumber: event.blockNumber,
                 logIndex: event.logIndex,
+                timestamp: timestamp,
                 rawLog: event,
 
-                requestId: _requestId,
+                requestId: _requestId as RequestId,
                 metadata: {
-                    requestId: _requestId,
-                    responseId: _responseId,
-                    response: _response,
+                    responseId: _responseId as ResponseId,
+                    requestId: _requestId as RequestId,
+                    response: {
+                        proposer: _response.proposer,
+                        requestId: _response.requestId as RequestId,
+                        response: _response.response,
+                    },
                 },
-            } as unknown as EboEvent<"ResponseProposed">;
+            } as EboEvent<"ResponseProposed">;
         });
+        return eventsWithTimestamps;
     }
 
     /**
@@ -375,29 +388,44 @@ export class ProtocolProvider implements IProtocolProvider {
             strict: true,
         });
 
-        return events.map((event) => {
-            if (event.blockNumber === null || event.logIndex === null) {
-                throw new Error("event.blockNumber or event.logIndex is null");
-            }
+        const blockNumbers = events.map((event) => event.blockNumber);
+        const uniqueBlockNumbers = Array.from(new Set(blockNumbers));
 
-            const { _responseId, _disputeId, _dispute } = event.args;
+        const blockNumberToTimestamp = new Map<bigint, UnixTimestamp>();
 
-            const { requestId } = _dispute;
+        await Promise.all(
+            uniqueBlockNumbers.map(async (blockNumber) => {
+                const block = await this.l2ReadClient.getBlock({ blockNumber });
+                blockNumberToTimestamp.set(blockNumber, block.timestamp as UnixTimestamp);
+            }),
+        );
+
+        const eventsWithTimestamps = events.map((event) => {
+            const { _dispute, _responseId, _disputeId } = event.args;
+
+            const timestamp = blockNumberToTimestamp.get(event.blockNumber);
 
             return {
                 name: "ResponseDisputed",
                 blockNumber: event.blockNumber,
                 logIndex: event.logIndex,
+                timestamp: timestamp,
                 rawLog: event,
 
-                requestId,
+                requestId: _dispute.requestId as RequestId,
                 metadata: {
-                    responseId: _responseId,
-                    disputeId: _disputeId,
-                    dispute: _dispute,
+                    responseId: _responseId as ResponseId,
+                    disputeId: _disputeId as DisputeId,
+                    dispute: {
+                        disputer: _dispute.disputer,
+                        proposer: _dispute.proposer,
+                        responseId: _dispute.responseId as ResponseId,
+                        requestId: _dispute.requestId as RequestId,
+                    },
                 },
-            } as unknown as EboEvent<"ResponseDisputed">;
+            } as EboEvent<"ResponseDisputed">;
         });
+        return eventsWithTimestamps;
     }
 
     /**
@@ -421,38 +449,48 @@ export class ProtocolProvider implements IProtocolProvider {
             strict: true,
         });
 
-        return events.map((event) => {
-            if (event.blockNumber === null || event.logIndex === null) {
-                throw new Error("event.blockNumber or event.logIndex is null");
-            }
+        const eventsWithTimestamps = await Promise.all(
+            events.map(async (event) => {
+                const { _disputeId, _dispute, _status } = event.args;
 
-            const { _disputeId, _dispute, _status } = event.args;
+                const timestamp = await this.getEventTimestamp(event);
 
-            const { requestId } = _dispute;
+                return {
+                    name: "DisputeStatusUpdated",
+                    blockNumber: event.blockNumber,
+                    logIndex: event.logIndex,
+                    timestamp: timestamp,
+                    rawLog: event,
 
-            return {
-                name: "DisputeStatusUpdated",
-                blockNumber: event.blockNumber,
-                logIndex: event.logIndex,
-                rawLog: event,
+                    requestId: _dispute.requestId as RequestId,
+                    metadata: {
+                        disputeId: _disputeId as DisputeId,
+                        dispute: {
+                            disputer: _dispute.disputer,
+                            proposer: _dispute.proposer,
+                            responseId: _dispute.responseId as ResponseId,
+                            requestId: _dispute.requestId as RequestId,
+                        },
+                        status: _status as unknown as DisputeStatus,
+                        blockNumber: event.blockNumber,
+                    },
+                } as EboEvent<"DisputeStatusUpdated">;
+            }),
+        );
 
-                requestId,
-                metadata: {
-                    disputeId: _disputeId,
-                    dispute: _dispute,
-                    status: _status,
-                },
-            } as unknown as EboEvent<"DisputeStatusUpdated">;
-        });
+        return eventsWithTimestamps;
     }
 
     /**
      * Fetches `DisputeEscalated` events from the Oracle contract within a specified block range.
      *
+     * This method retrieves events related to the escalation of disputes, including the metadata for
+     * each dispute such as the request ID, dispute details, and the caller's address.
+     *
      * @param {bigint} fromBlock - The starting block number to fetch events from.
      * @param {bigint} toBlock - The ending block number to fetch events up to.
      * @returns {Promise<EboEvent<"DisputeEscalated">[]>} A promise that resolves to an array of `DisputeEscalated` events.
-     * @throws {Error} If event block number or log index is null.
+     * @throws {Error} If the event block number or log index is null.
      */
     private async getDisputeEscalatedEvents(
         fromBlock: bigint,
@@ -467,29 +505,37 @@ export class ProtocolProvider implements IProtocolProvider {
             strict: true,
         });
 
-        return events.map((event) => {
-            if (event.blockNumber === null || event.logIndex === null) {
-                throw new Error("event.blockNumber or event.logIndex is null");
-            }
+        const eventsWithTimestamps = await Promise.all(
+            events.map(async (event) => {
+                const { _disputeId, _dispute, _caller } = event.args;
 
-            const { _disputeId, _dispute, _caller } = event.args;
+                const timestamp = await this.getEventTimestamp(event);
 
-            const { requestId } = _dispute;
+                return {
+                    name: "DisputeEscalated",
+                    blockNumber: event.blockNumber,
+                    logIndex: event.logIndex,
 
-            return {
-                name: "DisputeEscalated",
-                blockNumber: event.blockNumber,
-                logIndex: event.logIndex,
-                rawLog: event,
+                    timestamp: timestamp,
+                    rawLog: event,
 
-                requestId,
-                metadata: {
-                    disputeId: _disputeId,
-                    dispute: _dispute,
-                    caller: _caller,
-                },
-            } as unknown as EboEvent<"DisputeEscalated">;
-        });
+                    requestId: _dispute.requestId as RequestId,
+                    metadata: {
+                        disputeId: _disputeId as DisputeId,
+                        dispute: {
+                            disputer: _dispute.disputer,
+                            proposer: _dispute.proposer,
+                            responseId: _dispute.responseId as ResponseId,
+                            requestId: _dispute.requestId as RequestId,
+                        },
+                        caller: _caller as Address,
+                        blockNumber: event.blockNumber,
+                    },
+                } as EboEvent<"DisputeEscalated">;
+            }),
+        );
+
+        return eventsWithTimestamps;
     }
 
     /**
@@ -513,31 +559,35 @@ export class ProtocolProvider implements IProtocolProvider {
             strict: true,
         });
 
-        return events.map((event) => {
-            if (event.blockNumber === null || event.logIndex === null) {
-                throw new Error("event.blockNumber or event.logIndex is null");
-            }
+        const eventsWithTimestamps = await Promise.all(
+            events.map(async (event) => {
+                const { _requestId, _responseId, _caller } = event.args;
 
-            const { _requestId, _responseId, _caller } = event.args;
+                const timestamp = await this.getEventTimestamp(event);
 
-            return {
-                name: "OracleRequestFinalized",
-                blockNumber: event.blockNumber,
-                logIndex: event.logIndex,
-                rawLog: event,
+                return {
+                    name: "OracleRequestFinalized",
+                    blockNumber: event.blockNumber,
+                    logIndex: event.logIndex,
+                    timestamp: timestamp,
+                    rawLog: event,
 
-                requestId: _requestId,
-                metadata: {
-                    requestId: _requestId,
-                    responseId: _responseId,
-                    caller: _caller,
-                },
-            } as unknown as EboEvent<"OracleRequestFinalized">;
-        });
+                    requestId: _requestId as RequestId,
+                    metadata: {
+                        requestId: _requestId as RequestId,
+                        responseId: _responseId as ResponseId,
+                        caller: _caller as Address,
+                        blockNumber: event.blockNumber,
+                    },
+                } as EboEvent<"OracleRequestFinalized">;
+            }),
+        );
+
+        return eventsWithTimestamps;
     }
 
     /**
-     * Fetches all relevant events from the Oracle contract within a specified block range.
+     * Fetches all relevant events from the Oracle contract within a specified block range. Note that no specific order is enforced in the returned array.
      *
      * @param {bigint} fromBlock - The starting block number to fetch events from.
      * @param {bigint} toBlock - The ending block number to fetch events up to.
@@ -558,13 +608,13 @@ export class ProtocolProvider implements IProtocolProvider {
             this.getOracleRequestFinalizedEvents(fromBlock, toBlock),
         ]);
 
-        return this.mergeEventStreams(
-            responseProposedEvents,
-            responseDisputedEvents,
-            disputeStatusUpdatedEvents,
-            disputeEscalatedEvents,
-            oracleRequestFinalizedEvents,
-        );
+        return [
+            ...responseProposedEvents,
+            ...responseDisputedEvents,
+            ...disputeStatusUpdatedEvents,
+            ...disputeEscalatedEvents,
+            ...oracleRequestFinalizedEvents,
+        ];
     }
 
     /**
@@ -575,7 +625,10 @@ export class ProtocolProvider implements IProtocolProvider {
      * @returns {Promise<EboEvent<"RequestCreated">[]>} A promise that resolves to an array of `RequestCreated` events.
      * @throws {Error} If event block number or log index is null.
      */
-    private async getEBORequestCreatorEvents(fromBlock: bigint, toBlock: bigint) {
+    private async getEBORequestCreatorEvents(
+        fromBlock: bigint,
+        toBlock: bigint,
+    ): Promise<EboEvent<"RequestCreated">[]> {
         const events = await this.l2ReadClient.getContractEvents({
             address: this.eboRequestCreatorContract.address,
             abi: eboRequestCreatorAbi,
@@ -585,25 +638,28 @@ export class ProtocolProvider implements IProtocolProvider {
             strict: true,
         });
 
-        return events.map((event) => {
-            if (event.blockNumber === null || event.logIndex === null) {
-                throw new Error("event.blockNumber or event.logIndex is null");
-            }
+        const eventsWithTimestamps = await Promise.all(
+            events.map(async (event) => {
+                const timestamp = await this.getEventTimestamp(event);
 
-            return {
-                name: "RequestCreated" as const,
-                blockNumber: event.blockNumber,
-                logIndex: event.logIndex,
-                rawLog: event,
+                return {
+                    name: "RequestCreated" as const,
+                    blockNumber: event.blockNumber,
+                    logIndex: event.logIndex,
+                    timestamp: timestamp,
+                    rawLog: event,
 
-                requestId: event.args._requestId,
-                metadata: {
-                    requestId: event.args._requestId,
-                    epoch: event.args._epoch,
-                    chainId: event.args._chainId,
-                },
-            } as unknown as EboEvent<"RequestCreated">;
-        });
+                    requestId: event.args._requestId as RequestId,
+                    metadata: {
+                        requestId: event.args._requestId as RequestId,
+                        epoch: event.args._epoch,
+                        chainId: event.args._chainId as Caip2ChainId,
+                    },
+                } as EboEvent<"RequestCreated">;
+            }),
+        );
+
+        return eventsWithTimestamps;
     }
 
     /**
