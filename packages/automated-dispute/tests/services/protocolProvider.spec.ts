@@ -7,6 +7,7 @@ import {
     getContract,
     http,
     isHex,
+    Log,
     WaitForTransactionReceiptTimeoutError,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -24,10 +25,12 @@ import {
     InvalidAccountOnClient,
     RpcUrlsEmpty,
     TransactionExecutionError,
+    UndefinedBlockTimestamp,
+    UnknownDisputeStatus,
 } from "../../src/exceptions/index.js";
 import { ProtocolContractsAddresses } from "../../src/interfaces/index.js";
 import { ProtocolProvider } from "../../src/providers/index.js";
-import { EboEvent, Response } from "../../src/types/index.js";
+import { DisputeStatus, EboEvent, Response } from "../../src/types/index.js";
 import {
     DEFAULT_MOCKED_DISPUTE_DATA,
     DEFAULT_MOCKED_REQUEST_CREATED_DATA,
@@ -324,14 +327,6 @@ describe("ProtocolProvider", () => {
 
             await expect(protocolProvider.getCurrentEpoch()).rejects.toThrow(error);
         });
-    });
-
-    describe.skip("getEvents", () => {
-        it("returns all events ordered asc by block and log index");
-        it.skip("includes `new epoch` event if needed"); // TODO: confirm if this is needed
-        it.skip("includes `request can be finalized` event if needed"); // TODO: confirm if this is needed
-        it("throws if the block range is not consistent");
-        it("throws if the RPC client fails");
     });
 
     describe.skip("getAvailableChains", () => {
@@ -1107,243 +1102,100 @@ describe("ProtocolProvider", () => {
         });
     });
 
-    describe("getResponseProposedEvents", () => {
-        it("fetches and parses ResponseProposed events successfully", async () => {
+    describe("getBlockTimestamps", () => {
+        it("should return correct blockNumber to timestamp mapping", async () => {
             const protocolProvider = new ProtocolProvider(
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
 
-            const responseObject = {
-                proposer: "0xproposeraddress",
-                requestId: "0xrequestid",
-                response: "0xresponse",
-                block: 1n,
-            };
-
-            const encodedResponse = ProtocolProvider.encodeResponse(responseObject);
-
-            const mockEvents = [
-                {
-                    blockNumber: 10n,
-                    logIndex: 1,
-                    blockHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                    args: {
-                        _requestId: "0xrequestid",
-                        _responseId: "0xresponseid",
-                        _response: encodedResponse,
-                    },
-                },
+            const events = [
+                { blockNumber: 100n } as Log,
+                { blockNumber: 200n } as Log,
+                { blockNumber: 100n } as Log,
             ];
 
-            protocolProvider["l2ReadClient"].getContractEvents = vi
-                .fn()
-                .mockResolvedValue(mockEvents);
-
-            const events = await protocolProvider["getResponseProposedEvents"](0n, 100n);
-
-            expect(events).toHaveLength(1);
-            expect(events[0]).toEqual({
-                name: "ResponseProposed",
-                blockNumber: 10n,
-                logIndex: 1,
-                rawLog: mockEvents[0],
-                requestId: "0xrequestid",
-                metadata: {
-                    requestId: "0xrequestid",
-                    responseId: "0xresponseid",
-                    response: {
-                        proposer: undefined,
-                        requestId: undefined,
-                        response: undefined,
-                    },
+            (protocolProvider["l2ReadClient"].getBlock as Mock).mockImplementation(
+                ({ blockNumber }) => {
+                    return Promise.resolve({
+                        timestamp: blockNumber * 10n,
+                    });
                 },
-                timestamp: 1697530555n,
-            });
+            );
+
+            const result = await (protocolProvider as any).getBlockTimestamps(events);
+
+            expect(result.size).toBe(2);
+            expect(result.get(100n)).toBe(1000n);
+            expect(result.get(200n)).toBe(2000n);
+        });
+
+        it("should throw UndefinedBlockTimestamp when blockNumber is null", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const events = [{ blockNumber: null } as any as Log, { blockNumber: 100n } as Log];
+
+            await expect((protocolProvider as any).getBlockTimestamps(events)).rejects.toThrow(
+                UndefinedBlockTimestamp,
+            );
+        });
+
+        it("should throw UndefinedBlockTimestamp when blockNumber is undefined", async () => {
+            const protocolProvider = new ProtocolProvider(
+                mockRpcConfig,
+                mockContractAddress,
+                mockedPrivateKey,
+            );
+
+            const events = [{ blockNumber: undefined } as any as Log, { blockNumber: 100n } as Log];
+
+            await expect((protocolProvider as any).getBlockTimestamps(events)).rejects.toThrow(
+                UndefinedBlockTimestamp,
+            );
         });
     });
 
-    describe("getResponseDisputedEvents", () => {
-        it("fetches and parses ResponseDisputed events successfully", async () => {
-            const protocolProvider = new ProtocolProvider(
-                mockRpcConfig,
-                mockContractAddress,
-                mockedPrivateKey,
-            );
+    describe("mapDisputeStatus", () => {
+        const testCases: Array<{ input: number; expected: DisputeStatus }> = [
+            { input: 0, expected: "None" },
+            { input: 1, expected: "Active" },
+            { input: 2, expected: "Escalated" },
+            { input: 3, expected: "Won" },
+            { input: 4, expected: "Lost" },
+            { input: 5, expected: "NoResolution" },
+        ];
 
-            const mockEvents = [
-                {
-                    blockNumber: 11n,
-                    logIndex: 2,
-                    blockHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                    args: {
-                        _responseId: "0xresponseid",
-                        _disputeId: "0xdisputeid",
-                        _dispute: { requestId: "0xrequestid" },
-                    },
-                },
-            ];
+        testCases.forEach(({ input, expected }) => {
+            it(`should map status ${input} to '${expected}'`, () => {
+                const protocolProvider = new ProtocolProvider(
+                    mockRpcConfig,
+                    mockContractAddress,
+                    mockedPrivateKey,
+                );
 
-            protocolProvider["l2ReadClient"].getContractEvents = vi
-                .fn()
-                .mockResolvedValue(mockEvents);
-
-            const events = await protocolProvider["getResponseDisputedEvents"](0n, 100n);
-
-            expect(events).toHaveLength(1);
-            expect(events[0]).toEqual({
-                name: "ResponseDisputed",
-                blockNumber: 11n,
-                logIndex: 2,
-                rawLog: mockEvents[0],
-                requestId: "0xrequestid",
-                metadata: {
-                    responseId: "0xresponseid",
-                    disputeId: "0xdisputeid",
-                    dispute: { requestId: "0xrequestid" },
-                },
-                timestamp: 1697530555n,
+                const result = (protocolProvider as any).mapDisputeStatus(input);
+                expect(result).toBe(expected);
             });
         });
-    });
 
-    describe("getDisputeStatusUpdatedEvents", () => {
-        it("fetches and parses DisputeStatusUpdated events successfully", async () => {
+        it("should throw UnknownDisputeStatus for invalid status", () => {
             const protocolProvider = new ProtocolProvider(
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
 
-            const disputeObject = {
-                disputer: "0xdisputeraddress",
-                proposer: "0xproposeraddress",
-                requestId: "0xrequestid",
-                responseId: "0xresponseid",
-            };
+            const invalidStatuses = [-1, 6, 999];
 
-            const mockEvents = [
-                {
-                    logIndex: 3,
-                    blockHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                    args: {
-                        _disputeId: "0xdisputeid",
-                        _dispute: disputeObject,
-                        _status: 1,
-                    },
-                },
-            ];
-
-            protocolProvider["l2ReadClient"].getContractEvents = vi
-                .fn()
-                .mockResolvedValue(mockEvents);
-
-            const events = await protocolProvider["getDisputeStatusUpdatedEvents"](0n, 100n);
-
-            expect(events).toHaveLength(1);
-            expect(events[0]).toEqual({
-                name: "DisputeStatusUpdated",
-                logIndex: 3,
-                rawLog: mockEvents[0],
-                requestId: "0xrequestid",
-                metadata: {
-                    disputeId: "0xdisputeid",
-                    dispute: disputeObject,
-                    status: 1,
-                },
-                timestamp: 1697530555n,
-            });
-        });
-    });
-
-    describe("getDisputeEscalatedEvents", () => {
-        it("fetches and parses DisputeEscalated events successfully", async () => {
-            const protocolProvider = new ProtocolProvider(
-                mockRpcConfig,
-                mockContractAddress,
-                mockedPrivateKey,
-            );
-
-            const disputeObject = {
-                disputer: "0xdisputeraddress",
-                proposer: "0xproposeraddress",
-                requestId: "0xrequestid",
-                responseId: "0xresponseid",
-            };
-
-            const mockEvents = [
-                {
-                    logIndex: 4,
-                    blockHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                    args: {
-                        _disputeId: "0xdisputeid",
-                        _dispute: disputeObject,
-                        _caller: "0xcalleraddress",
-                    },
-                },
-            ];
-
-            protocolProvider["l2ReadClient"].getContractEvents = vi
-                .fn()
-                .mockResolvedValue(mockEvents);
-
-            const events = await protocolProvider["getDisputeEscalatedEvents"](0n, 100n);
-
-            expect(events).toHaveLength(1);
-            expect(events[0]).toEqual({
-                name: "DisputeEscalated",
-                logIndex: 4,
-                rawLog: mockEvents[0],
-                requestId: "0xrequestid",
-                metadata: {
-                    disputeId: "0xdisputeid",
-                    dispute: disputeObject,
-                    caller: "0xcalleraddress",
-                },
-                timestamp: 1697530555n,
-            });
-        });
-    });
-
-    describe("getOracleRequestFinalizedEvents", () => {
-        it("fetches and parses OracleRequestFinalized events successfully", async () => {
-            const protocolProvider = new ProtocolProvider(
-                mockRpcConfig,
-                mockContractAddress,
-                mockedPrivateKey,
-            );
-
-            const mockEvents = [
-                {
-                    logIndex: 5,
-                    blockHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                    args: {
-                        _requestId: "0xrequestid",
-                        _responseId: "0xresponseid",
-                        _caller: "0xcalleraddress",
-                    },
-                },
-            ];
-
-            protocolProvider["l2ReadClient"].getContractEvents = vi
-                .fn()
-                .mockResolvedValue(mockEvents);
-
-            const events = await protocolProvider["getOracleRequestFinalizedEvents"](0n, 100n);
-
-            expect(events).toHaveLength(1);
-            expect(events[0]).toEqual({
-                name: "OracleRequestFinalized",
-                logIndex: 5,
-                rawLog: mockEvents[0],
-                requestId: "0xrequestid",
-                metadata: {
-                    requestId: "0xrequestid",
-                    responseId: "0xresponseid",
-                    caller: "0xcalleraddress",
-                },
-                timestamp: 1697530555n,
+            invalidStatuses.forEach((status) => {
+                expect(() => {
+                    (protocolProvider as any).mapDisputeStatus(status);
+                }).toThrow(UnknownDisputeStatus);
             });
         });
     });

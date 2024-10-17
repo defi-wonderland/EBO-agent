@@ -49,6 +49,8 @@ import {
     InvalidBlockRangeError,
     RpcUrlsEmpty,
     TransactionExecutionError,
+    UndefinedBlockTimestamp,
+    UnknownDisputeStatus,
 } from "../exceptions/index.js";
 import {
     IProtocolProvider,
@@ -247,6 +249,62 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
+     * Retrieves timestamps for unique block numbers from an array of events.
+     *
+     * @param events - An array of events containing block numbers.
+     * @returns A Map of block numbers to their corresponding timestamps.
+     */
+    private async getBlockTimestamps(events: Log[]): Promise<Map<bigint, UnixTimestamp>> {
+        const blockNumbers = events.map((event) => event.blockNumber);
+
+        const uniqueBlockNumbers = Array.from(new Set(blockNumbers));
+
+        const blockNumberToTimestamp = new Map<bigint, UnixTimestamp>();
+
+        await Promise.all(
+            uniqueBlockNumbers.map(async (blockNumber) => {
+                if (blockNumber === null || blockNumber === undefined) {
+                    throw new UndefinedBlockTimestamp();
+                }
+                const block = await this.l2ReadClient.getBlock({ blockNumber });
+                blockNumberToTimestamp.set(blockNumber, block.timestamp as UnixTimestamp);
+            }),
+        );
+
+        return blockNumberToTimestamp;
+    }
+
+    /**
+     * Maps a uint8 value to the corresponding DisputeStatus string.
+     *
+     * The mapping corresponds to the DisputeStatus enum in the Prophet's IOracle.sol:
+     * https://github.com/defi-wonderland/prophet-core/blob/dev/solidity/interfaces/IOracle.sol#L178-L186
+     *
+     * Enums use 0-based indexes (None has index 0, Active has index 1, etc.).
+     *
+     * @param status - The uint8 value representing the dispute status.
+     * @returns The DisputeStatus string corresponding to the input value.
+     */
+    private mapDisputeStatus(status: number): DisputeStatus {
+        switch (status) {
+            case 0:
+                return "None";
+            case 1:
+                return "Active";
+            case 2:
+                return "Escalated";
+            case 3:
+                return "Won";
+            case 4:
+                return "Lost";
+            case 5:
+                return "NoResolution";
+            default:
+                throw new UnknownDisputeStatus(status);
+        }
+    }
+
+    /**
      * Returns the address of the account used for transactions.
      *
      * @returns {Address} The account address.
@@ -327,17 +385,7 @@ export class ProtocolProvider implements IProtocolProvider {
             strict: true,
         });
 
-        const blockNumbers = events.map((event) => event.blockNumber);
-        const uniqueBlockNumbers = Array.from(new Set(blockNumbers));
-
-        const blockNumberToTimestamp = new Map<bigint, UnixTimestamp>();
-
-        await Promise.all(
-            uniqueBlockNumbers.map(async (blockNumber) => {
-                const block = await this.l2ReadClient.getBlock({ blockNumber });
-                blockNumberToTimestamp.set(blockNumber, block.timestamp as UnixTimestamp);
-            }),
-        );
+        const blockNumberToTimestamp = await this.getBlockTimestamps(events);
 
         const eventsWithTimestamps = events.map((event) => {
             const { _requestId, _responseId, _response } = event.args;
@@ -367,7 +415,7 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Fetches `ResponseDisputed` events from the Oracle contract within a specified block range.
+     * Fetches `ResponseDisputed` events (emitted when a response is disputed) from the Oracle contract within a specified block range.
      *
      * @param {bigint} fromBlock - The starting block number to fetch events from.
      * @param {bigint} toBlock - The ending block number to fetch events up to.
@@ -387,17 +435,7 @@ export class ProtocolProvider implements IProtocolProvider {
             strict: true,
         });
 
-        const blockNumbers = events.map((event) => event.blockNumber);
-        const uniqueBlockNumbers = Array.from(new Set(blockNumbers));
-
-        const blockNumberToTimestamp = new Map<bigint, UnixTimestamp>();
-
-        await Promise.all(
-            uniqueBlockNumbers.map(async (blockNumber) => {
-                const block = await this.l2ReadClient.getBlock({ blockNumber });
-                blockNumberToTimestamp.set(blockNumber, block.timestamp as UnixTimestamp);
-            }),
-        );
+        const blockNumberToTimestamp = await this.getBlockTimestamps(events);
 
         const eventsWithTimestamps = events.map((event) => {
             const { _dispute, _responseId, _disputeId } = event.args;
@@ -428,7 +466,7 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Fetches `DisputeStatusUpdated` events from the Oracle contract within a specified block range.
+     * Fetches `DisputeStatusUpdated` events (emitted when a dispute's status changes) from the Oracle contract within a specified block range.
      *
      * @param {bigint} fromBlock - The starting block number to fetch events from.
      * @param {bigint} toBlock - The ending block number to fetch events up to.
@@ -448,34 +486,34 @@ export class ProtocolProvider implements IProtocolProvider {
             strict: true,
         });
 
-        const eventsWithTimestamps = await Promise.all(
-            events.map(async (event) => {
-                const { _disputeId, _dispute, _status } = event.args;
+        const blockNumberToTimestamp = await this.getBlockTimestamps(events);
 
-                const timestamp = await this.getEventTimestamp(event);
+        const eventsWithTimestamps = events.map((event) => {
+            const { _disputeId, _dispute, _status } = event.args;
 
-                return {
-                    name: "DisputeStatusUpdated",
-                    blockNumber: event.blockNumber,
-                    logIndex: event.logIndex,
-                    timestamp: timestamp,
-                    rawLog: event,
+            const timestamp = blockNumberToTimestamp.get(event.blockNumber);
 
-                    requestId: _dispute.requestId as RequestId,
-                    metadata: {
-                        disputeId: _disputeId as DisputeId,
-                        dispute: {
-                            disputer: _dispute.disputer,
-                            proposer: _dispute.proposer,
-                            responseId: _dispute.responseId as ResponseId,
-                            requestId: _dispute.requestId as RequestId,
-                        },
-                        status: _status as unknown as DisputeStatus,
-                        blockNumber: event.blockNumber,
+            return {
+                name: "DisputeStatusUpdated",
+                blockNumber: event.blockNumber,
+                logIndex: event.logIndex,
+                timestamp: timestamp,
+                rawLog: event,
+
+                requestId: _dispute.requestId as RequestId,
+                metadata: {
+                    disputeId: _disputeId as DisputeId,
+                    dispute: {
+                        disputer: _dispute.disputer,
+                        proposer: _dispute.proposer,
+                        responseId: _dispute.responseId as ResponseId,
+                        requestId: _dispute.requestId as RequestId,
                     },
-                } as EboEvent<"DisputeStatusUpdated">;
-            }),
-        );
+                    status: this.mapDisputeStatus(_status),
+                    blockNumber: event.blockNumber,
+                },
+            } as EboEvent<"DisputeStatusUpdated">;
+        });
 
         return eventsWithTimestamps;
     }

@@ -15,5 +15,7 @@ export * from "./decodeLogDataFailure.js";
 export * from "./invalidBlockRangeError.exception.js";
 export * from "./unknownCustomError.exception.js";
 export * from "./invalidBlockHash.exception.js";
+export * from "./unknownDisputeStatus.exception.js";
 export * from "./customContractError.js";
+export * from "./undefinedBlockTimestamp.exception.js";
 export * from "./errorFactory.js";
