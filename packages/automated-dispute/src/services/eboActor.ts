@@ -1,5 +1,5 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Address, Caip2ChainId, Caip2Utils, ILogger, UnixTimestamp } from "@ebo-agent/shared";
+import { Caip2ChainId, Caip2Utils, HexUtils, ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
 import { ContractFunctionRevertedError } from "viem";
@@ -671,7 +671,7 @@ export class EboActor {
         const dispute: Dispute["prophetData"] = {
             disputer: disputer,
             proposer: proposedResponse.prophetData.proposer,
-            responseId: Address.normalize(event.metadata.responseId) as ResponseId,
+            responseId: HexUtils.normalize(event.metadata.responseId) as ResponseId,
             requestId: request.id,
         };
         try {

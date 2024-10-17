@@ -1,2 +1,2 @@
-export * from "./invalidAddress.js";
+export * from "./invalidHex.js";
 export * from "./invalidChainId.js";
