@@ -49,7 +49,6 @@ import {
     InvalidBlockRangeError,
     RpcUrlsEmpty,
     TransactionExecutionError,
-    UndefinedBlockTimestamp,
     UnknownDisputeStatus,
 } from "../exceptions/index.js";
 import {
@@ -249,32 +248,6 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Retrieves timestamps for unique block numbers from an array of events.
-     *
-     * @param events - An array of events containing block numbers.
-     * @returns A Map of block numbers to their corresponding timestamps.
-     */
-    private async getBlockTimestamps(events: Log[]): Promise<Map<bigint, UnixTimestamp>> {
-        const blockNumbers = events.map((event) => event.blockNumber);
-
-        const uniqueBlockNumbers = Array.from(new Set(blockNumbers));
-
-        const blockNumberToTimestamp = new Map<bigint, UnixTimestamp>();
-
-        await Promise.all(
-            uniqueBlockNumbers.map(async (blockNumber) => {
-                if (blockNumber === null || blockNumber === undefined) {
-                    throw new UndefinedBlockTimestamp();
-                }
-                const block = await this.l2ReadClient.getBlock({ blockNumber });
-                blockNumberToTimestamp.set(blockNumber, block.timestamp as UnixTimestamp);
-            }),
-        );
-
-        return blockNumberToTimestamp;
-    }
-
-    /**
      * Maps a uint8 value to the corresponding DisputeStatus string.
      *
      * The mapping corresponds to the DisputeStatus enum in the Prophet's IOracle.sol:
@@ -385,32 +358,32 @@ export class ProtocolProvider implements IProtocolProvider {
             strict: true,
         });
 
-        const blockNumberToTimestamp = await this.getBlockTimestamps(events);
+        const eventsWithTimestamps = await Promise.all(
+            events.map(async (event) => {
+                const { _requestId, _responseId, _response } = event.args;
 
-        const eventsWithTimestamps = events.map((event) => {
-            const { _requestId, _responseId, _response } = event.args;
+                const timestamp = await this.getEventTimestamp(event);
 
-            const timestamp = blockNumberToTimestamp.get(event.blockNumber);
+                return {
+                    name: "ResponseProposed",
+                    blockNumber: event.blockNumber,
+                    logIndex: event.logIndex,
+                    timestamp: timestamp,
+                    rawLog: event,
 
-            return {
-                name: "ResponseProposed",
-                blockNumber: event.blockNumber,
-                logIndex: event.logIndex,
-                timestamp: timestamp,
-                rawLog: event,
-
-                requestId: _requestId as RequestId,
-                metadata: {
-                    responseId: _responseId as ResponseId,
                     requestId: _requestId as RequestId,
-                    response: {
-                        proposer: _response.proposer,
-                        requestId: _response.requestId as RequestId,
-                        response: _response.response,
+                    metadata: {
+                        responseId: _responseId as ResponseId,
+                        requestId: _requestId as RequestId,
+                        response: {
+                            proposer: _response.proposer,
+                            requestId: _response.requestId as RequestId,
+                            response: _response.response,
+                        },
                     },
-                },
-            } as EboEvent<"ResponseProposed">;
-        });
+                } as EboEvent<"ResponseProposed">;
+            }),
+        );
         return eventsWithTimestamps;
     }
 
@@ -435,33 +408,33 @@ export class ProtocolProvider implements IProtocolProvider {
             strict: true,
         });
 
-        const blockNumberToTimestamp = await this.getBlockTimestamps(events);
+        const eventsWithTimestamps = await Promise.all(
+            events.map(async (event) => {
+                const { _dispute, _responseId, _disputeId } = event.args;
 
-        const eventsWithTimestamps = events.map((event) => {
-            const { _dispute, _responseId, _disputeId } = event.args;
+                const timestamp = await this.getEventTimestamp(event);
 
-            const timestamp = blockNumberToTimestamp.get(event.blockNumber);
+                return {
+                    name: "ResponseDisputed",
+                    blockNumber: event.blockNumber,
+                    logIndex: event.logIndex,
+                    timestamp: timestamp,
+                    rawLog: event,
 
-            return {
-                name: "ResponseDisputed",
-                blockNumber: event.blockNumber,
-                logIndex: event.logIndex,
-                timestamp: timestamp,
-                rawLog: event,
-
-                requestId: _dispute.requestId as RequestId,
-                metadata: {
-                    responseId: _responseId as ResponseId,
-                    disputeId: _disputeId as DisputeId,
-                    dispute: {
-                        disputer: _dispute.disputer,
-                        proposer: _dispute.proposer,
-                        responseId: _dispute.responseId as ResponseId,
-                        requestId: _dispute.requestId as RequestId,
+                    requestId: _dispute.requestId as RequestId,
+                    metadata: {
+                        responseId: _responseId as ResponseId,
+                        disputeId: _disputeId as DisputeId,
+                        dispute: {
+                            disputer: _dispute.disputer,
+                            proposer: _dispute.proposer,
+                            responseId: _dispute.responseId as ResponseId,
+                            requestId: _dispute.requestId as RequestId,
+                        },
                     },
-                },
-            } as EboEvent<"ResponseDisputed">;
-        });
+                } as EboEvent<"ResponseDisputed">;
+            }),
+        );
         return eventsWithTimestamps;
     }
 
@@ -486,34 +459,34 @@ export class ProtocolProvider implements IProtocolProvider {
             strict: true,
         });
 
-        const blockNumberToTimestamp = await this.getBlockTimestamps(events);
+        const eventsWithTimestamps = await Promise.all(
+            events.map(async (event) => {
+                const { _disputeId, _dispute, _status } = event.args;
 
-        const eventsWithTimestamps = events.map((event) => {
-            const { _disputeId, _dispute, _status } = event.args;
+                const timestamp = await this.getEventTimestamp(event);
 
-            const timestamp = blockNumberToTimestamp.get(event.blockNumber);
-
-            return {
-                name: "DisputeStatusUpdated",
-                blockNumber: event.blockNumber,
-                logIndex: event.logIndex,
-                timestamp: timestamp,
-                rawLog: event,
-
-                requestId: _dispute.requestId as RequestId,
-                metadata: {
-                    disputeId: _disputeId as DisputeId,
-                    dispute: {
-                        disputer: _dispute.disputer,
-                        proposer: _dispute.proposer,
-                        responseId: _dispute.responseId as ResponseId,
-                        requestId: _dispute.requestId as RequestId,
-                    },
-                    status: this.mapDisputeStatus(_status),
+                return {
+                    name: "DisputeStatusUpdated",
                     blockNumber: event.blockNumber,
-                },
-            } as EboEvent<"DisputeStatusUpdated">;
-        });
+                    logIndex: event.logIndex,
+                    timestamp: timestamp,
+                    rawLog: event,
+
+                    requestId: _dispute.requestId as RequestId,
+                    metadata: {
+                        disputeId: _disputeId as DisputeId,
+                        dispute: {
+                            disputer: _dispute.disputer,
+                            proposer: _dispute.proposer,
+                            responseId: _dispute.responseId as ResponseId,
+                            requestId: _dispute.requestId as RequestId,
+                        },
+                        status: this.mapDisputeStatus(_status),
+                        blockNumber: event.blockNumber,
+                    },
+                } as EboEvent<"DisputeStatusUpdated">;
+            }),
+        );
 
         return eventsWithTimestamps;
     }

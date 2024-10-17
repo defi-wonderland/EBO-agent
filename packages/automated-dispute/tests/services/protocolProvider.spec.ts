@@ -7,7 +7,6 @@ import {
     getContract,
     http,
     isHex,
-    Log,
     WaitForTransactionReceiptTimeoutError,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -25,7 +24,6 @@ import {
     InvalidAccountOnClient,
     RpcUrlsEmpty,
     TransactionExecutionError,
-    UndefinedBlockTimestamp,
     UnknownDisputeStatus,
 } from "../../src/exceptions/index.js";
 import { ProtocolContractsAddresses } from "../../src/interfaces/index.js";
@@ -1099,64 +1097,6 @@ describe("ProtocolProvider", () => {
                     timestamp: 1697530555n,
                 },
             ]);
-        });
-    });
-
-    describe("getBlockTimestamps", () => {
-        it("should return correct blockNumber to timestamp mapping", async () => {
-            const protocolProvider = new ProtocolProvider(
-                mockRpcConfig,
-                mockContractAddress,
-                mockedPrivateKey,
-            );
-
-            const events = [
-                { blockNumber: 100n } as Log,
-                { blockNumber: 200n } as Log,
-                { blockNumber: 100n } as Log,
-            ];
-
-            (protocolProvider["l2ReadClient"].getBlock as Mock).mockImplementation(
-                ({ blockNumber }) => {
-                    return Promise.resolve({
-                        timestamp: blockNumber * 10n,
-                    });
-                },
-            );
-
-            const result = await (protocolProvider as any).getBlockTimestamps(events);
-
-            expect(result.size).toBe(2);
-            expect(result.get(100n)).toBe(1000n);
-            expect(result.get(200n)).toBe(2000n);
-        });
-
-        it("should throw UndefinedBlockTimestamp when blockNumber is null", async () => {
-            const protocolProvider = new ProtocolProvider(
-                mockRpcConfig,
-                mockContractAddress,
-                mockedPrivateKey,
-            );
-
-            const events = [{ blockNumber: null } as any as Log, { blockNumber: 100n } as Log];
-
-            await expect((protocolProvider as any).getBlockTimestamps(events)).rejects.toThrow(
-                UndefinedBlockTimestamp,
-            );
-        });
-
-        it("should throw UndefinedBlockTimestamp when blockNumber is undefined", async () => {
-            const protocolProvider = new ProtocolProvider(
-                mockRpcConfig,
-                mockContractAddress,
-                mockedPrivateKey,
-            );
-
-            const events = [{ blockNumber: undefined } as any as Log, { blockNumber: 100n } as Log];
-
-            await expect((protocolProvider as any).getBlockTimestamps(events)).rejects.toThrow(
-                UndefinedBlockTimestamp,
-            );
         });
     });
 
