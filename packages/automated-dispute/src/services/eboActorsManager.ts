@@ -1,5 +1,5 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Address, ILogger } from "@ebo-agent/shared";
+import { HexUtils, ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 
 import { RequestAlreadyHandled } from "../exceptions/index.js";
@@ -23,7 +23,7 @@ export class EboActorsManager {
      */
     public getRequestIds(): RequestId[] {
         return [...this.requestActorMap.keys()].map(
-            (requestId) => Address.normalize(requestId) as RequestId,
+            (requestId) => HexUtils.normalize(requestId) as RequestId,
         );
     }
 

@@ -1,9 +1,9 @@
-import { Branded, Caip2ChainId, NormalizedAddress, UnixTimestamp } from "@ebo-agent/shared";
+import { Branded, Caip2ChainId, NormalizedHex, UnixTimestamp } from "@ebo-agent/shared";
 import { Address, Hex } from "viem";
 
-export type RequestId = Branded<NormalizedAddress, "RequestId">;
-export type ResponseId = Branded<NormalizedAddress, "ResponseId">;
-export type DisputeId = Branded<NormalizedAddress, "DisputeId">;
+export type RequestId = Branded<NormalizedHex, "RequestId">;
+export type ResponseId = Branded<NormalizedHex, "ResponseId">;
+export type DisputeId = Branded<NormalizedHex, "DisputeId">;
 
 export type RequestStatus = "Active" | "Finalized";
 
