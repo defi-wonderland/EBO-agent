@@ -289,7 +289,8 @@ export class EboActor {
         await this.settleDisputes(atTimestamp);
 
         const request = this.getActorRequest();
-        const proposalDeadline = request.decodedData.responseModuleData.deadline;
+        const proposalDeadline =
+            request.createdAt.timestamp + request.decodedData.responseModuleData.deadline;
         const isProposalWindowOpen = atTimestamp <= proposalDeadline;
 
         if (isProposalWindowOpen) {
@@ -352,7 +353,9 @@ export class EboActor {
         if (dispute.status !== "Active") return false;
 
         const { bondEscalationDeadline, tyingBuffer } = request.decodedData.disputeModuleData;
-        const deadline = bondEscalationDeadline + tyingBuffer;
+        const deadline = (dispute.createdAt.timestamp +
+            bondEscalationDeadline +
+            tyingBuffer) as UnixTimestamp;
 
         return atTimestamp > deadline;
     }

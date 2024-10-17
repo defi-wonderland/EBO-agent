@@ -14,29 +14,49 @@ describe("EboActor", () => {
             const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
             const { disputeModuleData } = request.decodedData;
 
-            const response = mocks.buildResponse(request, { id: "0x10" as ResponseId });
-            const dispute = mocks.buildDispute(request, response, {
+            const responseToSettle = mocks.buildResponse(request, { id: "0x10" as ResponseId });
+
+            const disputeToSettle = mocks.buildDispute(request, responseToSettle, {
                 createdAt: {
                     timestamp: 1n as UnixTimestamp,
                     blockNumber: 1000n,
                     logIndex: 0,
                 },
             });
-            const disputeDeadline =
+            const disputeDeadlineDelta =
                 disputeModuleData.bondEscalationDeadline + disputeModuleData.tyingBuffer;
+
+            const disputeDeadline = (disputeToSettle.createdAt.timestamp +
+                disputeDeadlineDelta) as UnixTimestamp;
+
+            const responseToNotSettle = mocks.buildResponse(request, { id: "0x11" as ResponseId });
+            const disputeToNotSettle = mocks.buildDispute(request, responseToNotSettle, {
+                createdAt: {
+                    // Should be settled 1 second after the other dispute deadline
+                    timestamp: (disputeToSettle.createdAt.timestamp + 1n) as UnixTimestamp,
+                    blockNumber: 1000n,
+                    logIndex: 0,
+                },
+            });
 
             const { actor, registry, protocolProvider } = mocks.buildEboActor(request, logger);
 
             vi.spyOn(registry, "getRequest").mockReturnValue(request);
             vi.spyOn(registry, "getResponse").mockImplementation((id) => {
                 switch (id) {
-                    case response.id:
-                        return response;
+                    case responseToSettle.id:
+                        return responseToSettle;
+
+                    case responseToNotSettle.id:
+                        return responseToNotSettle;
                 }
             });
             // Skipping finalize flow with this mock
             vi.spyOn(registry, "getResponses").mockReturnValue([]);
-            vi.spyOn(registry, "getDisputes").mockReturnValue([dispute]);
+            vi.spyOn(registry, "getDisputes").mockReturnValue([
+                disputeToSettle,
+                disputeToNotSettle,
+            ]);
 
             const mockSettleDispute = vi
                 .spyOn(protocolProvider, "settleDispute")
@@ -48,8 +68,14 @@ describe("EboActor", () => {
 
             expect(mockSettleDispute).toHaveBeenCalledWith(
                 request.prophetData,
-                response.prophetData,
-                dispute.prophetData,
+                responseToSettle.prophetData,
+                disputeToSettle.prophetData,
+            );
+
+            expect(mockSettleDispute).not.toHaveBeenCalledWith(
+                request.prophetData,
+                responseToNotSettle.prophetData,
+                disputeToNotSettle.prophetData,
             );
         });
 
@@ -65,8 +91,10 @@ describe("EboActor", () => {
                     logIndex: 0,
                 },
             });
-            const disputeDeadline =
+            const disputeDeadlineDelta =
                 disputeModuleData.bondEscalationDeadline + disputeModuleData.tyingBuffer;
+
+            const disputeDeadline = dispute.createdAt.timestamp + disputeDeadlineDelta;
 
             const { actor, registry, protocolProvider } = mocks.buildEboActor(request, logger);
 
@@ -151,6 +179,7 @@ describe("EboActor", () => {
 
         it("finalizes the request using the first accepted response", async () => {
             const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
+
             const firstResponse = mocks.buildResponse(request, {
                 id: "0x10" as ResponseId,
                 createdAt: {
@@ -159,9 +188,16 @@ describe("EboActor", () => {
                     logIndex: 0,
                 },
             });
+
             const firstResponseDispute = mocks.buildDispute(request, firstResponse, {
                 status: "Lost",
+                createdAt: {
+                    timestamp: 5n as UnixTimestamp,
+                    blockNumber: 1001n,
+                    logIndex: 0,
+                },
             });
+
             const secondResponse = mocks.buildResponse(request, {
                 id: "0x11" as ResponseId,
                 createdAt: {
@@ -183,11 +219,24 @@ describe("EboActor", () => {
                 return Promise.resolve();
             });
 
-            const newBlock =
-                secondResponse.createdAt.timestamp +
-                request.decodedData.responseModuleData.disputeWindow;
+            const { disputeModuleData, responseModuleData } = request.decodedData;
 
-            await actor.onLastBlockUpdated((newBlock + 1n) as UnixTimestamp);
+            const firstResponseDeadline =
+                firstResponseDispute.createdAt.timestamp +
+                disputeModuleData.bondEscalationDeadline +
+                disputeModuleData.tyingBuffer;
+
+            const secondResponseDeadline =
+                secondResponse.createdAt.timestamp + responseModuleData.disputeWindow;
+
+            const proposalDeadline = request.createdAt.timestamp + responseModuleData.deadline;
+
+            const newBlock =
+                [firstResponseDeadline, secondResponseDeadline, proposalDeadline].reduce(
+                    (prev, curr) => (prev > curr ? prev : curr),
+                ) + 1n;
+
+            await actor.onLastBlockUpdated(newBlock as UnixTimestamp);
 
             expect(mockFinalize).toHaveBeenCalledWith(
                 request.prophetData,
