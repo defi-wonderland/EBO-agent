@@ -1,15 +1,7 @@
 import { Caip2ChainId } from "@ebo-agent/shared";
 import { Address, Block } from "viem";
 
-import type {
-    Dispute,
-    EboEvent,
-    EboEventName,
-    Epoch,
-    Request,
-    RequestId,
-    Response,
-} from "../types/index.js";
+import type { Dispute, EboEvent, EboEventName, Epoch, Request, Response } from "../types/index.js";
 import { ProtocolContractsNames } from "../constants.js";
 
 export type ProtocolContract = (typeof ProtocolContractsNames)[number];
@@ -202,79 +194,3 @@ export interface IProtocolProvider {
      */
     read: IReadProvider;
 }
-
-/**
- * @type DecodedLogArgsMap
- * Represents the mapping of event names to their respective argument structures.
- */
-export type DecodedLogArgsMap = {
-    /**
-     * Event arguments for the RequestCreated event.
-     * @property {RequestId} requestId - The ID of the request.
-     * @property {bigint} epoch - The epoch time when the request was created.
-     * @property {Caip2ChainId} chainId - The chain ID where the request was created.
-     */
-    RequestCreated: {
-        requestId: RequestId;
-        epoch: bigint;
-        chainId: Caip2ChainId;
-    };
-
-    /**
-     * Event arguments for the ResponseProposed event.
-     * @property {RequestId} requestId - The ID of the request.
-     * @property {string} responseId - The ID of the response.
-     * @property {string} response - The response content.
-     */
-    ResponseProposed: {
-        requestId: RequestId;
-        responseId: string;
-        response: string;
-    };
-
-    /**
-     * Event arguments for the ResponseDisputed event.
-     * @property {string} responseId - The ID of the response.
-     * @property {string} disputeId - The ID of the dispute.
-     * @property {string} dispute - The dispute content.
-     */
-    ResponseDisputed: {
-        responseId: string;
-        disputeId: string;
-        dispute: string;
-    };
-
-    /**
-     * Event arguments for the DisputeStatusUpdated event.
-     * @property {string} disputeId - The ID of the dispute.
-     * @property {string} dispute - The dispute content.
-     * @property {number} status - The new status of the dispute.
-     */
-    DisputeStatusUpdated: {
-        disputeId: string;
-        dispute: string;
-        status: number;
-    };
-
-    /**
-     * Event arguments for the DisputeEscalated event.
-     * @property {string} caller - The address of the caller who escalated the dispute.
-     * @property {string} disputeId - The ID of the dispute.
-     */
-    DisputeEscalated: {
-        caller: string;
-        disputeId: string;
-    };
-
-    /**
-     * Event arguments for the OracleRequestFinalized event.
-     * @property {RequestId} requestId - The ID of the request.
-     * @property {string} responseId - The ID of the response.
-     * @property {string} caller - The address of the caller who finalized the request.
-     */
-    OracleRequestFinalized: {
-        requestId: RequestId;
-        responseId: string;
-        caller: string;
-    };
-};
