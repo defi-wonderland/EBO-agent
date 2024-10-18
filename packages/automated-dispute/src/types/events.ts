@@ -27,8 +27,8 @@ export interface RequestCreated {
 }
 
 export interface ResponseProposed {
-    requestId: Hex;
-    responseId: Hex;
+    requestId: RequestId;
+    responseId: ResponseId;
     response: Response["prophetData"];
 }
 
