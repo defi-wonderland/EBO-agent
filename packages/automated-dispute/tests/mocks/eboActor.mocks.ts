@@ -33,12 +33,14 @@ export function buildEboActor(request: Request, logger: ILogger) {
     const protocolProvider = new ProtocolProvider(
         {
             l1: {
+                chainId: "eip155:1",
                 urls: ["http://localhost:8545"],
                 retryInterval: 1,
                 timeout: 100,
                 transactionReceiptConfirmations: 1,
             },
             l2: {
+                chainId: "eip155:42161",
                 urls: ["http://localhost:8546"],
                 retryInterval: 1,
                 timeout: 100,
