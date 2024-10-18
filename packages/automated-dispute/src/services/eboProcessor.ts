@@ -136,7 +136,7 @@ export class EboProcessor {
 
             await Promise.all(synchedRequests);
 
-            this.logger.info(`Consumed events up to block ${lastBlock}.`);
+            this.logger.info(`Consumed events up to block ${lastBlock.number}.`);
 
             this.createMissingRequests(currentEpoch.number);
 
@@ -180,7 +180,7 @@ export class EboProcessor {
 
         const lastBlock = await this.protocolProvider.getLastFinalizedBlock();
 
-        this.logger.info(`Last finalized block ${lastBlock} fetched.`);
+        this.logger.info(`Last finalized block ${lastBlock.number} fetched.`);
 
         return lastBlock;
     }
@@ -196,6 +196,8 @@ export class EboProcessor {
         this.logger.info(`Fetching events between blocks ${fromBlock} and ${toBlock}...`);
 
         const events = await this.protocolProvider.getEvents(fromBlock, toBlock);
+
+        // TODO: add a logger.debug of all the fetched events, super useful during debugging
 
         this.logger.info(`${events.length} events fetched.`);
 

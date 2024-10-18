@@ -7,6 +7,8 @@ export const EBO_SUPPORTED_CHAINS_CONFIG = {
             ethereum: "1",
             polygon: "137",
             arbitrum: "42161",
+            arbitrumSepolia: "421614",
+            arbitrumAnvil: "4216138",
         },
     },
     solana: {

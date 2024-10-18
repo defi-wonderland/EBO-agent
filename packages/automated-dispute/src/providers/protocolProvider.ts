@@ -1,3 +1,4 @@
+import { UnsupportedChain } from "@ebo-agent/blocknumber";
 import { Caip2ChainId, UnixTimestamp } from "@ebo-agent/shared";
 import {
     Address,
@@ -21,7 +22,7 @@ import {
     WalletClient,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { arbitrum, mainnet } from "viem/chains";
+import { arbitrum, arbitrumSepolia, mainnet, sepolia } from "viem/chains";
 
 import type {
     Dispute,
@@ -59,6 +60,7 @@ import {
 } from "../interfaces/index.js";
 
 type RpcConfig = {
+    chainId: Caip2ChainId;
     urls: string[];
     transactionReceiptConfirmations: number;
     timeout: number;
@@ -138,9 +140,12 @@ export class ProtocolProvider implements IProtocolProvider {
         contracts: ProtocolContractsAddresses,
         privateKey: Hex,
     ) {
-        this.l1ReadClient = this.createReadClient(rpcConfig.l1, mainnet);
-        this.l2ReadClient = this.createReadClient(rpcConfig.l2, arbitrum);
-        this.l2WriteClient = this.createWriteClient(rpcConfig.l2, arbitrum, privateKey);
+        const l1Chain = this.getViemChain(rpcConfig.l1.chainId);
+        const l2Chain = this.getViemChain(rpcConfig.l2.chainId);
+
+        this.l1ReadClient = this.createReadClient(rpcConfig.l1, l1Chain);
+        this.l2ReadClient = this.createReadClient(rpcConfig.l2, l2Chain);
+        this.l2WriteClient = this.createWriteClient(rpcConfig.l2, l2Chain, privateKey);
 
         // Instantiate all the protocol contracts
         this.oracleContract = getContract({
@@ -245,6 +250,25 @@ export class ProtocolProvider implements IProtocolProvider {
             ),
             account: account,
         });
+    }
+
+    private getViemChain(chainId: Caip2ChainId): Chain {
+        switch (chainId) {
+            case "eip155:1":
+                return mainnet;
+
+            case "eip155:11155111":
+                return sepolia;
+
+            case "eip155:42161":
+                return arbitrum;
+
+            case "eip155:421614":
+                return arbitrumSepolia;
+
+            default:
+                throw new UnsupportedChain(chainId);
+        }
     }
 
     /**
@@ -664,6 +688,7 @@ export class ProtocolProvider implements IProtocolProvider {
                         requestId: event.args._requestId as RequestId,
                         epoch: event.args._epoch,
                         chainId: event.args._chainId as Caip2ChainId,
+                        request: event.args._request,
                     },
                 } as EboEvent<"RequestCreated">;
             }),
@@ -717,7 +742,7 @@ export class ProtocolProvider implements IProtocolProvider {
     // TODO: use Caip2 Chain ID instead of string in return type
     async getAvailableChains(): Promise<Caip2ChainId[]> {
         // TODO: implement actual method
-        return ["eip155:42161"];
+        return ["eip155:421614"];
     }
 
     getAccountingModuleAddress(): Address {

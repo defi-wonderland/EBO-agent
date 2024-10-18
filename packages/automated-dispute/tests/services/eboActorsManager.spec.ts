@@ -36,12 +36,14 @@ describe("EboActorsManager", () => {
         protocolProvider = new ProtocolProvider(
             {
                 l1: {
+                    chainId: "eip155:1",
                     urls: ["http://localhost:8538"],
                     retryInterval: 1,
                     timeout: 100,
                     transactionReceiptConfirmations: 1,
                 },
                 l2: {
+                    chainId: "eip155:42161",
                     urls: ["http://localhost:8539"],
                     retryInterval: 1,
                     timeout: 100,
