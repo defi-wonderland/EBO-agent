@@ -1,7 +1,15 @@
 import { UnixTimestamp } from "@ebo-agent/shared";
 import { Address, Hex, Log } from "viem";
 
-import { Dispute, DisputeId, DisputeStatus, RequestId, Response, ResponseId } from "./prophet.js";
+import {
+    Dispute,
+    DisputeId,
+    DisputeStatus,
+    Request,
+    RequestId,
+    Response,
+    ResponseId,
+} from "./prophet.js";
 
 export type EboEventName =
     | "RequestCreated"
@@ -11,16 +19,17 @@ export type EboEventName =
     | "DisputeEscalated"
     | "OracleRequestFinalized";
 
-export interface ResponseProposed {
-    requestId: Hex;
-    responseId: Hex;
-    response: Response["prophetData"];
-}
-
 export interface RequestCreated {
     epoch: bigint;
     chainId: Hex; // keccak256 CAIP-2 chain ID
     requestId: RequestId;
+    request: Request["prophetData"];
+}
+
+export interface ResponseProposed {
+    requestId: Hex;
+    responseId: Hex;
+    response: Response["prophetData"];
 }
 
 export interface ResponseDisputed {

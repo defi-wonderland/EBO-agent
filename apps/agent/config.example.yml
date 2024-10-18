@@ -1,10 +1,12 @@
 protocolProvider:
     rpcsConfig:
         l1:
+            chainId: eip155:11155111
             transactionReceiptConfirmations: 1
             timeout: 10000
             retryInterval: 150
         l2:
+            chainId: eip155:42161
             transactionReceiptConfirmations: 1
             timeout: 10000
             retryInterval: 150

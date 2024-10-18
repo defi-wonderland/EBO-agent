@@ -36,6 +36,9 @@ export const envSchema = z.object({
 
 const addressSchema = z.string().refine((address) => isAddress(address));
 const rpcConfigSchema = z.object({
+    chainId: z
+        .string()
+        .refine((id) => Caip2Utils.isCaip2ChainId(id), { message: "Invalid CAIP 2 chain ID" }),
     transactionReceiptConfirmations: z.number().int().positive(),
     timeout: z.number().int().positive(),
     retryInterval: z.number().int().positive(),

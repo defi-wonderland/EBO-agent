@@ -4,7 +4,7 @@ import { execa } from "execa";
 import {
     Account,
     Address,
-    Client,
+    Chain,
     createPublicClient,
     createTestClient,
     createWalletClient,
@@ -13,15 +13,12 @@ import {
     HttpTransport,
     parseAbi,
     parseEther,
-    PublicActions,
     publicActions,
-    TestActions,
-    TestClient,
-    WalletActions,
     walletActions,
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { arbitrum } from "viem/chains";
+
+import { AnvilClient } from "./anvil.js";
 
 /**
  * Encode the function to transfer ERC20 GRT token to a specified `address`
@@ -47,60 +44,59 @@ function transferGrtToAccount(address: Address, amount: bigint) {
  */
 async function fundAccount(
     account: Account,
-    anvilClient: TestClient<"anvil", HttpTransport, typeof arbitrum>,
+    anvilClient: AnvilClient<HttpTransport, Chain, Account | undefined>,
     grt: {
         fundAmount: bigint;
         holderAddress: Address;
         contractAddress: Address;
     },
 ) {
-    const extendedAnvilClient = anvilClient.extend(publicActions).extend(walletActions);
-
-    await extendedAnvilClient.impersonateAccount({
+    await anvilClient.impersonateAccount({
         address: grt.holderAddress,
     });
 
     console.log(`Impersonating ${grt.holderAddress}...`);
 
-    await extendedAnvilClient.setBalance({
+    await anvilClient.setBalance({
         address: grt.holderAddress,
-        value: parseEther("1"),
+        value: parseEther("100"),
     });
 
     console.log(`Added 1 ETH to ${grt.holderAddress}.`);
 
-    await extendedAnvilClient.setBalance({
+    await anvilClient.setBalance({
         address: account.address,
-        value: parseEther("1"),
+        value: parseEther("100"),
     });
 
     console.log(`Added 1 ETH to ${account.address}.`);
 
     console.log(`Sending GRT tokens from ${grt.holderAddress} to ${account.address}...`);
 
-    const hash = await extendedAnvilClient.sendTransaction({
+    const hash = await anvilClient.sendTransaction({
         account: grt.holderAddress,
         to: grt.contractAddress,
         data: transferGrtToAccount(account.address, grt.fundAmount),
-        chain: arbitrum,
     });
 
     console.log("Waiting for transaction receipt...");
 
-    await extendedAnvilClient.waitForTransactionReceipt({
+    await anvilClient.waitForTransactionReceipt({
         hash: hash,
     });
 
     console.log(`GRT tokens sent.`);
 
-    await extendedAnvilClient.stopImpersonatingAccount({ address: grt.holderAddress });
+    await anvilClient.stopImpersonatingAccount({ address: grt.holderAddress });
 }
 
 interface SetUpAccountConfig {
     localRpcUrl: string;
+    chain: Chain;
     deployedContracts: DeployContractsOutput;
     grtHolder: Address;
     grtContractAddress: Address;
+    grtFundAmount: bigint;
 }
 
 /**
@@ -111,31 +107,31 @@ interface SetUpAccountConfig {
  * @returns the private key, the account and a wallet client for the set up account
  */
 export async function setUpAccount(config: SetUpAccountConfig) {
-    const { localRpcUrl, grtHolder, grtContractAddress } = config;
+    const { localRpcUrl, chain, grtHolder, grtContractAddress, grtFundAmount } = config;
 
     const privateKey = generatePrivateKey();
     const account = privateKeyToAccount(privateKey);
     const localRpcTransport = http(localRpcUrl);
 
     const publicClient = createPublicClient({
-        chain: arbitrum,
+        chain: chain,
         transport: localRpcTransport,
     });
 
     const walletClient = createWalletClient({
         account,
-        chain: arbitrum,
+        chain: chain,
         transport: localRpcTransport,
     });
 
     const anvilClient = createTestClient({
         mode: "anvil",
         account: grtHolder,
-        chain: arbitrum,
+        chain: chain,
         transport: localRpcTransport,
-    });
-
-    const grtFundAmount = 10n;
+    })
+        .extend(publicActions)
+        .extend(walletActions);
 
     await fundAccount(account, anvilClient, {
         holderAddress: grtHolder,
@@ -172,13 +168,14 @@ export interface DeployContractsConfig {
     // ebo-core repo's local path
     eboCorePath: string;
     // Yarn command to be used in ebo core repo
-    yarnCmd: string;
+    // Keystore password
+    keystorePassword: string;
     // Data to use to generate the ebo core .env file
     eboCoreEnvContent: {
         // Local anvil RPC URL (most likely http://127.0.0.1/1)
-        arbitrumRpc: string;
+        protocolRpc: string;
         // Wallet to use for local deployment
-        arbitrumDeployerName: string;
+        protocolDeployerName: string;
     };
 }
 
@@ -197,7 +194,7 @@ export async function deployContracts(
     config: DeployContractsConfig,
 ): Promise<DeployContractsOutput> {
     // FIXME: `eboCoreEnvContent` will be used when generating .env on the fly
-    const { yarnCmd, eboCorePath } = config;
+    const { keystorePassword, eboCorePath, eboCoreEnvContent } = config;
 
     console.log("Deploying smart contracts...");
 
@@ -206,16 +203,20 @@ export async function deployContracts(
 
     const { stdout } = await execa({
         cwd: eboCorePath,
-    })`${yarnCmd} deploy:arbitrum`;
+    })`forge script Deploy --rpc-url ${eboCoreEnvContent.protocolRpc} --account ARBITRUM_DEPLOYER --broadcast --chain arbitrum -vv --password ${keystorePassword}`;
 
     const deployedContractsMatches = stdout.matchAll(DEPLOYED_CONTRACTS_REGEX);
 
-    return [...deployedContractsMatches].reduce((addresses, contractAddress) => {
+    const contracts = [...deployedContractsMatches].reduce((addresses, contractAddress) => {
         const name = contractAddress[1];
         const address = contractAddress[2];
 
         return { ...addresses, [name]: address as Address };
     }, {} as DeployContractsOutput);
+
+    console.dir(contracts, { depth: null });
+
+    return contracts;
 }
 
 interface SetUpProphetInput {
@@ -225,10 +226,16 @@ interface SetUpProphetInput {
     accounts: Account[];
     /** Map of deployed contracts */
     deployedContracts: DeployContractsOutput;
+    /** Bond amount */
+    bondAmount: bigint;
     /** Arbitrator address to use to add chains into EBORequestCreator  */
     arbitratorAddress: Address;
+    /** GRT address */
+    grtAddress: Address;
+    /** Horizon staking address */
+    horizonStakingAddress: Address;
     /** Anvil client */
-    anvilClient: TestClient<"anvil", HttpTransport, typeof arbitrum>;
+    anvilClient: AnvilClient<HttpTransport, Chain, undefined>;
 }
 
 /**
@@ -237,14 +244,24 @@ interface SetUpProphetInput {
  * @param input {@link SetUpProphetInput}
  */
 export async function setUpProphet(input: SetUpProphetInput) {
-    const { chainsToAdd, accounts, deployedContracts, arbitratorAddress, anvilClient } = input;
-    const extendedAnvilClient = anvilClient.extend(publicActions).extend(walletActions);
+    const { chainsToAdd, accounts, deployedContracts, anvilClient, bondAmount } = input;
+    const { arbitratorAddress, grtAddress, horizonStakingAddress } = input;
 
     await approveEboProphetModules(accounts, deployedContracts, anvilClient);
+    await stakeGrtWithProvision(
+        accounts,
+        {
+            grt: grtAddress,
+            horizonStaking: horizonStakingAddress,
+            horizonAccountingExtension: deployedContracts["HorizonAccountingExtension"],
+        },
+        bondAmount,
+        anvilClient,
+    );
     await addEboRequestCreatorChains(
         chainsToAdd,
         deployedContracts,
-        extendedAnvilClient,
+        anvilClient,
         arbitratorAddress,
     );
 }
@@ -260,14 +277,11 @@ export async function setUpProphet(input: SetUpProphetInput) {
 async function approveEboProphetModules(
     accounts: Account[],
     deployedContracts: DeployContractsOutput,
-    anvilClient: TestClient<"anvil", HttpTransport, typeof arbitrum>,
+    anvilClient: AnvilClient<HttpTransport, Chain, undefined>,
 ) {
     console.log(`Approving accounting modules...`);
 
-    const extendedAnvilClient = anvilClient.extend(publicActions).extend(walletActions);
-
     const modulesToBeApproved = [
-        deployedContracts["EBORequestModule"],
         deployedContracts["BondedResponseModule"],
         deployedContracts["BondEscalationModule"],
     ];
@@ -276,12 +290,12 @@ async function approveEboProphetModules(
         await Promise.all(
             modulesToBeApproved.map(async (moduleAddress, index) => {
                 console.log(
-                    `Approving ${moduleAddress} through BondEscalationAccounting ${deployedContracts["BondEscalationAccounting"]}`,
+                    `Approving ${moduleAddress} through HorizonAccountingExtension ${deployedContracts["HorizonAccountingExtension"]}`,
                 );
 
-                const hash = await extendedAnvilClient.sendTransaction({
+                const hash = await anvilClient.sendTransaction({
                     account: account,
-                    to: deployedContracts["BondEscalationAccounting"],
+                    to: deployedContracts["HorizonAccountingExtension"],
                     data: encodeFunctionData({
                         abi: parseAbi(["function approveModule(address) external"]),
                         args: [moduleAddress],
@@ -289,14 +303,14 @@ async function approveEboProphetModules(
                     nonce: index,
                 });
 
-                await extendedAnvilClient.waitForTransactionReceipt({
+                await anvilClient.waitForTransactionReceipt({
                     hash: hash,
                 });
             }),
         );
 
-        const approvedModules = await extendedAnvilClient.readContract({
-            address: deployedContracts["BondEscalationAccounting"],
+        const approvedModules = await anvilClient.readContract({
+            address: deployedContracts["HorizonAccountingExtension"],
             abi: parseAbi(["function approvedModules(address) external view returns (address[])"]),
             functionName: "approvedModules",
             args: [account.address],
@@ -304,6 +318,79 @@ async function approveEboProphetModules(
 
         console.log(`Modules approved for ${account.address}:`);
         console.dir(approvedModules);
+    }
+}
+
+async function stakeGrtWithProvision(
+    accounts: Account[],
+    addresses: {
+        grt: Address;
+        horizonStaking: Address;
+        horizonAccountingExtension: Address;
+    },
+    bondSize: bigint,
+    anvilClient: AnvilClient<HttpTransport, Chain, undefined>,
+) {
+    console.log("Staking GRT into Horizon...");
+
+    const { grt, horizonStaking, horizonAccountingExtension } = addresses;
+
+    for (const account of accounts) {
+        console.log(`Approving GRT txs on ${account.address} to ${horizonStaking}`);
+
+        const approveHash = await anvilClient.sendTransaction({
+            account: account,
+            to: grt,
+            data: encodeFunctionData({
+                abi: parseAbi(["function approve(address, uint256)"]),
+                args: [horizonStaking, bondSize * 5n],
+            }),
+        });
+
+        await anvilClient.waitForTransactionReceipt({
+            hash: approveHash,
+        });
+
+        console.log(`Staking for ${account.address} ${bondSize}...`);
+
+        const stakeHash = await anvilClient.sendTransaction({
+            account: account,
+            to: horizonStaking,
+            data: encodeFunctionData({
+                abi: parseAbi(["function stake(uint256)"]),
+                args: [bondSize],
+            }),
+        });
+
+        await anvilClient.waitForTransactionReceipt({
+            hash: stakeHash,
+        });
+
+        console.log(`Provisioning ${bondSize} for ${account.address}...`);
+
+        const provisionHash = await anvilClient.sendTransaction({
+            account: account,
+            to: horizonStaking,
+            data: encodeFunctionData({
+                abi: parseAbi(["function provision(address, address, uint256, uint32, uint64)"]),
+                args: [
+                    account.address,
+                    horizonAccountingExtension,
+                    bondSize,
+                    // TODO: use contract call to get this value
+                    // https://github.com/defi-wonderland/EBO-core/blob/175bcd57c3254a90dd6fcbf53b3db3359085551f/src/contracts/HorizonAccountingExtension.sol#L38C26-L38C42
+                    1_000_000,
+                    // https://github.com/defi-wonderland/EBO-core/blob/175bcd57c3254a90dd6fcbf53b3db3359085551f/script/Constants.sol#L21
+                    BigInt(60 * 60 * 24 * 3), // 3 days
+                ],
+            }),
+        });
+
+        await anvilClient.waitForTransactionReceipt({
+            hash: provisionHash,
+        });
+
+        console.log(`Stake and provision done for ${account.address}`);
     }
 }
 
@@ -318,13 +405,7 @@ async function approveEboProphetModules(
 async function addEboRequestCreatorChains(
     chainsToAdd: Caip2ChainId[],
     deployedContracts: DeployContractsOutput,
-    client: Client<
-        HttpTransport,
-        typeof arbitrum,
-        Account | undefined,
-        undefined,
-        TestActions & PublicActions & WalletActions
-    >,
+    client: AnvilClient<HttpTransport, Chain, undefined>,
     arbitratorAddress: Address,
 ) {
     await client.impersonateAccount({
@@ -349,7 +430,6 @@ async function addEboRequestCreatorChains(
                     args: [chainId],
                     functionName: "addChain",
                 }),
-                chain: arbitrum,
                 nonce: index,
             });
 
