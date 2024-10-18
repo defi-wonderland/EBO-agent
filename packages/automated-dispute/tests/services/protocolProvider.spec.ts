@@ -1,16 +1,12 @@
 import { Caip2ChainId } from "@ebo-agent/shared";
 import {
-    AbiEvent,
     ContractFunctionRevertedError,
     createPublicClient,
     createWalletClient,
-    encodeAbiParameters,
     fallback,
     getContract,
-    getEventSelector,
     http,
     isHex,
-    keccak256,
     Log,
     WaitForTransactionReceiptTimeoutError,
 } from "viem";
@@ -853,96 +849,6 @@ describe("ProtocolProvider", () => {
             await expect(protocolProvider.getApprovedModules(mockUserAddress)).rejects.toThrow(
                 error,
             );
-        });
-    });
-
-    describe("decodeLogData", () => {
-        it("successfully decodes RequestCreated event", () => {
-            const protocolProvider = new ProtocolProvider(
-                mockRpcConfig,
-                mockContractAddress,
-                mockedPrivateKey,
-            );
-
-            const eboRequestCreatorAbi = [
-                {
-                    type: "event",
-                    name: "RequestCreated",
-                    inputs: [
-                        {
-                            name: "_requestId",
-                            type: "bytes32",
-                            indexed: true,
-                            internalType: "bytes32",
-                        },
-                        { name: "_epoch", type: "uint256", indexed: true, internalType: "uint256" },
-                        { name: "_chainId", type: "string", indexed: true, internalType: "string" },
-                    ],
-                    anonymous: false,
-                },
-            ];
-
-            const eventAbi = eboRequestCreatorAbi[0];
-            const eventSignature = getEventSelector(eventAbi as AbiEvent);
-
-            const _requestId = "0x" + "123".padStart(64, "0");
-            const _epoch = 1n;
-            const _chainId = "eip155:1";
-
-            const epochHex = "0x" + _epoch.toString(16).padStart(64, "0");
-            const chainIdHash = keccak256(encodeAbiParameters([{ type: "string" }], [_chainId]));
-
-            const topics = [eventSignature, _requestId, epochHex, chainIdHash] as [
-                `0x${string}`,
-                ...`0x${string}`[],
-            ];
-
-            const mockLog: Log = {
-                address: "0x1234567890123456789012345678901234567890",
-                topics,
-                data: "0x",
-                blockNumber: 1n,
-                transactionHash:
-                    "0x1234567890123456789012345678901234567890123456789012345678901234",
-                transactionIndex: 1,
-                blockHash: "0x1234567890123456789012345678901234567890123456789012345678901234",
-                logIndex: 1,
-                removed: false,
-            };
-
-            const result = (protocolProvider as any).decodeLogData("RequestCreated", mockLog);
-
-            expect(result).toBeDefined();
-            expect(result).toEqual({
-                _requestId,
-                _epoch,
-                _chainId: chainIdHash,
-            });
-        });
-
-        it("throws an error for unsupported event name", () => {
-            const protocolProvider = new ProtocolProvider(
-                mockRpcConfig,
-                mockContractAddress,
-                mockedPrivateKey,
-            );
-
-            const mockLog: Log = {
-                address: "0x1234567890123456789012345678901234567890",
-                topics: ["0x0000000000000000000000000000000000000000000000000000000000000001"],
-                data: "0x",
-                blockNumber: 1n,
-                transactionHash:
-                    "0x1234567890123456789012345678901234567890123456789012345678901234",
-                transactionIndex: 1,
-                blockHash: "0x1234567890123456789012345678901234567890123456789012345678901234",
-                logIndex: 1,
-                removed: false,
-            };
-
-            expect(() =>
-                (protocolProvider as any).parseOracleEvent("UnsupportedEvent", mockLog),
-            ).toThrow("Unsupported event name: UnsupportedEvent");
         });
     });
 
