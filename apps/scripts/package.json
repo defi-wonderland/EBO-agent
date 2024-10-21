@@ -17,6 +17,9 @@
         "script:util:approve-modules": "tsx utilities/approveAccountingModules"
     },
     "dependencies": {
+        "@ebo-agent/automated-dispute": "workspace:*",
+        "@ebo-agent/blocknumber": "workspace:*",
+        "@ebo-agent/shared": "workspace:*",
         "dotenv": "16.4.5",
         "typescript": "5.5.3",
         "viem": "2.21.32",

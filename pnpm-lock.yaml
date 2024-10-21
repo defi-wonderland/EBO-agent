@@ -105,6 +105,15 @@ importers:
 
     apps/scripts:
         dependencies:
+            "@ebo-agent/automated-dispute":
+                specifier: workspace:*
+                version: link:../../packages/automated-dispute
+            "@ebo-agent/blocknumber":
+                specifier: workspace:*
+                version: link:../../packages/blocknumber
+            "@ebo-agent/shared":
+                specifier: workspace:*
+                version: link:../../packages/shared
             dotenv:
                 specifier: 16.4.5
                 version: 16.4.5
