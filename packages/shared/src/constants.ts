@@ -1,5 +1,6 @@
 import { Caip2ChainId } from "./types/index.js";
 
+/** Supported chains on EBO organized by namespaces and their references */
 export const EBO_SUPPORTED_CHAINS_CONFIG = {
     evm: {
         namespace: "eip155",
@@ -19,6 +20,7 @@ export const EBO_SUPPORTED_CHAINS_CONFIG = {
     },
 } as const;
 
+/** Array of CAIP2 compliant chain IDs supported by EBO */
 export const EBO_SUPPORTED_CHAIN_IDS = Object.values(EBO_SUPPORTED_CHAINS_CONFIG).reduce(
     (acc, namespace) => {
         const namespaceReferences = Object.values(namespace.references);

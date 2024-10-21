@@ -1,4 +1,4 @@
-import { Address } from "@ebo-agent/shared";
+import { HexUtils } from "@ebo-agent/shared";
 
 import { CommandAlreadyRun, CommandNotRun } from "../../../exceptions/index.js";
 import { EboRegistry, EboRegistryCommand } from "../../../interfaces/index.js";
@@ -18,7 +18,7 @@ export class AddResponse implements EboRegistryCommand {
         const responseBody: ResponseBody = ProtocolProvider.decodeResponse(encodedResponse);
 
         const response: Response = {
-            id: Address.normalize(event.metadata.responseId) as ResponseId,
+            id: HexUtils.normalize(event.metadata.responseId) as ResponseId,
             createdAt: {
                 timestamp: event.timestamp,
                 blockNumber: event.blockNumber,

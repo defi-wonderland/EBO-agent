@@ -1,6 +1,6 @@
 import { isNativeError } from "util/types";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Address, Caip2ChainId, Caip2Utils, ILogger, UnixTimestamp } from "@ebo-agent/shared";
+import { Caip2ChainId, Caip2Utils, HexUtils, ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import { Block } from "viem";
 
 import { PendingModulesApproval, ProcessorAlreadyStarted } from "../exceptions/index.js";
@@ -73,7 +73,7 @@ export class EboProcessor {
      * @throws {PendingModulesApproval} when there is at least one module pending approval
      */
     private async checkAllModulesApproved() {
-        const approvedModules: Address[] =
+        const approvedModules: HexUtils[] =
             await this.protocolProvider.getAccountingApprovedModules();
 
         const summary: Record<"approved" | "notApproved", Partial<AccountingModules>> = {
@@ -215,7 +215,7 @@ export class EboProcessor {
         const groupedEvents = new Map<RequestId, EboEventStream>();
 
         for (const event of events) {
-            const requestId = Address.normalize(event.requestId) as RequestId;
+            const requestId = HexUtils.normalize(event.requestId) as RequestId;
             const requestEvents = groupedEvents.get(requestId) || [];
 
             groupedEvents.set(requestId, [...requestEvents, event]);
@@ -235,7 +235,7 @@ export class EboProcessor {
         const actorsRequestIds = this.actorsManager.getRequestIds();
         const uniqueRequestIds = new Set([...eventsRequestIds, ...actorsRequestIds]);
 
-        return [...uniqueRequestIds].map((requestId) => Address.normalize(requestId) as RequestId);
+        return [...uniqueRequestIds].map((requestId) => HexUtils.normalize(requestId) as RequestId);
     }
 
     /**
@@ -290,7 +290,7 @@ export class EboProcessor {
             const chainId = Caip2Utils.findByHash(hashedChainId);
 
             if (chainId) {
-                const requestId = Address.normalize(firstEvent.requestId) as RequestId;
+                const requestId = HexUtils.normalize(firstEvent.requestId) as RequestId;
                 const epoch = firstEvent.metadata.epoch;
 
                 this.logger.info(`Creating a new EboActor to handle request ${requestId}...`);
