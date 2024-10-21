@@ -1,5 +1,5 @@
 import { UnixTimestamp } from "@ebo-agent/shared";
-import { Abi, ContractFunctionRevertedError, encodeErrorResult, keccak256, toHex } from "viem";
+import { Abi, ContractFunctionRevertedError, encodeErrorResult, Hex } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -8,7 +8,6 @@ import {
     PastEventEnqueueError,
     RequestMismatch,
 } from "../../src/exceptions/index.js";
-import { ProtocolProvider } from "../../src/providers/index.js";
 import { EboEvent, Request, RequestId, ResponseId } from "../../src/types/index.js";
 import mocks from "../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../services/eboActor/fixtures.js";
@@ -25,22 +24,11 @@ describe("EboActor", () => {
         timestamp: BigInt(Date.UTC(2024, 0, 1, 0, 0, 0) / 1000) as UnixTimestamp,
         requestId: request.id,
         metadata: {
-            chainId: keccak256(toHex(request.chainId)),
-            epoch: request.epoch,
             requestId: request.id,
             request: request.prophetData,
+            ipfsHash: "0x01" as Hex,
         },
     };
-
-    beforeEach(() => {
-        vi.spyOn(ProtocolProvider, "decodeRequestDisputeModuleData").mockReturnValue(
-            request.decodedData.disputeModuleData,
-        );
-
-        vi.spyOn(ProtocolProvider, "decodeRequestResponseModuleData").mockReturnValue(
-            request.decodedData.responseModuleData,
-        );
-    });
 
     afterEach(() => {
         vi.restoreAllMocks();
@@ -452,10 +440,9 @@ describe("EboActor", () => {
                 timestamp: BigInt(Date.UTC(2024, 0, 1, 0, 0, 0) / 1000) as UnixTimestamp,
                 requestId: request.id,
                 metadata: {
-                    chainId: keccak256(toHex(request.chainId)),
-                    epoch: request.epoch,
                     requestId: request.id,
                     request: request.prophetData,
+                    ipfsHash: "0x01" as Hex,
                 },
             };
 

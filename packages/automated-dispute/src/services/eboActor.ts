@@ -1,5 +1,5 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId, Caip2Utils, HexUtils, ILogger, UnixTimestamp } from "@ebo-agent/shared";
+import { Caip2ChainId, HexUtils, ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
 import { ContractFunctionRevertedError } from "viem";
@@ -36,6 +36,7 @@ import {
     AddRequest,
     AddResponse,
     FinalizeRequest,
+    ProphetCodec,
     UpdateDisputeStatus,
 } from "../services/index.js";
 import { ActorRequest } from "../types/index.js";
@@ -469,7 +470,8 @@ export class EboActor {
      */
     public canBeTerminated(currentEpoch: Epoch["number"], atTimestamp: UnixTimestamp): boolean {
         const request = this.getActorRequest();
-        const isPastEpoch = currentEpoch > request.epoch;
+        const { epoch } = request.decodedData.requestModuleData;
+        const isPastEpoch = currentEpoch > epoch;
         const isRequestFinalized = request.status === "Finalized";
         const nonSettledProposals = this.activeProposals(atTimestamp);
 
@@ -508,20 +510,13 @@ export class EboActor {
      * @param event `RequestCreated` event
      */
     private async onRequestCreated(event: EboEvent<"RequestCreated">): Promise<void> {
-        const { chainId: hashedChainId } = event.metadata;
-        const chainId = Caip2Utils.findByHash(hashedChainId);
-
-        if (chainId === undefined) {
-            this.logger.error(`Unsupported chain hash ${hashedChainId}`);
-
-            return;
-        }
+        const request = this.getActorRequest();
+        const { chainId } = request.decodedData.requestModuleData;
 
         try {
             await this.proposeResponse(chainId);
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
-                const request = this.getActorRequest();
                 const customError = ErrorFactory.createError(err.name);
 
                 customError.setContext({
@@ -561,10 +556,11 @@ export class EboActor {
 
         for (const proposedResponse of responses) {
             const responseId = proposedResponse.id;
+            const { epoch, chainId } = request.decodedData.requestModuleData;
 
             if (this.equalResponses(newResponse, proposedResponse)) {
                 this.logger.info(
-                    `Block ${blockNumber} for epoch ${request.epoch} and chain ${request.chainId} already proposed on response ${responseId}. Skipping...`,
+                    `Block ${blockNumber} for epoch ${epoch} and chain ${chainId} already proposed on response ${responseId}. Skipping...`,
                 );
 
                 return true;
@@ -614,23 +610,25 @@ export class EboActor {
         const response: Response["prophetData"] = {
             proposer: proposerAddress,
             requestId: request.id,
-            response: ProtocolProvider.encodeResponse(responseBody),
+            response: ProphetCodec.encodeResponse(responseBody),
         };
 
         try {
             await this.protocolProvider.proposeResponse(request.prophetData, response);
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
+                const { epoch } = request.decodedData.requestModuleData;
                 const customError = ErrorFactory.createError(err.name);
                 const context: ErrorContext = {
                     request,
                     registry: this.registry,
                 };
+
                 customError.setContext(context);
 
                 await this.errorHandler.handle(customError);
                 this.logger.warn(
-                    `Block ${responseBody.block} for epoch ${request.epoch} and ` +
+                    `Block ${responseBody.block} for epoch ${epoch} and ` +
                         `chain ${chainId} was not proposed. Skipping proposal...`,
                 );
             } else {
@@ -658,10 +656,12 @@ export class EboActor {
             throw new ResponseNotFound(event.metadata.responseId);
         }
 
+        const { chainId } = request.decodedData.requestModuleData;
+
         const actorResponse = {
             prophetData: { requestId: request.id },
             decodedData: {
-                response: await this.buildResponseBody(request.chainId),
+                response: await this.buildResponseBody(chainId),
             },
         };
 
@@ -774,12 +774,14 @@ export class EboActor {
      * @returns true if the hypothetical proposal is different that the submitted one, false otherwise
      */
     private async isValidDispute(request: Request, proposedResponse: Response) {
+        const { chainId } = request.decodedData.requestModuleData;
+
         const actorResponse = {
             prophetData: {
                 requestId: request.id,
             },
             decodedData: {
-                response: await this.buildResponseBody(request.chainId),
+                response: await this.buildResponseBody(chainId),
             },
         };
 
@@ -905,7 +907,9 @@ export class EboActor {
 
     private async onDisputeWithNoResolution(disputeId: string, request: Request) {
         try {
-            await this.proposeResponse(request.chainId);
+            const { chainId } = request.decodedData.requestModuleData;
+
+            await this.proposeResponse(chainId);
         } catch (err) {
             if (err instanceof ResponseAlreadyProposed) {
                 // This is an extremely weird case. If no other agent proposes

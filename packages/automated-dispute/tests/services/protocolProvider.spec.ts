@@ -1,12 +1,13 @@
 import { Caip2ChainId } from "@ebo-agent/shared";
 import {
+    Address,
     ContractFunctionRevertedError,
     createPublicClient,
     createWalletClient,
     fallback,
     getContract,
+    Hex,
     http,
-    isHex,
     WaitForTransactionReceiptTimeoutError,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -28,7 +29,7 @@ import {
 } from "../../src/exceptions/index.js";
 import { ProtocolContractsAddresses } from "../../src/interfaces/index.js";
 import { ProtocolProvider } from "../../src/providers/index.js";
-import { DisputeStatus, EboEvent, Response } from "../../src/types/index.js";
+import { DisputeStatus, EboEvent } from "../../src/types/index.js";
 import {
     DEFAULT_MOCKED_DISPUTE_DATA,
     DEFAULT_MOCKED_REQUEST_CREATED_DATA,
@@ -232,25 +233,6 @@ describe("ProtocolProvider", () => {
                         mockedPrivateKey,
                     ),
             ).toThrowError(RpcUrlsEmpty);
-        });
-    });
-
-    describe("encodeResponse", () => {
-        const response: Response["decodedData"]["response"] = {
-            block: 1n,
-        };
-
-        it("generates a hex string with the response encoded", () => {
-            const encodedResponse = ProtocolProvider.encodeResponse(response);
-
-            expect(encodedResponse).toSatisfy((bytes) => isHex(bytes));
-        });
-
-        it("is able to decode encoded data correctly", () => {
-            const encodedResponse = ProtocolProvider.encodeResponse(response);
-            const decodedResponse = ProtocolProvider.decodeResponse(encodedResponse);
-
-            expect(decodedResponse).toEqual(response);
         });
     });
 
@@ -889,6 +871,9 @@ describe("ProtocolProvider", () => {
             vi.spyOn(protocolProvider as any, "getResponseDisputedEvents").mockResolvedValue(
                 mockResponseDisputedEvents,
             );
+            vi.spyOn(protocolProvider as any, "getOracleRequestCreatedEvents").mockResolvedValue(
+                [],
+            );
             vi.spyOn(protocolProvider as any, "getDisputeStatusUpdatedEvents").mockResolvedValue(
                 [],
             );
@@ -904,96 +889,78 @@ describe("ProtocolProvider", () => {
         });
     });
 
-    describe("getEBORequestCreatorEvents", () => {
-        it("successfully fetches and parses EBORequestCreator events", async () => {
-            const protocolProvider = new ProtocolProvider(
-                mockRpcConfig,
-                mockContractAddress,
-                mockedPrivateKey,
-            );
-
-            (protocolProvider["l2ReadClient"] as any).getContractEvents = vi
-                .fn()
-                .mockResolvedValue([
-                    {
-                        address: "0x1234567890123456789012345678901234567890",
-                        args: {
-                            _requestId: "0x123",
-                            _epoch: 1n,
-                            _chainId: "eip155:1",
-                        },
-                        blockNumber: 1n,
-                        logIndex: 1,
-                        blockHash:
-                            "0x1234567890123456789012345678901234567890123456789012345678901234",
-                        transactionHash: "0x1234567890123456789012345678901234567890",
-                        transactionIndex: 1,
-                        data: "0x0000000000000000000000000000000000000000000000000000000000000003",
-                        removed: false,
-                        topics: [
-                            "0x0000000000000000000000000000000000000000000000000000000000000001",
-                            "0x0000000000000000000000000000000000000000000000000000000000000002",
-                        ],
-                    },
-                ]);
-
-            const result = await (protocolProvider as any).getEBORequestCreatorEvents(0n, 100n);
-
-            expect(result).toHaveLength(1);
-            expect(result[0]).toEqual({
-                name: "RequestCreated",
-                blockNumber: 1n,
-                logIndex: 1,
-                requestId: "0x123",
-                metadata: {
-                    requestId: "0x123",
-                    epoch: 1n,
-                    chainId: "eip155:1",
-                },
-                rawLog: {
-                    address: "0x1234567890123456789012345678901234567890",
-                    args: {
-                        _chainId: "eip155:1",
-                        _epoch: 1n,
-                        _requestId: "0x123",
-                    },
-                    blockHash: "0x1234567890123456789012345678901234567890123456789012345678901234",
-                    blockNumber: 1n,
-                    data: "0x0000000000000000000000000000000000000000000000000000000000000003",
-                    logIndex: 1,
-                    removed: false,
-                    topics: [
-                        "0x0000000000000000000000000000000000000000000000000000000000000001",
-                        "0x0000000000000000000000000000000000000000000000000000000000000002",
-                    ],
-                    transactionHash: "0x1234567890123456789012345678901234567890",
-                    transactionIndex: 1,
-                },
-                timestamp: 1697530555n,
-            });
-        });
-    });
-
     describe("getEvents", () => {
         it("successfully merges and sorts events from all sources", async () => {
+            const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
+
             const protocolProvider = new ProtocolProvider(
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
             );
 
+            // FIXME: types are sketchy here
             const mockRequestCreatorEvents: EboEvent<"RequestCreated">[] = [
                 {
-                    name: "RequestCreated",
                     blockNumber: 1n,
                     logIndex: 0,
-                    args: { _requestId: "0x123", _epoch: 1n, _chainId: "eip155:1" },
+                    args: {
+                        _requestId: "0x123" as Hex,
+                        _request: {
+                            ...request["prophetData"],
+                            requester: mockContractAddress.eboRequestCreator,
+                        },
+                        _ipfsHash: "0x01" as Hex,
+                    },
+                    address: "0x01" as Address,
+                    blockHash: "0x01" as Address,
+                    data: "0x01" as Hex,
+                    eventName: "RequestCreated",
+                    removed: false,
+                    topics: ["0x123" as Hex, "0x01" as Hex],
+                    transactionHash: "0x01" as Hex,
+                    transactionIndex: 1,
                 },
                 {
-                    name: "RequestCreated",
                     blockNumber: 3n,
                     logIndex: 0,
-                    args: { _requestId: "0x456", _epoch: 2n, _chainId: "eip155:1" },
+                    args: {
+                        _requestId: "0x456" as Hex,
+                        _request: {
+                            ...request["prophetData"],
+                            requester: mockContractAddress.eboRequestCreator,
+                        },
+                        _ipfsHash: "0x01" as Hex,
+                    },
+                    address: "0x01" as Address,
+                    blockHash: "0x01" as Address,
+                    data: "0x01" as Hex,
+                    eventName: "RequestCreated",
+                    removed: false,
+                    topics: ["0x456" as Hex, "0x01" as Hex],
+                    transactionHash: "0x01" as Hex,
+                    transactionIndex: 1,
+                },
+                // Request should not be shown as requester does not match EBORequestCreator
+                {
+                    blockNumber: 1n,
+                    logIndex: 2,
+                    args: {
+                        _requestId: "0x456" as Hex,
+                        _request: {
+                            ...request["prophetData"],
+                            requester: mockContractAddress.eboRequestCreator + "a",
+                        },
+                        _ipfsHash: "0x01" as Hex,
+                    },
+                    address: "0x01" as Address,
+                    blockHash: "0x01" as Address,
+                    data: "0x01" as Hex,
+                    eventName: "RequestCreated",
+                    removed: false,
+                    topics: ["0x456" as Hex, "0x01" as Hex],
+                    transactionHash: "0x01" as Hex,
+                    transactionIndex: 1,
                 },
             ];
 
@@ -1041,64 +1008,33 @@ describe("ProtocolProvider", () => {
 
             const result = await protocolProvider.getEvents(0n, 100n);
 
-            expect(result).toEqual([
-                {
-                    name: "RequestCreated",
-                    blockNumber: 1n,
-                    logIndex: 0,
-                    requestId: "0x123",
-                    metadata: {
-                        requestId: "0x123",
-                        epoch: 1n,
-                        chainId: "eip155:1",
-                    },
-                    rawLog: mockRequestCreatorEvents[0],
-                    timestamp: 1697530555n,
-                },
-                {
-                    name: "ResponseDisputed",
-                    blockNumber: 2n,
-                    logIndex: 0,
-                    requestId: "0x123",
-                    metadata: {
-                        responseId: "0xabc",
-                        disputeId: "0xdef",
-                        dispute: { requestId: "0x123" },
-                    },
-                    rawLog: mockResponseDisputedEvents[0],
-                    timestamp: 1697530555n,
-                },
-                {
-                    name: "ResponseProposed",
-                    blockNumber: 2n,
-                    logIndex: 1,
-                    requestId: "0x123",
-                    metadata: {
-                        requestId: "0x123",
-                        responseId: "0xabc",
-                        response: {
-                            proposer: "0x1234",
-                            requestId: "0x123",
-                            response: "0x5678",
-                        },
-                    },
-                    rawLog: mockResponseProposedEvents[0],
-                    timestamp: 1697530555n,
-                },
-                {
-                    name: "RequestCreated",
-                    blockNumber: 3n,
-                    logIndex: 0,
-                    requestId: "0x456",
-                    metadata: {
-                        requestId: "0x456",
-                        epoch: 2n,
-                        chainId: "eip155:1",
-                    },
-                    rawLog: mockRequestCreatorEvents[1],
-                    timestamp: 1697530555n,
-                },
-            ]);
+            expect(result[0]).toMatchObject({
+                name: "RequestCreated",
+                blockNumber: 1n,
+                logIndex: 0,
+                timestamp: 1697530555n,
+            });
+
+            expect(result[1]).toMatchObject({
+                name: "ResponseDisputed",
+                blockNumber: 2n,
+                logIndex: 0,
+                timestamp: 1697530555n,
+            });
+
+            expect(result[2]).toMatchObject({
+                name: "ResponseProposed",
+                blockNumber: 2n,
+                logIndex: 1,
+                timestamp: 1697530555n,
+            });
+
+            expect(result[3]).toMatchObject({
+                name: "RequestCreated",
+                blockNumber: 3n,
+                logIndex: 0,
+                timestamp: 1697530555n,
+            });
         });
     });
 

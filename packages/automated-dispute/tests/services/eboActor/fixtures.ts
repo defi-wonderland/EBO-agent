@@ -1,7 +1,8 @@
-import { UnixTimestamp } from "@ebo-agent/shared";
+import { Caip2ChainId, UnixTimestamp } from "@ebo-agent/shared";
 import { Address, Hex } from "viem";
 
 import { ProtocolContractsAddresses } from "../../../src/interfaces/index.js";
+import { ProphetCodec } from "../../../src/services/prophetCodec.js";
 import {
     Dispute,
     DisputeId,
@@ -41,10 +42,33 @@ export const DEFAULT_MOCKED_RESPONSE_DATA: Response = {
     },
 };
 
+const DEFAULT_REQUEST_MODULES_DATA = {
+    request: {
+        chainId: "eip155:1" as Caip2ChainId,
+        epoch: 1n,
+        accountingExtension: "0x1234567890123456789012345678901234567890" as Address,
+        paymentAmount: 1n,
+    },
+    response: {
+        accountingExtension: "0x1234567890123456789012345678901234567890" as Address,
+        bondToken: "0x1234567890123456789012345678901234567890" as Address,
+        bondSize: 1n,
+        deadline: 10n,
+        disputeWindow: 1n,
+    },
+    dispute: {
+        accountingExtension: "0x1234567890123456789012345678901234567890" as Address,
+        bondToken: "0x1234567890123456789012345678901234567890" as Address,
+        bondEscalationDeadline: 5n,
+        bondSize: 1n,
+        disputeWindow: 1n,
+        maxNumberOfEscalations: 5n,
+        tyingBuffer: 1n,
+    },
+};
+
 export const DEFAULT_MOCKED_REQUEST_CREATED_DATA: Request = {
     id: "0x01" as RequestId,
-    chainId: "eip155:1",
-    epoch: 1n,
     createdAt: {
         timestamp: BigInt(Date.UTC(2024, 0, 1, 0, 0, 0, 0) / 1000) as UnixTimestamp,
         blockNumber: 1n,
@@ -52,22 +76,9 @@ export const DEFAULT_MOCKED_REQUEST_CREATED_DATA: Request = {
     },
     status: "Active",
     decodedData: {
-        responseModuleData: {
-            accountingExtension: "0x01" as Address,
-            bondToken: "0x02" as Address,
-            bondSize: 1n,
-            deadline: 10n,
-            disputeWindow: 1n,
-        },
-        disputeModuleData: {
-            accountingExtension: "0x01" as Address,
-            bondToken: "0x01" as Address,
-            bondEscalationDeadline: 5n,
-            bondSize: 1n,
-            disputeWindow: 1n,
-            maxNumberOfEscalations: 5n,
-            tyingBuffer: 1n,
-        },
+        requestModuleData: DEFAULT_REQUEST_MODULES_DATA["request"],
+        responseModuleData: DEFAULT_REQUEST_MODULES_DATA["response"],
+        disputeModuleData: DEFAULT_REQUEST_MODULES_DATA["dispute"],
     },
     prophetData: {
         nonce: 1n,
@@ -77,10 +88,16 @@ export const DEFAULT_MOCKED_REQUEST_CREATED_DATA: Request = {
         resolutionModule: "0x0411111111111111111111111111111111111111" as Address,
         responseModule: "0x0511111111111111111111111111111111111111" as Address,
         requester: "0x1011111111111111111111111111111111111111" as Address,
-        responseModuleData: "0x1111111111111111111111111111111111111111" as Hex, // TODO: use the corresponding encoded data
-        disputeModuleData: "0x1211111111111111111111111111111111111111" as Hex, // TODO: use the corresponding encoded data
+        requestModuleData: ProphetCodec.encodeRequestRequestModuleData(
+            DEFAULT_REQUEST_MODULES_DATA["request"],
+        ),
+        responseModuleData: ProphetCodec.encodeRequestResponseModuleData(
+            DEFAULT_REQUEST_MODULES_DATA["response"],
+        ),
+        disputeModuleData: ProphetCodec.encodeRequestDisputeModuleData(
+            DEFAULT_REQUEST_MODULES_DATA["dispute"],
+        ),
         finalityModuleData: "0x1311111111111111111111111111111111111111" as Hex,
-        requestModuleData: "0x1411111111111111111111111111111111111111" as Hex,
         resolutionModuleData: "0x1511111111111111111111111111111111111111" as Hex,
     },
 };

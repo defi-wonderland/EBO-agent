@@ -1,30 +1,31 @@
 import { afterEach } from "node:test";
 import { UnsupportedChain } from "@ebo-agent/blocknumber";
 import { UnixTimestamp } from "@ebo-agent/shared";
-import { keccak256, toHex } from "viem";
+import { Hex } from "viem";
 import { beforeEach, describe, expect, it, Mock, vi } from "vitest";
 
 import { CommandAlreadyRun, CommandNotRun } from "../../../../src/exceptions/index.js";
 import { EboRegistry } from "../../../../src/interfaces/index.js";
-import { ProtocolProvider } from "../../../../src/providers/protocolProvider.js";
-import { AddRequest } from "../../../../src/services/index.js";
-import { EboEvent, RequestId } from "../../../../src/types/index.js";
+import { AddRequest, ProphetCodec } from "../../../../src/services/index.js";
+import { EboEvent } from "../../../../src/types/index.js";
+import { buildRequest } from "../../../mocks/eboActor.mocks.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../../../services/eboActor/fixtures.js";
 
 describe("AddRequest", () => {
     let registry: EboRegistry;
 
     const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
+
     const event: EboEvent<"RequestCreated"> = {
         name: "RequestCreated",
         blockNumber: 1n,
         logIndex: 1,
+        timestamp: BigInt(Date.UTC(2024, 0, 1, 0, 0, 0, 0)) as UnixTimestamp,
         requestId: request.id,
         metadata: {
-            chainId: keccak256(toHex(request.chainId)),
-            epoch: request.epoch,
-            request: request.prophetData,
             requestId: request.id,
+            request: request.prophetData,
+            ipfsHash: "0x01" as Hex,
         },
     };
 
@@ -34,11 +35,11 @@ describe("AddRequest", () => {
             removeRequest: vi.fn(),
         } as unknown as EboRegistry;
 
-        vi.spyOn(ProtocolProvider, "decodeRequestDisputeModuleData").mockReturnValue(
+        vi.spyOn(ProphetCodec, "decodeRequestDisputeModuleData").mockReturnValue(
             request.decodedData.disputeModuleData,
         );
 
-        vi.spyOn(ProtocolProvider, "decodeRequestResponseModuleData").mockReturnValue(
+        vi.spyOn(ProphetCodec, "decodeRequestResponseModuleData").mockReturnValue(
             request.decodedData.responseModuleData,
         );
     });
@@ -49,7 +50,15 @@ describe("AddRequest", () => {
 
     describe("buildFromEvent", () => {
         it("throws if chain is not supported", () => {
-            const requestId = "0x01" as RequestId;
+            const unsupportedRequest = buildRequest(
+                {},
+                {
+                    requestModuleData: {
+                        ...DEFAULT_MOCKED_REQUEST_CREATED_DATA.decodedData.requestModuleData,
+                        chainId: "eip155:61",
+                    },
+                },
+            );
 
             expect(() => {
                 AddRequest.buildFromEvent(
@@ -57,12 +66,12 @@ describe("AddRequest", () => {
                         blockNumber: 1n,
                         logIndex: 0,
                         name: "RequestCreated",
-                        requestId: requestId,
+                        requestId: unsupportedRequest.id,
                         timestamp: BigInt(Date.UTC(2024, 0, 1, 0, 0, 0, 0)) as UnixTimestamp,
                         metadata: {
-                            chainId: keccak256(toHex("eip000:0123456789")),
-                            epoch: 1n,
-                            requestId: requestId,
+                            requestId: unsupportedRequest.id,
+                            request: unsupportedRequest["prophetData"],
+                            ipfsHash: "0x01" as Hex,
                         },
                     },
                     registry,

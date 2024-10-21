@@ -81,5 +81,6 @@ export function buildEboProcessor(
         blockNumberService,
         actorsManager,
         logger,
+        notifier,
     };
 }

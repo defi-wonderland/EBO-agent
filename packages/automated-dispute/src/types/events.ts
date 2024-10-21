@@ -20,10 +20,9 @@ export type EboEventName =
     | "OracleRequestFinalized";
 
 export interface RequestCreated {
-    epoch: bigint;
-    chainId: Hex; // keccak256 CAIP-2 chain ID
     requestId: RequestId;
     request: Request["prophetData"];
+    ipfsHash: Hex;
 }
 
 export interface ResponseProposed {

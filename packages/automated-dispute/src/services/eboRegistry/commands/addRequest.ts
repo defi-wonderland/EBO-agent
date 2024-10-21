@@ -3,8 +3,8 @@ import { Caip2Utils } from "@ebo-agent/shared";
 
 import { CommandAlreadyRun, CommandNotRun } from "../../../exceptions/index.js";
 import { EboRegistry, EboRegistryCommand } from "../../../interfaces/index.js";
-import { ProtocolProvider } from "../../../providers/index.js";
 import { EboEvent, Request } from "../../../types/index.js";
+import { ProphetCodec } from "../../prophetCodec.js";
 
 export class AddRequest implements EboRegistryCommand {
     private wasRun: boolean = false;
@@ -19,27 +19,34 @@ export class AddRequest implements EboRegistryCommand {
         registry: EboRegistry,
     ): AddRequest {
         const eventRequest = event.metadata.request;
-        const chainId = Caip2Utils.findByHash(event.metadata.chainId);
 
-        if (chainId === undefined) throw new UnsupportedChain(event.metadata.chainId);
+        const requestModuleData = ProphetCodec.decodeRequestRequestModuleData(
+            eventRequest.requestModuleData,
+        );
+
+        const responseModuleData = ProphetCodec.decodeRequestResponseModuleData(
+            eventRequest.responseModuleData,
+        );
+
+        const disputeModuleData = ProphetCodec.decodeRequestDisputeModuleData(
+            eventRequest.disputeModuleData,
+        );
+
+        const { chainId } = requestModuleData;
+
+        if (!Caip2Utils.isSupported(chainId)) throw new UnsupportedChain(chainId);
 
         const request: Request = {
             id: event.requestId,
-            // TODO: move chainId and epoch into decodedData + add request property to it
-            chainId: chainId,
-            epoch: event.metadata.epoch,
             createdAt: {
                 timestamp: event.timestamp,
                 blockNumber: event.blockNumber,
                 logIndex: event.logIndex,
             },
             decodedData: {
-                disputeModuleData: ProtocolProvider.decodeRequestDisputeModuleData(
-                    eventRequest.disputeModuleData,
-                ),
-                responseModuleData: ProtocolProvider.decodeRequestResponseModuleData(
-                    eventRequest.responseModuleData,
-                ),
+                requestModuleData,
+                responseModuleData,
+                disputeModuleData,
             },
             prophetData: event.metadata.request,
             status: "Active",

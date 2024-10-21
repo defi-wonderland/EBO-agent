@@ -1,7 +1,7 @@
-import { ILogger } from "@ebo-agent/shared";
+import { ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import { describe, expect, it, vi } from "vitest";
 
-import { ProtocolProvider } from "../../../src/providers/index.ts";
+import { ProphetCodec } from "../../../src/services/prophetCodec.ts";
 import { DisputeId, EboEvent } from "../../../src/types/index.js";
 import mocks from "../../mocks/index.ts";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.ts";
@@ -71,9 +71,9 @@ describe("onDisputeStatusUpdated", () => {
         vi.spyOn(registry, "getDispute").mockReturnValue(dispute);
 
         vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
-            number: actorRequest.epoch,
-            firstBlockNumber: actorRequest.createdAt,
-            startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0)),
+            number: actorRequest.decodedData.requestModuleData.epoch,
+            firstBlockNumber: actorRequest.createdAt.blockNumber,
+            startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0)) as UnixTimestamp,
         });
 
         vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
@@ -93,10 +93,8 @@ describe("onDisputeStatusUpdated", () => {
             expect.objectContaining({
                 proposer: proposerAddress,
                 requestId: actorRequest.id,
-                response: ProtocolProvider.encodeResponse({
+                response: ProphetCodec.encodeResponse({
                     block: 2n,
-                    chainId: actorRequest.chainId,
-                    epoch: actorRequest.epoch,
                 }),
             }),
         );

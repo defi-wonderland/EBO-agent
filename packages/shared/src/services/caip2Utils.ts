@@ -68,6 +68,10 @@ export class Caip2Utils {
         return namespace;
     }
 
+    public static isSupported(chainId: Caip2ChainId) {
+        return EBO_SUPPORTED_CHAIN_IDS.includes(chainId);
+    }
+
     /**
      * Fetches the raw chain ID with its keccak256 hash.
      *
