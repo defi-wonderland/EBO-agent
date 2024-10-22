@@ -10,28 +10,46 @@ import {
 import { Request, Response } from "../types/prophet.js";
 
 const REQUEST_MODULE_DATA_REQUEST_ABI_FIELDS = [
-    { name: "epoch", type: "uint256" },
-    { name: "chainId", type: "string" },
-    { name: "accountingExtension", type: "address" },
-    { name: "paymentAmount", type: "uint256" },
+    {
+        components: [
+            { name: "epoch", type: "uint256" },
+            { name: "chainId", type: "string" },
+            { name: "accountingExtension", type: "address" },
+            { name: "paymentAmount", type: "uint256" },
+        ],
+        name: "requestModuleData",
+        type: "tuple",
+    },
 ] as const;
 
 const RESPONSE_MODULE_DATA_REQUEST_ABI_FIELDS = [
-    { name: "accountingExtension", type: "address" },
-    { name: "bondToken", type: "address" },
-    { name: "bondSize", type: "uint256" },
-    { name: "deadline", type: "uint256" },
-    { name: "disputeWindow", type: "uint256" },
+    {
+        components: [
+            { name: "accountingExtension", type: "address" },
+            { name: "bondToken", type: "address" },
+            { name: "bondSize", type: "uint256" },
+            { name: "deadline", type: "uint256" },
+            { name: "disputeWindow", type: "uint256" },
+        ],
+        name: "responseModuleData",
+        type: "tuple",
+    },
 ] as const;
 
 const DISPUTE_MODULE_DATA_REQUEST_ABI_FIELDS = [
-    { name: "accountingExtension", type: "address" },
-    { name: "bondToken", type: "address" },
-    { name: "bondSize", type: "uint256" },
-    { name: "maxNumberOfEscalations", type: "uint256" },
-    { name: "bondEscalationDeadline", type: "uint256" },
-    { name: "tyingBuffer", type: "uint256" },
-    { name: "disputeWindow", type: "uint256" },
+    {
+        components: [
+            { name: "accountingExtension", type: "address" },
+            { name: "bondToken", type: "address" },
+            { name: "bondSize", type: "uint256" },
+            { name: "maxNumberOfEscalations", type: "uint256" },
+            { name: "bondEscalationDeadline", type: "uint256" },
+            { name: "tyingBuffer", type: "uint256" },
+            { name: "disputeWindow", type: "uint256" },
+        ],
+        name: "disputeModuleData",
+        type: "tuple",
+    },
 ] as const;
 
 const RESPONSE_RESPONSE_ABI_FIELDS = [{ name: "block", type: "uint256" }] as const;
@@ -54,10 +72,10 @@ export class ProphetCodec {
         );
 
         return {
-            epoch: decodeParameters[0],
-            chainId: decodeParameters[1] as Caip2ChainId,
-            accountingExtension: decodeParameters[2] as Address,
-            paymentAmount: decodeParameters[3],
+            epoch: decodeParameters[0].epoch,
+            chainId: decodeParameters[0].chainId as Caip2ChainId,
+            accountingExtension: decodeParameters[0].accountingExtension as Address,
+            paymentAmount: decodeParameters[0].paymentAmount,
         };
     }
 
@@ -72,12 +90,7 @@ export class ProphetCodec {
     static encodeRequestRequestModuleData(
         requestModuleData: Request["decodedData"]["requestModuleData"],
     ): Request["prophetData"]["requestModuleData"] {
-        return encodeAbiParameters(REQUEST_MODULE_DATA_REQUEST_ABI_FIELDS, [
-            requestModuleData.epoch,
-            requestModuleData.chainId,
-            requestModuleData.accountingExtension,
-            requestModuleData.paymentAmount,
-        ]);
+        return encodeAbiParameters(REQUEST_MODULE_DATA_REQUEST_ABI_FIELDS, [requestModuleData]);
     }
 
     /**
@@ -95,13 +108,7 @@ export class ProphetCodec {
             responseModuleData,
         );
 
-        return {
-            accountingExtension: decodedParameters[0],
-            bondToken: decodedParameters[1],
-            bondSize: decodedParameters[2],
-            deadline: decodedParameters[3],
-            disputeWindow: decodedParameters[4],
-        };
+        return decodedParameters[0];
     }
 
     /**
@@ -114,13 +121,7 @@ export class ProphetCodec {
     static encodeRequestResponseModuleData(
         responseModuleData: Request["decodedData"]["responseModuleData"],
     ): Request["prophetData"]["responseModuleData"] {
-        return encodeAbiParameters(RESPONSE_MODULE_DATA_REQUEST_ABI_FIELDS, [
-            responseModuleData.accountingExtension,
-            responseModuleData.bondToken,
-            responseModuleData.bondSize,
-            responseModuleData.deadline,
-            responseModuleData.disputeWindow,
-        ]);
+        return encodeAbiParameters(RESPONSE_MODULE_DATA_REQUEST_ABI_FIELDS, [responseModuleData]);
     }
 
     /**
@@ -138,15 +139,7 @@ export class ProphetCodec {
             disputeModuleData,
         );
 
-        return {
-            accountingExtension: decodedParameters[0],
-            bondToken: decodedParameters[1],
-            bondSize: decodedParameters[2],
-            maxNumberOfEscalations: decodedParameters[3],
-            bondEscalationDeadline: decodedParameters[4],
-            tyingBuffer: decodedParameters[5],
-            disputeWindow: decodedParameters[6],
-        };
+        return decodedParameters[0];
     }
 
     /**
@@ -159,15 +152,7 @@ export class ProphetCodec {
     static encodeRequestDisputeModuleData(
         disputeModuleData: Request["decodedData"]["disputeModuleData"],
     ): Request["prophetData"]["disputeModuleData"] {
-        return encodeAbiParameters(DISPUTE_MODULE_DATA_REQUEST_ABI_FIELDS, [
-            disputeModuleData.accountingExtension,
-            disputeModuleData.bondToken,
-            disputeModuleData.bondSize,
-            disputeModuleData.maxNumberOfEscalations,
-            disputeModuleData.bondEscalationDeadline,
-            disputeModuleData.tyingBuffer,
-            disputeModuleData.disputeWindow,
-        ]);
+        return encodeAbiParameters(DISPUTE_MODULE_DATA_REQUEST_ABI_FIELDS, [disputeModuleData]);
     }
 
     /**
