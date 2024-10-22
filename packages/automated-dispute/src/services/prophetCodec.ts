@@ -1,5 +1,11 @@
 import { Caip2ChainId } from "@ebo-agent/shared";
-import { Address, decodeAbiParameters, encodeAbiParameters } from "viem";
+import {
+    Address,
+    decodeAbiParameters,
+    DecodeAbiParametersErrorType,
+    encodeAbiParameters,
+    EncodeAbiParametersErrorType,
+} from "viem";
 
 import { Request, Response } from "../types/prophet.js";
 
@@ -36,6 +42,7 @@ export class ProphetCodec {
      * Decodes the request's request module data bytes into an object.
      *
      * @param {Request["prophetData"]["requestModuleData"]} requestModuleData - The request module data bytes.
+     * @throws {DecodeAbiParametersErrorType}
      * @returns {Request["decodedData"]["requestModuleData"]} A decoded object with requestModuleData properties.
      */
     static decodeRequestRequestModuleData(
@@ -58,6 +65,7 @@ export class ProphetCodec {
      * Encodes the request's request module data object into bytes.
      *
      * @param {Request["decodedData"]["requestModuleData"]} requestModuleData - The request's request module data object
+     * @throws {EncodeAbiParametersErrorType}
      * @returns {Request["prophetData"]["requestModuleData"]} A byte-encoded request module data object
      */
 
@@ -76,6 +84,7 @@ export class ProphetCodec {
      * Decodes the request's response module data bytes into an object.
      *
      * @param {Request["prophetData"]["responseModuleData"]} responseModuleData - The response module data bytes.
+     * @throws {DecodeAbiParametersErrorType}
      * @returns {Request["decodedData"]["responseModuleData"]} A decoded object with responseModuleData properties.
      */
     static decodeRequestResponseModuleData(
@@ -99,6 +108,7 @@ export class ProphetCodec {
      * Encodes the request's response module data object into bytes.
      *
      * @param {Request["decodedData"]["responseModuleData"]} responseModuleData - The request's response module data object
+     * @throws {EncodeAbiParametersErrorType}
      * @returns {Request["prophetData"]["responseModuleData"]} A byte-encoded response module data object
      */
     static encodeRequestResponseModuleData(
@@ -117,6 +127,7 @@ export class ProphetCodec {
      * Decodes the request's dispute module data bytes into an object.
      *
      * @param {Request["prophetData"]["disputeModuleData"]} disputeModuleData - The dispute module data bytes.
+     * @throws {DecodeAbiParametersErrorType}
      * @returns {Request["decodedData"]["disputeModuleData"]} A decoded object with disputeModuleData properties.
      */
     static decodeRequestDisputeModuleData(
@@ -142,6 +153,7 @@ export class ProphetCodec {
      * Encodes the request's dispute module data object into bytes.
      *
      * @param {Request["decodedData"]["disputeModuleData"]} disputeModuleData - The request's dispute module data object
+     * @throws {EncodeAbiParametersErrorType}
      * @returns {Request["prophetData"]["disputeModuleData"]} A byte-encoded dispute module data object
      */
     static encodeRequestDisputeModuleData(
@@ -162,6 +174,7 @@ export class ProphetCodec {
      * Encodes a response object into bytes.
      *
      * @param {Response["decodedData"]["response"]} response - The response object to encode.
+     * @throws {EncodeAbiParametersErrorType}
      * @returns {Response["prophetData"]["response"]} Byte-encoded response body.
      */
     static encodeResponse(
@@ -174,6 +187,7 @@ export class ProphetCodec {
      * Decodes a response body bytes into an object.
      *
      * @param {Response["prophetData"]["response"]} response - The response body bytes.
+     * @throws {DecodeAbiParametersErrorType}
      * @returns {Response["decodedData"]["response"]} Decoded response body object.
      */
     static decodeResponse(
