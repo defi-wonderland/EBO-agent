@@ -1,5 +1,11 @@
 import { Caip2ChainId } from "@ebo-agent/shared";
-import { Address, decodeAbiParameters, encodeAbiParameters } from "viem";
+import {
+    Address,
+    decodeAbiParameters,
+    DecodeAbiParametersErrorType,
+    encodeAbiParameters,
+    EncodeAbiParametersErrorType,
+} from "viem";
 
 import { Request, Response } from "../types/prophet.js";
 
