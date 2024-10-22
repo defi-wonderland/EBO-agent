@@ -3,14 +3,14 @@ import { Address, decodeAbiParameters, encodeAbiParameters } from "viem";
 
 import { Request, Response } from "../types/prophet.js";
 
-const REQUEST_REQUEST_MODULE_DATA_ABI_FIELDS = [
+const REQUEST_MODULE_DATA_REQUEST_ABI_FIELDS = [
     { name: "epoch", type: "uint256" },
     { name: "chainId", type: "string" },
     { name: "accountingExtension", type: "address" },
     { name: "paymentAmount", type: "uint256" },
 ] as const;
 
-const REQUEST_RESPONSE_MODULE_DATA_ABI_FIELDS = [
+const RESPONSE_MODULE_DATA_REQUEST_ABI_FIELDS = [
     { name: "accountingExtension", type: "address" },
     { name: "bondToken", type: "address" },
     { name: "bondSize", type: "uint256" },
@@ -18,7 +18,7 @@ const REQUEST_RESPONSE_MODULE_DATA_ABI_FIELDS = [
     { name: "disputeWindow", type: "uint256" },
 ] as const;
 
-const REQUEST_DISPUTE_MODULE_DATA_ABI_FIELDS = [
+const DISPUTE_MODULE_DATA_REQUEST_ABI_FIELDS = [
     { name: "accountingExtension", type: "address" },
     { name: "bondToken", type: "address" },
     { name: "bondSize", type: "uint256" },
@@ -42,7 +42,7 @@ export class ProphetCodec {
         requestModuleData: Request["prophetData"]["requestModuleData"],
     ): Request["decodedData"]["requestModuleData"] {
         const decodeParameters = decodeAbiParameters(
-            REQUEST_REQUEST_MODULE_DATA_ABI_FIELDS,
+            REQUEST_MODULE_DATA_REQUEST_ABI_FIELDS,
             requestModuleData,
         );
 
@@ -64,7 +64,7 @@ export class ProphetCodec {
     static encodeRequestRequestModuleData(
         requestModuleData: Request["decodedData"]["requestModuleData"],
     ): Request["prophetData"]["requestModuleData"] {
-        return encodeAbiParameters(REQUEST_REQUEST_MODULE_DATA_ABI_FIELDS, [
+        return encodeAbiParameters(REQUEST_MODULE_DATA_REQUEST_ABI_FIELDS, [
             requestModuleData.epoch,
             requestModuleData.chainId,
             requestModuleData.accountingExtension,
@@ -82,7 +82,7 @@ export class ProphetCodec {
         responseModuleData: Request["prophetData"]["responseModuleData"],
     ): Request["decodedData"]["responseModuleData"] {
         const decodedParameters = decodeAbiParameters(
-            REQUEST_RESPONSE_MODULE_DATA_ABI_FIELDS,
+            RESPONSE_MODULE_DATA_REQUEST_ABI_FIELDS,
             responseModuleData,
         );
 
@@ -104,7 +104,7 @@ export class ProphetCodec {
     static encodeRequestResponseModuleData(
         responseModuleData: Request["decodedData"]["responseModuleData"],
     ): Request["prophetData"]["responseModuleData"] {
-        return encodeAbiParameters(REQUEST_RESPONSE_MODULE_DATA_ABI_FIELDS, [
+        return encodeAbiParameters(RESPONSE_MODULE_DATA_REQUEST_ABI_FIELDS, [
             responseModuleData.accountingExtension,
             responseModuleData.bondToken,
             responseModuleData.bondSize,
@@ -123,7 +123,7 @@ export class ProphetCodec {
         disputeModuleData: Request["prophetData"]["disputeModuleData"],
     ): Request["decodedData"]["disputeModuleData"] {
         const decodedParameters = decodeAbiParameters(
-            REQUEST_DISPUTE_MODULE_DATA_ABI_FIELDS,
+            DISPUTE_MODULE_DATA_REQUEST_ABI_FIELDS,
             disputeModuleData,
         );
 
@@ -147,7 +147,7 @@ export class ProphetCodec {
     static encodeRequestDisputeModuleData(
         disputeModuleData: Request["decodedData"]["disputeModuleData"],
     ): Request["prophetData"]["disputeModuleData"] {
-        return encodeAbiParameters(REQUEST_DISPUTE_MODULE_DATA_ABI_FIELDS, [
+        return encodeAbiParameters(DISPUTE_MODULE_DATA_REQUEST_ABI_FIELDS, [
             disputeModuleData.accountingExtension,
             disputeModuleData.bondToken,
             disputeModuleData.bondSize,
