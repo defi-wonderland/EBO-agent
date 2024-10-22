@@ -2,10 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { approveModules } from "../utilities/approveAccountingModules.js";
 
-vi.mock("dotenv", () => ({
-    config: vi.fn(),
-}));
-
 const { mockApproveModule } = vi.hoisted(() => {
     return {
         mockApproveModule: vi.fn(),
@@ -40,14 +36,20 @@ describe("approveModules script", () => {
     it("approves modules successfully", async () => {
         await approveModules();
 
-        expect(mockApproveModule).toHaveBeenCalledTimes(3);
-        expect(mockApproveModule).toHaveBeenCalledWith("0xEboRequestModule");
+        expect(mockApproveModule).toHaveBeenCalledTimes(2);
         expect(mockApproveModule).toHaveBeenCalledWith("0xBondedResponseModule");
         expect(mockApproveModule).toHaveBeenCalledWith("0xBondEscalationModule");
 
-        expect(console.log).toHaveBeenCalledWith("Approved module: 0xEboRequestModule");
-        expect(console.log).toHaveBeenCalledWith("Approved module: 0xBondedResponseModule");
-        expect(console.log).toHaveBeenCalledWith("Approved module: 0xBondEscalationModule");
+        expect(console.log).toHaveBeenCalledWith(
+            expect.stringContaining(
+                "Approved module: Bonded Response Module at address 0xBondedResponseModule",
+            ),
+        );
+        expect(console.log).toHaveBeenCalledWith(
+            expect.stringContaining(
+                "Approved module: Bond Escalation Module at address 0xBondEscalationModule",
+            ),
+        );
         expect(console.log).toHaveBeenCalledWith("All modules approved successfully.");
     });
 
@@ -57,7 +59,16 @@ describe("approveModules script", () => {
 
         await approveModules();
 
-        expect(console.error).toHaveBeenCalledWith("Error approving modules:", error);
+        expect(console.error).toHaveBeenCalledWith(
+            "Error approving module Bonded Response Module at address 0xBondedResponseModule:",
+            error,
+        );
+        expect(console.log).toHaveBeenCalledWith(
+            expect.stringContaining(
+                "Approved module: Bond Escalation Module at address 0xBondEscalationModule",
+            ),
+        );
+        expect(console.error).toHaveBeenCalledWith("Some modules were not approved successfully.");
         expect(process.exit).toHaveBeenCalledWith(1);
     });
 });

@@ -11,10 +11,9 @@
         "format:fix": "prettier --write \"{src,test}/**/*.{js,ts,json}\"",
         "lint": "eslint \"{src,test}/**/*.{js,ts,json}\"",
         "lint:fix": "pnpm lint --fix",
-        "start": "node dist/index.js",
         "test": "vitest run --config vitest.config.ts --passWithNoTests",
-        "test:cov": "vitest run --config vitest.config.ts --coverage",
-        "script:util:approve-modules": "tsx utilities/approveAccountingModules"
+        "test:cov": "vitest run --config vitest.config.ts --coverage --passWithNoTests",
+        "approve-modules": "tsx approveModulesRunner.ts"
     },
     "dependencies": {
         "@ebo-agent/automated-dispute": "workspace:*",

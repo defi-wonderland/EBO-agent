@@ -1,7 +1,7 @@
 /**
  * Script to approve modules for bonding operations.
  *
- * This script approves the EBO Request Module, Bonded Response Module,
+ * This script approves the Bonded Response Module
  * and Bond Escalation Module by calling the approveModule function
  * on the HorizonAccountingExtension contract.
  *
@@ -10,12 +10,10 @@
  *     tsx utilities/approveAccountingModules
  */
 
-import * as url from "node:url";
+import { ProtocolProvider } from "@ebo-agent/automated-dispute/src/index.js";
 import * as dotenv from "dotenv";
-import { Address, Hex } from "viem";
+import { Address, Hex, isHex } from "viem";
 import { z } from "zod";
-
-import { ProtocolProvider } from "../../../packages/automated-dispute/src/index.js";
 
 dotenv.config();
 
@@ -23,33 +21,28 @@ dotenv.config();
  * Define and validate environment variables using Zod.
  */
 const envSchema = z.object({
-    PRIVATE_KEY: z.string().min(64, "PRIVATE_KEY is required"),
+    PRIVATE_KEY: z
+        .string()
+        .min(64, "PRIVATE_KEY must be at least 64 characters long")
+        .refine((value) => isHex(value), {
+            message: "PRIVATE_KEY must be a valid hex string",
+        }),
     // Vitest may load arrays as a string so we handle both cases
     RPC_URLS_L1: z.preprocess(
         (val) => (Array.isArray(val) ? val : JSON.parse(val as string)),
-        z.array(z.string()).nonempty("RPC_URLS_L1 must be a non-empty array"),
+        z.array(z.string().url()).nonempty("RPC_URLS_L1 must be a non-empty array"),
     ),
     RPC_URLS_L2: z.preprocess(
         (val) => (Array.isArray(val) ? val : JSON.parse(val as string)),
-        z.array(z.string()).nonempty("RPC_URLS_L2 must be a non-empty array"),
+        z.array(z.string().url()).nonempty("RPC_URLS_L2 must be a non-empty array"),
     ),
-    TRANSACTION_RECEIPT_CONFIRMATIONS: z
-        .string()
-        .optional()
-        .transform((val) => (val ? parseInt(val) : 1)),
-    TIMEOUT: z
-        .string()
-        .optional()
-        .transform((val) => (val ? parseInt(val) : 30000)),
-    RETRY_INTERVAL: z
-        .string()
-        .optional()
-        .transform((val) => (val ? parseInt(val) : 1000)),
+    TRANSACTION_RECEIPT_CONFIRMATIONS: z.coerce.number().min(0),
+    TIMEOUT: z.coerce.number().min(0),
+    RETRY_INTERVAL: z.coerce.number().min(0),
     CONTRACTS_ADDRESSES: z
         .string()
         .transform((val) => JSON.parse(val))
         .refine((val) => typeof val === "object", "CONTRACTS_ADDRESSES must be a JSON object"),
-    EBO_REQUEST_MODULE_ADDRESS: z.string().min(1, "EBO_REQUEST_MODULE_ADDRESS is required"),
     BONDED_RESPONSE_MODULE_ADDRESS: z.string().min(1, "BONDED_RESPONSE_MODULE_ADDRESS is required"),
     BOND_ESCALATION_MODULE_ADDRESS: z.string().min(1, "BOND_ESCALATION_MODULE_ADDRESS is required"),
 });
@@ -91,30 +84,38 @@ const provider = new ProtocolProvider(rpcConfig, contracts, env.PRIVATE_KEY as H
  * Approves the necessary modules by calling approveModule on ProtocolProvider.
  */
 async function approveModules(): Promise<void> {
-    try {
-        // Approve EBO Request Module
-        await provider.write.approveModule(env.EBO_REQUEST_MODULE_ADDRESS as Address);
-        console.log(`Approved module: ${env.EBO_REQUEST_MODULE_ADDRESS}`);
+    const modulesToApprove = [
+        {
+            name: "Bonded Response Module",
+            address: env.BONDED_RESPONSE_MODULE_ADDRESS as Address,
+        },
+        {
+            name: "Bond Escalation Module",
+            address: env.BOND_ESCALATION_MODULE_ADDRESS as Address,
+        },
+    ];
 
-        // Approve Bonded Response Module
-        await provider.write.approveModule(env.BONDED_RESPONSE_MODULE_ADDRESS as Address);
-        console.log(`Approved module: ${env.BONDED_RESPONSE_MODULE_ADDRESS}`);
+    let allApproved = true;
 
-        // Approve Bond Escalation Module
-        await provider.write.approveModule(env.BOND_ESCALATION_MODULE_ADDRESS as Address);
-        console.log(`Approved module: ${env.BOND_ESCALATION_MODULE_ADDRESS}`);
+    for (const module of modulesToApprove) {
+        try {
+            await provider.write.approveModule(module.address);
+            console.log(`Approved module: ${module.name} at address ${module.address}`);
+        } catch (error) {
+            allApproved = false;
+            console.error(
+                `Error approving module ${module.name} at address ${module.address}:`,
+                error,
+            );
+        }
+    }
 
+    if (allApproved) {
         console.log("All modules approved successfully.");
-    } catch (error: unknown) {
-        console.error("Error approving modules:", error);
+    } else {
+        console.error("Some modules were not approved successfully.");
         process.exit(1);
     }
-}
-
-if (process.argv[1] && import.meta.url === url.pathToFileURL(process.argv[1]).href) {
-    approveModules();
-} else {
-    console.error("Wrong file path to the current module");
 }
 
 export { approveModules };
