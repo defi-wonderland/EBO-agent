@@ -1,5 +1,5 @@
 import { ILogger, UnixTimestamp } from "@ebo-agent/shared";
-import { Block, FallbackTransport, HttpTransport, PublicClient } from "viem";
+import { Block, BlockNotFoundError, FallbackTransport, HttpTransport, PublicClient } from "viem";
 
 import {
     InvalidTimestamp,
@@ -131,13 +131,15 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
 
         const estimatedBlockTime = await this.estimateBlockTime(lastBlock, blocksLookback);
         const timestampDelta = lastBlock.timestamp - timestamp;
-        let candidateBlockNumber = lastBlock.number - timestampDelta / estimatedBlockTime;
+        let candidateBlockNumber = BigInt(
+            Math.floor(Number(lastBlock.number) - Number(timestampDelta) / estimatedBlockTime),
+        );
 
-        const baseStep = (lastBlock.number - candidateBlockNumber) * deltaMultiplier;
+        const baseStep = Number(lastBlock.number - candidateBlockNumber) * Number(deltaMultiplier);
 
         this.logger.info("Calculating lower bound for binary search...");
 
-        let searchCount = 0n;
+        let searchCount = 0;
         while (candidateBlockNumber >= 0) {
             const candidate = await this.client.getBlock({ blockNumber: candidateBlockNumber });
 
@@ -148,7 +150,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
             }
 
             searchCount++;
-            candidateBlockNumber = lastBlock.number - baseStep * 2n ** searchCount;
+            candidateBlockNumber = BigInt(Number(lastBlock.number) - baseStep * 2 ** searchCount);
         }
 
         const firstBlock = await this.client.getBlock({ blockNumber: 0n });
@@ -171,10 +173,11 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
         this.logger.info("Estimating block time...");
 
         const pastBlock = await this.client.getBlock({
-            blockNumber: lastBlock.number - BigInt(blocksLookback),
+            blockNumber: lastBlock.number - blocksLookback,
         });
 
-        const estimatedBlockTime = (lastBlock.timestamp - pastBlock.timestamp) / blocksLookback;
+        const estimatedBlockTime =
+            Number(lastBlock.timestamp - pastBlock.timestamp) / Number(blocksLookback);
 
         this.logger.info(`Estimated block time: ${estimatedBlockTime}.`);
 
@@ -186,8 +189,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
      *
      * @param timestamp timestamp to find the block for
      * @param between blocks search space
-     * @throws {UnsupportedBlockTimestamps} when two consecutive blocks with the same timestamp are found
-     *  during the search. These chains are not supported at the moment.
+     * @throws {UnsupportedBlockTimestamps} throw if a block has a smaller timestamp than a previous block.
      * @throws {TimestampNotFound} when the search is finished and no block includes the searched timestamp
      * @returns the block number
      */
@@ -206,25 +208,34 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
             currentBlockNumber = (high + low) / 2n;
 
             const currentBlock = await this.client.getBlock({ blockNumber: currentBlockNumber });
-            const nextBlock = await this.client.getBlock({ blockNumber: currentBlockNumber + 1n });
+            const nextBlock = await this.getNextBlockWithDifferentTimestamp(currentBlock);
 
             this.logger.debug(
                 `Analyzing block number #${currentBlock.number} with timestamp ${currentBlock.timestamp}`,
             );
 
-            // We do not support blocks with equal timestamps (nor non linear or non sequential chains).
-            // We could support same timestamps blocks by defining a criteria based on block height
-            // apart from their timestamps.
-            if (nextBlock.timestamp <= currentBlock.timestamp)
+            // If no next block with a different timestamp is defined to ensure that the
+            // searched timestamp is between two blocks, it won't be possible to answer.
+            //
+            // As an example, if the latest block has timestamp 1 and we are looking for timestamp 10,
+            // the next block could have timestamp 2.
+            if (!nextBlock) throw new TimestampNotFound(timestamp);
+
+            // Non linear or non sequential chains are not supported.
+            if (nextBlock.timestamp < currentBlock.timestamp)
                 throw new UnsupportedBlockTimestamps(timestamp);
 
+            const isCurrentBlockBeforeOrAtTimestamp = currentBlock.timestamp <= timestamp;
+            const isNextBlockAfterTimestamp = nextBlock.timestamp > timestamp;
             const blockContainsTimestamp =
-                currentBlock.timestamp <= timestamp && nextBlock.timestamp > timestamp;
+                isCurrentBlockBeforeOrAtTimestamp && isNextBlockAfterTimestamp;
 
             if (blockContainsTimestamp) {
                 this.logger.debug(`Block #${currentBlock.number} contains timestamp.`);
 
-                return currentBlock.number;
+                const result = await this.searchFirstBlockWithEqualTimestamp(currentBlock);
+
+                return result.number;
             } else if (currentBlock.timestamp <= timestamp) {
                 low = currentBlockNumber + 1n;
             } else {
@@ -233,5 +244,56 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
         }
 
         throw new TimestampNotFound(timestamp);
+    }
+
+    /**
+     * Get the next block searched moving sequentially and forward which has a different
+     * timestamp from `block`'s timestamp.
+     *
+     * @param block a `Block` with a number and a timestamp.
+     * @returns a `Block` with a different timestamp, or `null` if no block with different timestamp was found.
+     */
+    private async getNextBlockWithDifferentTimestamp(
+        block: BlockWithNumber,
+    ): Promise<BlockWithNumber | null> {
+        let nextBlock: BlockWithNumber = block;
+
+        try {
+            while (nextBlock.timestamp === block.timestamp) {
+                nextBlock = await this.client.getBlock({ blockNumber: nextBlock.number + 1n });
+            }
+
+            return nextBlock;
+        } catch (err) {
+            if (err instanceof BlockNotFoundError) {
+                // This covers the case where the search surpasses the latest block
+                // and no more blocks are found by block number.
+                return null;
+            } else {
+                throw err;
+            }
+        }
+    }
+
+    /**
+     * Search the block with the lowest height that has the same timestamp as `block`.
+     *
+     * @param block the block to use in the search
+     * @returns a block with the same timestamp as `block` and with the lowest height.
+     */
+    private async searchFirstBlockWithEqualTimestamp(
+        block: BlockWithNumber,
+    ): Promise<BlockWithNumber> {
+        let prevBlock: BlockWithNumber = block;
+        let candidateBlock: BlockWithNumber = block;
+
+        do {
+            if (prevBlock.number === 0n) return prevBlock;
+
+            candidateBlock = prevBlock;
+            prevBlock = await this.client.getBlock({ blockNumber: prevBlock.number - 1n });
+        } while (prevBlock.timestamp === block.timestamp);
+
+        return candidateBlock;
     }
 }
