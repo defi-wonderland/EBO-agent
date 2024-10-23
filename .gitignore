@@ -4,14 +4,23 @@ node_modules/
 # Turbo
 .turbo/
 
-# Build
-dist/
+# Build Outputs
+out/
+build
+dist
+cache
+
 
 # Coverage
 coverage/
 
 # IDE project settings
 .idea/
+.vscode
 
 # Mac
 .DS_Store
+
+# Local env files
+.env*
+!.env.example
