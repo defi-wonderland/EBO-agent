@@ -1,4 +1,5 @@
 import { ILogger, UnixTimestamp } from "@ebo-agent/shared";
+import { BigNumber } from "bignumber.js";
 import { Block, BlockNotFoundError, FallbackTransport, HttpTransport, PublicClient } from "viem";
 
 import {
@@ -12,7 +13,7 @@ import {
 import { BlockNumberProvider } from "./blockNumberProvider.js";
 
 const BINARY_SEARCH_BLOCKS_LOOKBACK = 10_000n;
-const BINARY_SEARCH_DELTA_MULTIPLIER = 2n;
+const BINARY_SEARCH_DELTA_MULTIPLIER = 2;
 
 type BlockWithNumber = Omit<Block, "number"> & { number: bigint };
 
@@ -26,7 +27,7 @@ interface SearchConfig {
      * Multiplier to apply to the step, used while scanning blocks backwards, to find a
      * lower bound block.
      */
-    deltaMultiplier: bigint;
+    deltaMultiplier: number;
 }
 
 export class EvmBlockNumberProvider implements BlockNumberProvider {
@@ -45,7 +46,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
      */
     constructor(
         client: PublicClient<FallbackTransport<HttpTransport[]>>,
-        searchConfig: { blocksLookback?: bigint; deltaMultiplier?: bigint },
+        searchConfig: { blocksLookback?: bigint; deltaMultiplier?: number },
         private logger: ILogger,
     ) {
         this.client = client;
@@ -129,19 +130,24 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
     private async calculateLowerBoundBlock(timestamp: UnixTimestamp, lastBlock: BlockWithNumber) {
         const { blocksLookback, deltaMultiplier } = this.searchConfig;
 
-        const estimatedBlockTime = await this.estimateBlockTime(lastBlock, blocksLookback);
-        const timestampDelta = lastBlock.timestamp - timestamp;
-        let candidateBlockNumber = BigInt(
-            Math.floor(Number(lastBlock.number) - Number(timestampDelta) / estimatedBlockTime),
-        );
+        const estimatedBlockTimeBN = await this.estimateBlockTime(lastBlock, blocksLookback);
+        const timestampDeltaBN = new BigNumber((lastBlock.timestamp - timestamp).toString());
 
-        const baseStep = Number(lastBlock.number - candidateBlockNumber) * Number(deltaMultiplier);
+        let candidateBlockNumberBN = new BigNumber(lastBlock.number.toString())
+            .dividedBy(timestampDeltaBN.dividedBy(estimatedBlockTimeBN))
+            .integerValue();
+
+        const baseStepBN = new BigNumber(lastBlock.number.toString())
+            .minus(candidateBlockNumberBN)
+            .multipliedBy(deltaMultiplier);
 
         this.logger.info("Calculating lower bound for binary search...");
 
         let searchCount = 0;
-        while (candidateBlockNumber >= 0) {
-            const candidate = await this.client.getBlock({ blockNumber: candidateBlockNumber });
+        while (candidateBlockNumberBN.isGreaterThanOrEqualTo(0)) {
+            const candidate = await this.client.getBlock({
+                blockNumber: BigInt(candidateBlockNumberBN.toString()),
+            });
 
             if (candidate.timestamp < timestamp) {
                 this.logger.info(`Estimated lower bound at block ${candidate.number}.`);
@@ -150,7 +156,10 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
             }
 
             searchCount++;
-            candidateBlockNumber = BigInt(Number(lastBlock.number) - baseStep * 2 ** searchCount);
+
+            candidateBlockNumberBN = new BigNumber(lastBlock.number.toString()).minus(
+                baseStepBN.multipliedBy(2 ** searchCount),
+            );
         }
 
         const firstBlock = await this.client.getBlock({ blockNumber: 0n });
@@ -176,8 +185,9 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
             blockNumber: lastBlock.number - blocksLookback,
         });
 
-        const estimatedBlockTime =
-            Number(lastBlock.timestamp - pastBlock.timestamp) / Number(blocksLookback);
+        const estimatedBlockTime = new BigNumber(
+            (lastBlock.timestamp - pastBlock.timestamp).toString(),
+        ).dividedBy(blocksLookback.toString());
 
         this.logger.info(`Estimated block time: ${estimatedBlockTime}.`);
 
