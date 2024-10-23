@@ -120,8 +120,6 @@ export class EboProcessor {
             const lastBlock = await this.getLastFinalizedBlock();
             const events = await this.getEvents(this.lastCheckedBlock, lastBlock.number - 1n);
 
-            console.dir(events, { depth: null });
-
             const eventsByRequestId = this.groupEventsByRequest(events);
             const synchableRequests = this.calculateSynchableRequests([
                 ...eventsByRequestId.keys(),
@@ -421,8 +419,6 @@ export class EboProcessor {
                     // retried during next sync.
 
                     if (err instanceof ContractFunctionRevertedError) {
-                        console.dir(err, { depth: null });
-
                         if (err.name === "EBORequestCreator_RequestAlreadyCreated") {
                             this.logger.info(
                                 `Request for epoch ${epoch} and chain ${chain} already created`,

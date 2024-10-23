@@ -9,6 +9,7 @@ import {
     createTestClient,
     createWalletClient,
     encodeFunctionData,
+    formatEther,
     http,
     HttpTransport,
     parseAbi,
@@ -226,8 +227,8 @@ interface SetUpProphetInput {
     accounts: Account[];
     /** Map of deployed contracts */
     deployedContracts: DeployContractsOutput;
-    /** Bond amount */
-    bondAmount: bigint;
+    /** GRT amount to provision account with to be able to bond tokens throughout its operation */
+    grtProvisionAmount: bigint;
     /** Arbitrator address to use to add chains into EBORequestCreator  */
     arbitratorAddress: Address;
     /** GRT address */
@@ -244,7 +245,13 @@ interface SetUpProphetInput {
  * @param input {@link SetUpProphetInput}
  */
 export async function setUpProphet(input: SetUpProphetInput) {
-    const { chainsToAdd, accounts, deployedContracts, anvilClient, bondAmount } = input;
+    const {
+        chainsToAdd,
+        accounts,
+        deployedContracts,
+        anvilClient,
+        grtProvisionAmount: bondAmount,
+    } = input;
     const { arbitratorAddress, grtAddress, horizonStakingAddress } = input;
 
     await approveEboProphetModules(accounts, deployedContracts, anvilClient);
@@ -328,7 +335,7 @@ async function stakeGrtWithProvision(
         horizonStaking: Address;
         horizonAccountingExtension: Address;
     },
-    bondSize: bigint,
+    grtProvisionAmount: bigint,
     anvilClient: AnvilClient<HttpTransport, Chain, undefined>,
 ) {
     console.log("Staking GRT into Horizon...");
@@ -343,7 +350,7 @@ async function stakeGrtWithProvision(
             to: grt,
             data: encodeFunctionData({
                 abi: parseAbi(["function approve(address, uint256)"]),
-                args: [horizonStaking, bondSize * 5n],
+                args: [horizonStaking, grtProvisionAmount],
             }),
         });
 
@@ -351,14 +358,14 @@ async function stakeGrtWithProvision(
             hash: approveHash,
         });
 
-        console.log(`Staking for ${account.address} ${bondSize}...`);
+        console.log(`Staking for ${account.address} ${formatEther(grtProvisionAmount)} GRT...`);
 
         const stakeHash = await anvilClient.sendTransaction({
             account: account,
             to: horizonStaking,
             data: encodeFunctionData({
                 abi: parseAbi(["function stake(uint256)"]),
-                args: [bondSize],
+                args: [grtProvisionAmount],
             }),
         });
 
@@ -366,7 +373,9 @@ async function stakeGrtWithProvision(
             hash: stakeHash,
         });
 
-        console.log(`Provisioning ${bondSize} for ${account.address}...`);
+        console.log(
+            `Provisioning ${account.address} with ${formatEther(grtProvisionAmount)} GRT...`,
+        );
 
         const provisionHash = await anvilClient.sendTransaction({
             account: account,
@@ -376,7 +385,7 @@ async function stakeGrtWithProvision(
                 args: [
                     account.address,
                     horizonAccountingExtension,
-                    bondSize,
+                    grtProvisionAmount,
                     // TODO: use contract call to get this value
                     // https://github.com/defi-wonderland/EBO-core/blob/175bcd57c3254a90dd6fcbf53b3db3359085551f/src/contracts/HorizonAccountingExtension.sol#L38C26-L38C42
                     1_000_000,
