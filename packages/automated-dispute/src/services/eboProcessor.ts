@@ -114,7 +114,7 @@ export class EboProcessor {
             }
 
             const lastBlock = await this.getLastFinalizedBlock();
-            const events = await this.getEvents(this.lastCheckedBlock, lastBlock.number);
+            const events = await this.getEvents(this.lastCheckedBlock, lastBlock.number - 1n);
 
             const eventsByRequestId = this.groupEventsByRequest(events);
             const synchableRequests = this.calculateSynchableRequests([
@@ -382,6 +382,12 @@ export class EboProcessor {
 
                 return !isHandled;
             });
+
+            if (!unhandledEpochChain || unhandledEpochChain.length === 0) {
+                this.logger.info(`No requests to create for epoch ${epoch}`);
+
+                return;
+            }
 
             this.logger.info("Creating missing requests...");
 
