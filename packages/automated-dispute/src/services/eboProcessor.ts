@@ -21,6 +21,7 @@ import {
     RequestId,
 } from "../types/index.js";
 import { EboActorsManager } from "./eboActorsManager.js";
+import { ProphetCodec } from "./prophetCodec.js";
 
 const DEFAULT_MS_BETWEEN_CHECKS = 10 * 60 * 1000; // 10 minutes
 
@@ -286,12 +287,16 @@ export class EboProcessor {
         if (actor) return actor;
 
         if (firstEvent && isRequestCreatedEvent(firstEvent)) {
-            const hashedChainId = firstEvent.metadata.chainId;
-            const chainId = Caip2Utils.findByHash(hashedChainId);
+            const requestModuleData = ProphetCodec.decodeRequestRequestModuleData(
+                firstEvent.metadata.request.requestModuleData,
+            );
 
-            if (chainId) {
+            const { chainId, epoch } = requestModuleData;
+
+            const isChainSupported = Caip2Utils.isSupported(chainId);
+
+            if (isChainSupported) {
                 const requestId = HexUtils.normalize(firstEvent.requestId) as RequestId;
-                const epoch = firstEvent.metadata.epoch;
 
                 this.logger.info(`Creating a new EboActor to handle request ${requestId}...`);
 

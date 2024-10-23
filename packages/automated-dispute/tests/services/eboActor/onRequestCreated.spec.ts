@@ -1,9 +1,9 @@
-import { Caip2ChainId, ILogger, UnixTimestamp } from "@ebo-agent/shared";
-import { keccak256, toHex } from "viem";
+import { ILogger, UnixTimestamp } from "@ebo-agent/shared";
+import { Hex } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ResponseAlreadyProposed } from "../../../src/exceptions/index.js";
-import { ProtocolProvider } from "../../../src/providers/index.js";
+import { ProphetCodec } from "../../../src/services/prophetCodec.js";
 import {
     EboEvent,
     Epoch,
@@ -23,10 +23,9 @@ describe("EboActor", () => {
             const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
 
             const requestId: RequestId = request.id;
-            const indexedChainId: Caip2ChainId = request.chainId;
 
             const protocolEpoch: Epoch = {
-                number: request.epoch,
+                number: request.decodedData.requestModuleData.epoch,
                 firstBlockNumber: 1n,
                 startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
@@ -34,22 +33,22 @@ describe("EboActor", () => {
             const requestCreatedEvent: EboEvent<"RequestCreated"> = {
                 blockNumber: 34n,
                 requestId: requestId,
+                timestamp: BigInt(Date.UTC(2024, 0, 1, 0, 0, 0, 0)) as UnixTimestamp,
                 logIndex: 1,
                 name: "RequestCreated",
                 metadata: {
-                    chainId: keccak256(toHex(indexedChainId)),
-                    epoch: protocolEpoch.number,
                     requestId: requestId,
                     request: request.prophetData,
+                    ipfsHash: "0x01" as Hex,
                 },
             };
 
             beforeEach(() => {
-                vi.spyOn(ProtocolProvider, "decodeRequestDisputeModuleData").mockReturnValue(
+                vi.spyOn(ProphetCodec, "decodeRequestDisputeModuleData").mockReturnValue(
                     request.decodedData.disputeModuleData,
                 );
 
-                vi.spyOn(ProtocolProvider, "decodeRequestResponseModuleData").mockReturnValue(
+                vi.spyOn(ProphetCodec, "decodeRequestResponseModuleData").mockReturnValue(
                     request.decodedData.responseModuleData,
                 );
             });
@@ -88,7 +87,7 @@ describe("EboActor", () => {
                     expect.objectContaining({
                         proposer: proposerAddress,
                         requestId: requestCreatedEvent.metadata.requestId,
-                        response: ProtocolProvider.encodeResponse({
+                        response: ProphetCodec.encodeResponse({
                             block: indexedEpochBlockNumber,
                         }),
                     }),
@@ -109,20 +108,23 @@ describe("EboActor", () => {
 
                 const responseBody: ResponseBody = {
                     block: indexedEpochBlockNumber,
-                    chainId: requestCreatedEvent.metadata.chainId,
-                    epoch: protocolEpoch.number,
                 };
+
                 const previousResponses: Response[] = [
                     {
                         id: "0x01" as ResponseId,
-                        createdAt: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                        createdAt: {
+                            blockNumber: 1n,
+                            logIndex: 0,
+                            timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
+                        },
                         decodedData: {
                             response: responseBody,
                         },
                         prophetData: {
                             proposer: "0x02",
                             requestId: requestId,
-                            response: ProtocolProvider.encodeResponse(responseBody),
+                            response: ProphetCodec.encodeResponse(responseBody),
                         },
                     },
                 ];

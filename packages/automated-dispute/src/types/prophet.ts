@@ -9,17 +9,22 @@ export type RequestStatus = "Active" | "Finalized";
 
 export interface Request {
     id: RequestId;
-    chainId: Caip2ChainId;
-    epoch: bigint;
+    status: RequestStatus;
+
     createdAt: {
         /** Timestamp of the block the request was created on */
         timestamp: UnixTimestamp;
         blockNumber: bigint;
         logIndex: number;
     };
-    status: RequestStatus;
 
     decodedData: {
+        requestModuleData: {
+            epoch: bigint;
+            chainId: Caip2ChainId;
+            accountingExtension: Address;
+            paymentAmount: bigint;
+        };
         responseModuleData: {
             accountingExtension: Address;
             bondToken: Address;
@@ -62,6 +67,7 @@ export type ResponseBody = {
 
 export interface Response {
     id: ResponseId;
+
     createdAt: {
         /** Timestamp of the block the response was created on */
         timestamp: UnixTimestamp;

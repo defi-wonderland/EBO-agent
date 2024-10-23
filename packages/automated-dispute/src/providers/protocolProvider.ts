@@ -8,8 +8,6 @@ import {
     ContractFunctionRevertedError,
     createPublicClient,
     createWalletClient,
-    decodeAbiParameters,
-    encodeAbiParameters,
     fallback,
     FallbackTransport,
     getContract,
@@ -73,26 +71,6 @@ type ProtocolRpcConfig = {
 };
 
 // TODO: add default caching strategy for RPC client
-
-export const REQUEST_RESPONSE_MODULE_DATA_ABI_FIELDS = [
-    { name: "accountingExtension", type: "address" },
-    { name: "bondToken", type: "address" },
-    { name: "bondSize", type: "uint256" },
-    { name: "deadline", type: "uint256" },
-    { name: "disputeWindow", type: "uint256" },
-] as const;
-
-export const REQUEST_DISPUTE_MODULE_DATA_ABI_FIELDS = [
-    { name: "accountingExtension", type: "address" },
-    { name: "bondToken", type: "address" },
-    { name: "bondSize", type: "uint256" },
-    { name: "maxNumberOfEscalations", type: "uint256" },
-    { name: "bondEscalationDeadline", type: "uint256" },
-    { name: "tyingBuffer", type: "uint256" },
-    { name: "disputeWindow", type: "uint256" },
-] as const;
-
-export const RESPONSE_ABI_FIELDS = [{ name: "block", type: "uint256" }] as const;
 
 export class ProtocolProvider implements IProtocolProvider {
     private l1ReadClient: PublicClient<FallbackTransport<HttpTransport[]>>;
@@ -629,12 +607,14 @@ export class ProtocolProvider implements IProtocolProvider {
      */
     async getOracleEvents(fromBlock: bigint, toBlock: bigint) {
         const [
+            requestCreatedEvents,
             responseProposedEvents,
             responseDisputedEvents,
             disputeStatusUpdatedEvents,
             disputeEscalatedEvents,
             oracleRequestFinalizedEvents,
         ] = await Promise.all([
+            this.getOracleRequestCreatedEvents(fromBlock, toBlock),
             this.getResponseProposedEvents(fromBlock, toBlock),
             this.getResponseDisputedEvents(fromBlock, toBlock),
             this.getDisputeStatusUpdatedEvents(fromBlock, toBlock),
@@ -643,6 +623,7 @@ export class ProtocolProvider implements IProtocolProvider {
         ]);
 
         return [
+            ...requestCreatedEvents,
             ...responseProposedEvents,
             ...responseDisputedEvents,
             ...disputeStatusUpdatedEvents,
@@ -652,46 +633,60 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Fetches `RequestCreated` events from the EBORequestCreator contract within a specified block range.
+     * Fetches `RequestCreated` events from the Oracle contract within a specified block range.
      *
      * @param {bigint} fromBlock - The starting block number to fetch events from.
      * @param {bigint} toBlock - The ending block number to fetch events up to.
      * @returns {Promise<EboEvent<"RequestCreated">[]>} A promise that resolves to an array of `RequestCreated` events.
      * @throws {Error} If event block number or log index is null.
      */
-    private async getEBORequestCreatorEvents(
+    private async getOracleRequestCreatedEvents(
         fromBlock: bigint,
         toBlock: bigint,
     ): Promise<EboEvent<"RequestCreated">[]> {
         const events = await this.l2ReadClient.getContractEvents({
-            address: this.eboRequestCreatorContract.address,
-            abi: eboRequestCreatorAbi,
+            address: this.oracleContract.address,
+            abi: oracleAbi,
             eventName: "RequestCreated",
             fromBlock,
             toBlock,
             strict: true,
         });
 
+        /**
+         * NOTE: This method retrieves all events and filters out only those originating from the
+         * `EBORequestCreator` contract.
+         *
+         * Alternative Approach:
+         * A more robust but complex solution would involve subscribing to the `RequestCreated` events
+         * emitted by `EBORequestCreator` and subsequently querying the Oracle's `RequestCreated` events
+         * using the corresponding request IDs. This approach ensures tighter event tracking but introduces
+         * additional complexity.
+         */
         const eventsWithTimestamps = await Promise.all(
-            events.map(async (event) => {
-                const timestamp = await this.getEventTimestamp(event);
+            events
+                .filter(
+                    (event) =>
+                        event.args._request.requester === this.eboRequestCreatorContract.address,
+                )
+                .map(async (event) => {
+                    const timestamp = await this.getEventTimestamp(event);
 
-                return {
-                    name: "RequestCreated" as const,
-                    blockNumber: event.blockNumber,
-                    logIndex: event.logIndex,
-                    timestamp: timestamp,
-                    rawLog: event,
+                    return {
+                        name: "RequestCreated" as const,
+                        blockNumber: event.blockNumber,
+                        logIndex: event.logIndex,
+                        timestamp: timestamp,
+                        rawLog: event,
 
-                    requestId: event.args._requestId as RequestId,
-                    metadata: {
                         requestId: event.args._requestId as RequestId,
-                        epoch: event.args._epoch,
-                        chainId: event.args._chainId as Caip2ChainId,
-                        request: event.args._request,
-                    },
-                } as EboEvent<"RequestCreated">;
-            }),
+                        metadata: {
+                            requestId: event.args._requestId as RequestId,
+                            request: event.args._request,
+                            ipfsHash: event.args._ipfsHash,
+                        },
+                    } as EboEvent<"RequestCreated">;
+                }),
         );
 
         return eventsWithTimestamps;
@@ -710,12 +705,9 @@ export class ProtocolProvider implements IProtocolProvider {
             throw new InvalidBlockRangeError(fromBlock, toBlock);
         }
 
-        const [requestCreatorEvents, oracleEvents] = await Promise.all([
-            this.getEBORequestCreatorEvents(fromBlock, toBlock),
-            this.getOracleEvents(fromBlock, toBlock),
-        ]);
+        const oracleEvents = await this.getOracleEvents(fromBlock, toBlock);
 
-        return this.mergeEventStreams(requestCreatorEvents, oracleEvents);
+        return this.mergeEventStreams(oracleEvents);
     }
 
     /**
@@ -796,82 +788,6 @@ export class ProtocolProvider implements IProtocolProvider {
 
     async approveAccountingModules(_modules: Address[]): Promise<void> {
         // TODO: implement actual method
-    }
-
-    /**
-     * Decodes the request's response module data bytes into an object.
-     *
-     * @param {Request["prophetData"]["responseModuleData"]} responseModuleData - The response module data bytes.
-     * @returns {Request["decodedData"]["responseModuleData"]} A decoded object with responseModuleData properties.
-     */
-    static decodeRequestResponseModuleData(
-        responseModuleData: Request["prophetData"]["responseModuleData"],
-    ): Request["decodedData"]["responseModuleData"] {
-        const decodedParameters = decodeAbiParameters(
-            REQUEST_RESPONSE_MODULE_DATA_ABI_FIELDS,
-            responseModuleData,
-        );
-
-        return {
-            accountingExtension: decodedParameters[0],
-            bondToken: decodedParameters[1],
-            bondSize: decodedParameters[2],
-            deadline: decodedParameters[3],
-            disputeWindow: decodedParameters[4],
-        };
-    }
-
-    /**
-     * Decodes the request's dispute module data bytes into an object.
-     *
-     * @param {Request["prophetData"]["disputeModuleData"]} disputeModuleData - The dispute module data bytes.
-     * @returns {Request["decodedData"]["disputeModuleData"]} A decoded object with disputeModuleData properties.
-     */
-    static decodeRequestDisputeModuleData(
-        disputeModuleData: Request["prophetData"]["disputeModuleData"],
-    ): Request["decodedData"]["disputeModuleData"] {
-        const decodedParameters = decodeAbiParameters(
-            REQUEST_DISPUTE_MODULE_DATA_ABI_FIELDS,
-            disputeModuleData,
-        );
-
-        return {
-            accountingExtension: decodedParameters[0],
-            bondToken: decodedParameters[1],
-            bondSize: decodedParameters[2],
-            maxNumberOfEscalations: decodedParameters[3],
-            bondEscalationDeadline: decodedParameters[4],
-            tyingBuffer: decodedParameters[5],
-            disputeWindow: decodedParameters[6],
-        };
-    }
-
-    /**
-     * Encodes a response object into bytes.
-     *
-     * @param {Response["decodedData"]["response"]} response - The response object to encode.
-     * @returns {Response["prophetData"]["response"]} Byte-encoded response body.
-     */
-    static encodeResponse(
-        response: Response["decodedData"]["response"],
-    ): Response["prophetData"]["response"] {
-        return encodeAbiParameters(RESPONSE_ABI_FIELDS, [response.block]);
-    }
-
-    /**
-     * Decodes a response body bytes into an object.
-     *
-     * @param {Response["prophetData"]["response"]} response - The response body bytes.
-     * @returns {Response["decodedData"]["response"]} Decoded response body object.
-     */
-    static decodeResponse(
-        response: Response["prophetData"]["response"],
-    ): Response["decodedData"]["response"] {
-        const decodedParameters = decodeAbiParameters(RESPONSE_ABI_FIELDS, response);
-
-        return {
-            block: decodedParameters[0],
-        };
     }
 
     // TODO: waiting for ChainId to be merged for _chains parameter

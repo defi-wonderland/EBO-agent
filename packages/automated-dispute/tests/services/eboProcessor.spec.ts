@@ -1,10 +1,9 @@
-import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
 import { UnixTimestamp } from "@ebo-agent/shared";
-import { Block, keccak256, toHex } from "viem";
+import { Block, Hex } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PendingModulesApproval, ProcessorAlreadyStarted } from "../../src/exceptions/index.js";
-import { NotificationService } from "../../src/services/index.js";
+import { NotificationService } from "../../src/interfaces/notificationService.js";
 import {
     AccountingModules,
     EboEvent,
@@ -12,6 +11,7 @@ import {
     Epoch,
     RequestId,
 } from "../../src/types/index.js";
+import { buildRequest } from "../mocks/eboActor.mocks.js";
 import mocks from "../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "../services/eboActor/fixtures.js";
 
@@ -27,6 +27,7 @@ const allModulesApproved = Object.values(accountingModules);
 
 describe("EboProcessor", () => {
     let notifier: NotificationService;
+
     describe("start", () => {
         const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
 
@@ -56,11 +57,8 @@ describe("EboProcessor", () => {
         });
 
         it("bootstraps actors with onchain active requests when starting", async () => {
-            const { processor, actorsManager, protocolProvider } = mocks.buildEboProcessor(
-                logger,
-                accountingModules,
-                notifier,
-            );
+            const { processor, actorsManager, protocolProvider, blockNumberService } =
+                mocks.buildEboProcessor(logger, accountingModules, notifier);
 
             const currentEpoch: Epoch = {
                 number: 1n,
@@ -80,9 +78,8 @@ describe("EboProcessor", () => {
                 requestId: request.id,
                 metadata: {
                     requestId: request.id,
-                    epoch: request.epoch,
-                    chainId: keccak256(toHex(request.chainId)),
                     request: request.prophetData,
+                    ipfsHash: "0x01" as Hex,
                 },
             };
 
@@ -96,22 +93,24 @@ describe("EboProcessor", () => {
             vi.spyOn(protocolProvider, "getEvents").mockResolvedValue([requestCreatedEvent]);
 
             const { actor } = mocks.buildEboActor(request, logger);
+
             const mockCreateActor = vi.spyOn(actorsManager, "createActor").mockReturnValue(actor);
 
             await processor.start(msBetweenChecks);
 
-            let calledActorRequest;
-            if (mockCreateActor.mock.calls[0]) {
-                calledActorRequest = mockCreateActor.mock.calls[0][0];
-            }
+            const { chainId, epoch } = request.decodedData.requestModuleData;
 
-            if (calledActorRequest) {
-                expect(calledActorRequest.id).toEqual(requestCreatedEvent.requestId);
-                expect(calledActorRequest.chainId).toEqual(request.chainId);
-                expect(calledActorRequest.epoch).toEqual(currentEpoch.number);
-            } else {
-                throw new Error();
-            }
+            expect(mockCreateActor).toBeCalledWith(
+                expect.objectContaining({
+                    id: request.id,
+                    chainId: chainId,
+                    epoch: epoch,
+                }),
+                protocolProvider,
+                blockNumberService,
+                logger,
+                notifier,
+            );
         });
 
         it("does not create actors to handle unsupported chains", async () => {
@@ -123,22 +122,26 @@ describe("EboProcessor", () => {
                 startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
             };
 
-            const request = {
-                ...DEFAULT_MOCKED_REQUEST_CREATED_DATA,
-                chainId: "eip155:61" as const, // ETC
-            };
+            const unsupportedRequest = buildRequest(
+                {},
+                {
+                    requestModuleData: {
+                        ...DEFAULT_MOCKED_REQUEST_CREATED_DATA["decodedData"]["requestModuleData"],
+                        chainId: "eip155:61",
+                    },
+                },
+            );
 
             const requestCreatedEvent: EboEvent<"RequestCreated"> = {
                 name: "RequestCreated",
                 blockNumber: 1n,
                 logIndex: 1,
                 timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
-                requestId: request.id,
+                requestId: unsupportedRequest.id,
                 metadata: {
-                    requestId: request.id,
-                    epoch: request.epoch,
-                    chainId: keccak256(toHex(request.chainId)),
-                    request: request.prophetData,
+                    requestId: unsupportedRequest.id,
+                    request: unsupportedRequest.prophetData,
+                    ipfsHash: "0x01" as Hex,
                 },
             };
 
@@ -215,9 +218,8 @@ describe("EboProcessor", () => {
                 requestId: request.id,
                 metadata: {
                     requestId: request.id,
-                    epoch: request.epoch,
-                    chainId: keccak256(toHex(request.chainId)),
                     request: request.prophetData,
+                    ipfsHash: "0x01" as Hex,
                 },
             };
 
@@ -337,9 +339,8 @@ describe("EboProcessor", () => {
                 requestId: request.id,
                 metadata: {
                     requestId: request.id,
-                    epoch: request.epoch,
-                    chainId: keccak256(toHex(request.chainId)),
                     request: request["prophetData"],
+                    ipfsHash: "0x01" as Hex,
                 },
             };
 
@@ -398,9 +399,8 @@ describe("EboProcessor", () => {
                     requestId: request.id,
                     metadata: {
                         requestId: request.id,
-                        epoch: request.epoch,
-                        chainId: keccak256(toHex(request.chainId)),
                         request: request["prophetData"],
+                        ipfsHash: "0x01" as Hex,
                     },
                 },
                 {

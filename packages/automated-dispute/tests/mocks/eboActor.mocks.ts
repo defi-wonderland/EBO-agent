@@ -1,12 +1,16 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId } from "@ebo-agent/blocknumber/src/index.js";
-import { ILogger, UnixTimestamp } from "@ebo-agent/shared";
+import { Caip2ChainId, ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Block } from "viem";
 import { vi } from "vitest";
 
 import { ProtocolProvider } from "../../src/providers/index.js";
-import { EboActor, EboMemoryRegistry, NotificationService } from "../../src/services/index.js";
+import {
+    EboActor,
+    EboMemoryRegistry,
+    NotificationService,
+    ProphetCodec,
+} from "../../src/services/index.js";
 import {
     Dispute,
     DisputeId,
@@ -17,6 +21,7 @@ import {
 } from "../../src/types/index.js";
 import {
     DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
+    DEFAULT_MOCKED_REQUEST_CREATED_DATA,
     mockedPrivateKey,
 } from "../services/eboActor/fixtures.js";
 
@@ -28,7 +33,8 @@ import {
  * @returns
  */
 export function buildEboActor(request: Request, logger: ILogger) {
-    const { id, chainId, epoch } = request;
+    const { id } = request;
+    const { chainId, epoch } = request.decodedData.requestModuleData;
 
     const protocolProvider = new ProtocolProvider(
         {
@@ -115,6 +121,39 @@ export function buildEboActor(request: Request, logger: ILogger) {
     };
 }
 
+export function buildRequest(
+    attributes: Partial<Omit<Request, "decodedData">> = {},
+    modulesData: Partial<Request["decodedData"]> = {},
+): Request {
+    const encodedProphetData: {
+        -readonly [P in keyof Request["prophetData"]]: Request["prophetData"][P];
+    } = { ...DEFAULT_MOCKED_REQUEST_CREATED_DATA["prophetData"] };
+
+    if (modulesData.requestModuleData) {
+        encodedProphetData["requestModuleData"] = ProphetCodec.encodeRequestRequestModuleData(
+            modulesData.requestModuleData,
+        );
+    }
+
+    if (modulesData.responseModuleData) {
+        encodedProphetData["responseModuleData"] = ProphetCodec.encodeRequestResponseModuleData(
+            modulesData.responseModuleData,
+        );
+    }
+
+    if (modulesData.disputeModuleData) {
+        encodedProphetData["disputeModuleData"] = ProphetCodec.encodeRequestDisputeModuleData(
+            modulesData.disputeModuleData,
+        );
+    }
+
+    return {
+        ...DEFAULT_MOCKED_REQUEST_CREATED_DATA,
+        prophetData: { ...encodedProphetData },
+        ...attributes,
+    };
+}
+
 /**
  * Helper function to build a response based on a request.
  *
@@ -140,7 +179,7 @@ export function buildResponse(request: Request, attributes: Partial<Response> = 
         prophetData: {
             proposer: "0x0111111111111111111111111111111111111111",
             requestId: request.id,
-            response: ProtocolProvider.encodeResponse(responseBody),
+            response: ProphetCodec.encodeResponse(responseBody),
         },
     };
 

@@ -1,11 +1,11 @@
-import { ILogger } from "@ebo-agent/shared";
+import { ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import { ContractFunctionRevertedError } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
 import { ErrorHandler } from "../../../src/exceptions/errorHandler.js";
 import { ErrorFactory } from "../../../src/exceptions/index.js";
-import { ProtocolProvider } from "../../../src/providers/index.js";
-import { EboEvent, ResponseBody } from "../../../src/types/index.js";
+import { ProphetCodec } from "../../../src/services/prophetCodec.js";
+import { EboEvent, ResponseBody, ResponseId } from "../../../src/types/index.js";
 import mocks from "../../mocks/index.js";
 import { DEFAULT_MOCKED_REQUEST_CREATED_DATA } from "./fixtures.js";
 
@@ -29,11 +29,11 @@ describe("EboActor", () => {
                 logIndex: 2,
                 metadata: {
                     requestId: actorRequest.id,
-                    responseId: "0x02",
+                    responseId: "0x02" as ResponseId,
                     response: {
                         proposer: "0x0000000000000000000000000000000000000003",
                         requestId: actorRequest.id,
-                        response: ProtocolProvider.encodeResponse(proposedResponseBody),
+                        response: ProphetCodec.encodeResponse(proposedResponseBody),
                     },
                 },
             };
@@ -49,7 +49,7 @@ describe("EboActor", () => {
                 vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
                     number: 1n,
                     firstBlockNumber: 1n,
-                    startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                    startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                 });
 
                 vi.spyOn(blockNumberService, "getEpochBlockNumber").mockResolvedValue(
@@ -125,7 +125,7 @@ describe("EboActor", () => {
                 vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue({
                     number: 1n,
                     firstBlockNumber: 1n,
-                    startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)),
+                    startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
                 });
 
                 actor.enqueue(responseProposedEvent);

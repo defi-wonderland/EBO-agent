@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RequestAlreadyHandled } from "../../src/exceptions/index.js";
 import { ProtocolProvider } from "../../src/providers/index.js";
 import { EboActorsManager, NotificationService } from "../../src/services/index.js";
+import { RequestId } from "../../src/types/prophet.js";
 import mocks from "../mocks/index.js";
 import {
     DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
@@ -16,11 +17,13 @@ const logger: ILogger = mocks.mockLogger();
 
 describe("EboActorsManager", () => {
     const request = DEFAULT_MOCKED_REQUEST_CREATED_DATA;
+    const { chainId, epoch } = request.decodedData.requestModuleData;
+
     const actorRequest = {
         id: request.id,
-        epoch: request.epoch,
+        chainId,
+        epoch,
     };
-    const chainId = request.chainId;
 
     let protocolProvider: ProtocolProvider;
     let blockNumberService: BlockNumberService;
@@ -83,7 +86,7 @@ describe("EboActorsManager", () => {
             expect(actor).toMatchObject({
                 actorRequest: expect.objectContaining({
                     id: request.id,
-                    epoch: request.epoch,
+                    epoch: epoch,
                 }),
             });
         });
@@ -133,7 +136,7 @@ describe("EboActorsManager", () => {
         it("returns undefined if the request is not linked to any actor", () => {
             const actorsManager = new EboActorsManager();
 
-            expect(actorsManager.getActor("0x9999")).toBeUndefined();
+            expect(actorsManager.getActor("0x9999" as RequestId)).toBeUndefined();
         });
 
         it("returns the request's linked actor", () => {
@@ -152,7 +155,7 @@ describe("EboActorsManager", () => {
             expect(actor).toMatchObject({
                 actorRequest: expect.objectContaining({
                     id: request.id,
-                    epoch: request.epoch,
+                    epoch: epoch,
                 }),
             });
         });
