@@ -2,7 +2,11 @@ import { UnixTimestamp } from "@ebo-agent/shared";
 import { Block, Hex } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { PendingModulesApproval, ProcessorAlreadyStarted } from "../../src/exceptions/index.js";
+import {
+    PastEventEnqueueError,
+    PendingModulesApproval,
+    ProcessorAlreadyStarted,
+} from "../../src/exceptions/index.js";
 import { NotificationService } from "../../src/interfaces/notificationService.js";
 import {
     AccountingModules,
@@ -241,6 +245,61 @@ describe("EboProcessor", () => {
             expect(mockGetEvents).toHaveBeenCalledWith(
                 currentEpoch.firstBlockNumber,
                 currentBlock.number - 1n,
+            );
+        });
+
+        it("drops past events and keeps operating", async () => {
+            const { processor, protocolProvider, actorsManager } = mocks.buildEboProcessor(
+                logger,
+                accountingModules,
+                notifier,
+            );
+            const { actor } = mocks.buildEboActor(request, logger);
+
+            const currentEpoch = {
+                number: 1n,
+                firstBlockNumber: 1n,
+                startTimestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
+            };
+
+            const currentBlock = {
+                number: currentEpoch.firstBlockNumber + 10n,
+            } as unknown as Block<bigint, false, "finalized">;
+
+            const requestCreatedEvent: EboEvent<"RequestCreated"> = {
+                name: "RequestCreated",
+                blockNumber: 1n,
+                logIndex: 1,
+                timestamp: BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp,
+                requestId: request.id,
+                metadata: {
+                    requestId: request.id,
+                    request: request.prophetData,
+                    ipfsHash: "0x01" as Hex,
+                },
+            };
+
+            vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue(
+                allModulesApproved,
+            );
+            vi.spyOn(protocolProvider, "getCurrentEpoch").mockResolvedValue(currentEpoch);
+            vi.spyOn(protocolProvider, "getLastFinalizedBlock").mockResolvedValue(currentBlock);
+            vi.spyOn(actorsManager, "createActor").mockReturnValue(actor);
+            vi.spyOn(actorsManager, "getActor").mockReturnValue(actor);
+            vi.spyOn(actor, "processEvents").mockImplementation(() => Promise.resolve());
+            vi.spyOn(actor, "onLastBlockUpdated").mockImplementation(() => Promise.resolve());
+            vi.spyOn(actor, "canBeTerminated").mockResolvedValue(false);
+            vi.spyOn(actor, "enqueue").mockImplementation(() => {
+                throw new PastEventEnqueueError(requestCreatedEvent, requestCreatedEvent);
+            });
+
+            const mockGetEvents = vi.spyOn(protocolProvider, "getEvents");
+            mockGetEvents.mockResolvedValue([requestCreatedEvent]);
+
+            await processor.start(msBetweenChecks);
+
+            expect(logger.warn).toHaveBeenCalledWith(
+                expect.stringContaining("Dropping already enqueued event"),
             );
         });
 

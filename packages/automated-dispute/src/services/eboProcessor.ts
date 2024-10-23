@@ -3,7 +3,11 @@ import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId, Caip2Utils, HexUtils, ILogger, UnixTimestamp } from "@ebo-agent/shared";
 import { Block } from "viem";
 
-import { PendingModulesApproval, ProcessorAlreadyStarted } from "../exceptions/index.js";
+import {
+    PastEventEnqueueError,
+    PendingModulesApproval,
+    ProcessorAlreadyStarted,
+} from "../exceptions/index.js";
 import { isRequestCreatedEvent } from "../guards.js";
 import { NotificationService } from "../interfaces/index.js";
 import { ProtocolProvider } from "../providers/index.js";
@@ -115,6 +119,8 @@ export class EboProcessor {
 
             const lastBlock = await this.getLastFinalizedBlock();
             const events = await this.getEvents(this.lastCheckedBlock, lastBlock.number - 1n);
+
+            console.dir(events, { depth: null });
 
             const eventsByRequestId = this.groupEventsByRequest(events);
             const synchableRequests = this.calculateSynchableRequests([
@@ -262,7 +268,19 @@ export class EboProcessor {
             return;
         }
 
-        events.forEach((event) => actor.enqueue(event));
+        events.forEach((event) => {
+            try {
+                actor.enqueue(event);
+            } catch (err) {
+                if (err instanceof PastEventEnqueueError) {
+                    this.logger.warn(
+                        `Dropping already enqueued event at ${event.blockNumber} block with ${event.logIndex}`,
+                    );
+                } else {
+                    throw err;
+                }
+            }
+        });
 
         const lastBlockTimestamp = lastBlock.timestamp as UnixTimestamp;
 
