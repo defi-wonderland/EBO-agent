@@ -4,6 +4,30 @@ import { ErrorContext, ErrorHandlingStrategy, ErrorName } from "../types/index.j
 
 const errorStrategiesEntries: [ErrorName, ErrorHandlingStrategy][] = [
     [
+        "Oracle_InvalidProposer",
+        {
+            shouldNotify: false,
+            shouldTerminate: false,
+            shouldReenqueue: true,
+        },
+    ],
+    [
+        "Oracle_ResponseAlreadyProposed",
+        {
+            shouldNotify: false,
+            shouldTerminate: false,
+            shouldReenqueue: true,
+        },
+    ],
+    [
+        "Oracle_InvalidDisputer",
+        {
+            shouldNotify: false,
+            shouldTerminate: false,
+            shouldReenqueue: true,
+        },
+    ],
+    [
         "ValidatorLib_InvalidResponseBody",
         {
             shouldNotify: false,
