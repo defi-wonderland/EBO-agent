@@ -12,10 +12,10 @@ vi.stubEnv(
     JSON.stringify({
         l1ChainId: "eip155:1",
         l2ChainId: "eip155:42161",
-        oracle: "0xOracle",
-        epochManager: "0xEpochManager",
-        bondEscalationModule: "0xBondEscalationModule",
-        horizonAccountingExtension: "0xHorizonAccountingExtension",
+        oracle: "0x0000000000000000000000000000000000000001",
+        epochManager: "0x0000000000000000000000000000000000000002",
+        bondEscalationModule: "0x0000000000000000000000000000000000000003",
+        horizonAccountingExtension: "0x0000000000000000000000000000000000000004",
     }),
 );
 vi.stubEnv("BONDED_RESPONSE_MODULE_ADDRESS", "0xBondedResponseModule");

@@ -1,16 +1,5 @@
-/**
- * Script to approve modules for bonding operations.
- *
- * This script approves the Bonded Response Module
- * and Bond Escalation Module by calling the approveModule function
- * on the HorizonAccountingExtension contract.
- *
- * Usage:
- *   Set the required environment variables in a .env file, then run the script:
- *     tsx utilities/approveAccountingModules
- */
-
 import { ProtocolProvider } from "@ebo-agent/automated-dispute/src/index.js";
+import { Caip2ChainId } from "@ebo-agent/shared";
 import * as dotenv from "dotenv";
 import { Address, Hex, isHex } from "viem";
 import { z } from "zod";
@@ -18,7 +7,46 @@ import { z } from "zod";
 dotenv.config();
 
 /**
- * Define and validate environment variables using Zod.
+ * Defines a Zod schema for JSON strings to enforce stronger typing.
+ */
+const stringToJSONSchema = z.string().transform((str, ctx): Record<string, unknown> => {
+    try {
+        return JSON.parse(str);
+    } catch (e) {
+        ctx.addIssue({ code: "custom", message: "Invalid JSON" });
+        return z.NEVER;
+    }
+});
+
+/**
+ * Defines a schema for a valid Hex string.
+ */
+const hexSchema = z.string().refine((val): val is Hex => isHex(val), {
+    message: "Must be a valid Hex string",
+});
+
+/**
+ * Defines the schema for CONTRACTS_ADDRESSES based on expected structure.
+ */
+const contractsAddressesSchema = z.object({
+    l1ChainId: z.string().refine((val): val is Caip2ChainId => val.includes(":"), {
+        message: "l1ChainId must be in the format 'namespace:chainId' (e.g., 'eip155:1')",
+    }),
+    l2ChainId: z.string().refine((val): val is Caip2ChainId => val.includes(":"), {
+        message: "l2ChainId must be in the format 'namespace:chainId' (e.g., 'eip155:42161')",
+    }),
+    oracle: hexSchema,
+    epochManager: hexSchema,
+    bondEscalationModule: hexSchema,
+    horizonAccountingExtension: hexSchema
+        .optional()
+        .default("0x0000000000000000000000000000000000000000"),
+    // Default to a zero address because it's not required for the script but required for ProtocolProvider
+    eboRequestCreator: hexSchema.optional().default("0x0000000000000000000000000000000000000000"),
+});
+
+/**
+ * Defines and validates environment variables using Zod.
  */
 const envSchema = z.object({
     PRIVATE_KEY: z
@@ -27,7 +55,6 @@ const envSchema = z.object({
         .refine((value) => isHex(value), {
             message: "PRIVATE_KEY must be a valid hex string",
         }),
-    // Vitest may load arrays as a string so we handle both cases
     RPC_URLS_L1: z.preprocess(
         (val) => (Array.isArray(val) ? val : JSON.parse(val as string)),
         z.array(z.string().url()).nonempty("RPC_URLS_L1 must be a non-empty array"),
@@ -39,10 +66,7 @@ const envSchema = z.object({
     TRANSACTION_RECEIPT_CONFIRMATIONS: z.coerce.number().min(0),
     TIMEOUT: z.coerce.number().min(0),
     RETRY_INTERVAL: z.coerce.number().min(0),
-    CONTRACTS_ADDRESSES: z
-        .string()
-        .transform((val) => JSON.parse(val))
-        .refine((val) => typeof val === "object", "CONTRACTS_ADDRESSES must be a JSON object"),
+    CONTRACTS_ADDRESSES: stringToJSONSchema.pipe(contractsAddressesSchema),
     BONDED_RESPONSE_MODULE_ADDRESS: z.string().min(1, "BONDED_RESPONSE_MODULE_ADDRESS is required"),
     BOND_ESCALATION_MODULE_ADDRESS: z.string().min(1, "BOND_ESCALATION_MODULE_ADDRESS is required"),
 });
@@ -57,18 +81,18 @@ if (!envResult.success) {
 const env = envResult.data;
 
 /**
- * Define the RPC configuration.
+ * Defines the RPC configuration.
  */
 const rpcConfig = {
     l1: {
-        chainId: env.CONTRACTS_ADDRESSES.l1ChainId,
+        chainId: env.CONTRACTS_ADDRESSES.l1ChainId as Caip2ChainId,
         urls: env.RPC_URLS_L1,
         transactionReceiptConfirmations: env.TRANSACTION_RECEIPT_CONFIRMATIONS,
         timeout: env.TIMEOUT,
         retryInterval: env.RETRY_INTERVAL,
     },
     l2: {
-        chainId: env.CONTRACTS_ADDRESSES.l2ChainId,
+        chainId: env.CONTRACTS_ADDRESSES.l2ChainId as Caip2ChainId,
         urls: env.RPC_URLS_L2,
         transactionReceiptConfirmations: env.TRANSACTION_RECEIPT_CONFIRMATIONS,
         timeout: env.TIMEOUT,
