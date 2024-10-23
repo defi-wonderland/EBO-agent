@@ -11,7 +11,8 @@
         "lint": "turbo run lint",
         "lint:fix": "turbo run lint:fix",
         "format": "turbo run format",
-        "format:fix": "turbo run format:fix"
+        "format:fix": "turbo run format:fix",
+        "approve-modules": "pnpm --filter agent-scripts run approve-modules"
     },
     "keywords": [],
     "author": "",
