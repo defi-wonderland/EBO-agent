@@ -1,7 +1,7 @@
 import { isNativeError } from "util/types";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId, Caip2Utils, HexUtils, ILogger, UnixTimestamp } from "@ebo-agent/shared";
-import { Block } from "viem";
+import { Block, ContractFunctionRevertedError } from "viem";
 
 import {
     PastEventEnqueueError,
@@ -420,7 +420,18 @@ export class EboProcessor {
                     // Request creation must be notified but it's not critical, as it will be
                     // retried during next sync.
 
-                    // TODO: warn when getting a EBORequestCreator_RequestAlreadyCreated
+                    if (err instanceof ContractFunctionRevertedError) {
+                        console.dir(err, { depth: null });
+
+                        if (err.name === "EBORequestCreator_RequestAlreadyCreated") {
+                            this.logger.info(
+                                `Request for epoch ${epoch} and chain ${chain} already created`,
+                            );
+
+                            return;
+                        }
+                    }
+
                     this.logger.error(
                         `Could not create a request for epoch ${epoch} and chain ${chain}.`,
                     );
