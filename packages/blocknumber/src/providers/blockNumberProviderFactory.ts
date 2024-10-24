@@ -10,7 +10,7 @@ import { EvmBlockNumberProvider } from "./evmBlockNumberProvider.js";
 
 const DEFAULT_PROVIDER_CONFIG = {
     blocksLookback: 10_000n,
-    deltaMultiplier: 2n,
+    deltaMultiplier: 2,
 };
 
 export class BlockNumberProviderFactory {

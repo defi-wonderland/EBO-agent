@@ -1,5 +1,5 @@
 import { ILogger, UnixTimestamp } from "@ebo-agent/shared";
-import { Block, createPublicClient, GetBlockParameters, http } from "viem";
+import { Block, BlockNotFoundError, createPublicClient, GetBlockParameters, http } from "viem";
 import { mainnet } from "viem/chains";
 import { describe, expect, it, vi } from "vitest";
 
@@ -7,7 +7,6 @@ import {
     InvalidTimestamp,
     LastBlockEpoch,
     UnsupportedBlockNumber,
-    UnsupportedBlockTimestamps,
 } from "../../src/exceptions/index.js";
 import { EvmBlockNumberProvider } from "../../src/providers/evmBlockNumberProvider.js";
 
@@ -80,11 +79,12 @@ describe("EvmBlockNumberProvider", () => {
             );
         });
 
-        it("fails when finding multiple blocks with the same timestamp", () => {
+        it("returns the first one when finding multiple blocks with the same timestamp", async () => {
             const timestamp = BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) as UnixTimestamp;
-            const afterTimestamp = BigInt(Date.UTC(2024, 1, 2, 0, 0, 0, 0));
+            const prevTimestamp = timestamp - 1n;
+            const afterTimestamp = timestamp + 1n;
             const rpcProvider = mockRpcProviderBlocks([
-                { number: 0n, timestamp: timestamp },
+                { number: 0n, timestamp: prevTimestamp },
                 { number: 1n, timestamp: timestamp },
                 { number: 2n, timestamp: timestamp },
                 { number: 3n, timestamp: timestamp },
@@ -93,9 +93,9 @@ describe("EvmBlockNumberProvider", () => {
 
             evmProvider = new EvmBlockNumberProvider(rpcProvider, searchConfig, logger);
 
-            expect(evmProvider.getEpochBlockNumber(timestamp)).rejects.toBeInstanceOf(
-                UnsupportedBlockTimestamps,
-            );
+            const result = await evmProvider.getEpochBlockNumber(timestamp);
+
+            expect(result).toEqual(1n);
         });
 
         it("fails when finding a block with no number", () => {
@@ -158,11 +158,17 @@ function mockRpcProviderBlocks(blocks: Pick<Block, "timestamp" | "number">[]) {
         .fn()
         .mockImplementation((args?: GetBlockParameters<false, "finalized"> | undefined) => {
             if (args?.blockTag == "finalized") {
-                return Promise.resolve(blocks[blocks.length - 1]);
+                const block = blocks[blocks.length - 1];
+
+                return Promise.resolve(block);
             } else if (args?.blockNumber !== undefined) {
                 const blockNumber = Number(args.blockNumber);
+                const block = blocks[blockNumber];
 
-                return Promise.resolve(blocks[blockNumber]);
+                if (block === undefined)
+                    throw new BlockNotFoundError({ blockNumber: BigInt(blockNumber) });
+
+                return Promise.resolve(block);
             }
 
             throw new Error("Unhandled getBlock mock case");
