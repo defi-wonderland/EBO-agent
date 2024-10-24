@@ -33,6 +33,8 @@ export class ErrorHandler {
 
             if (strategy.shouldTerminate && context.terminateActor) {
                 context.terminateActor();
+            } else {
+                this.logger.warn(`Event handling caused an error`);
             }
         }
     }

@@ -1,5 +1,5 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId, HexUtils, ILogger, UnixTimestamp } from "@ebo-agent/shared";
+import { Caip2ChainId, HexUtils, ILogger, stringify, UnixTimestamp } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 import { Heap } from "heap-js";
 import { ContractFunctionRevertedError } from "viem";
@@ -161,8 +161,6 @@ export class EboActor {
                         await this.onLastEvent(event);
                     }
                 } catch (err) {
-                    this.logger.error(`Error processing event ${event.name}: ${err}`);
-
                     if (err instanceof CustomContractError) {
                         err.setProcessEventsContext(
                             event,
@@ -176,8 +174,11 @@ export class EboActor {
                         );
 
                         await this.errorHandler.handle(err);
+
                         return;
                     } else {
+                        this.logger.error(`Error processing event ${event.name}: ${err}`);
+
                         throw err;
                     }
                 }
@@ -290,26 +291,16 @@ export class EboActor {
         await this.settleDisputes(atTimestamp);
 
         const request = this.getActorRequest();
-        const proposalDeadline =
-            request.createdAt.timestamp + request.decodedData.responseModuleData.deadline;
-        const isProposalWindowOpen = atTimestamp <= proposalDeadline;
+        const response = this.getFinalizableResponse(request, atTimestamp);
 
-        if (isProposalWindowOpen) {
-            this.logger.debug(`Proposal window for request ${request.id} not closed yet.`);
+        if (response) {
+            await this.finalizeRequest(request, response);
 
             return;
+        } else {
+            // TODO: check for responseModuleData.deadline, if no answer has been accepted after the deadline
+            //  notify and (TBD) finalize with no response
         }
-
-        const acceptedResponse = this.getAcceptedResponse(atTimestamp);
-
-        if (acceptedResponse) {
-            this.logger.info(`Finalizing request ${request.id}...`);
-
-            await this.protocolProvider.finalize(request.prophetData, acceptedResponse.prophetData);
-        }
-
-        // TODO: check for responseModuleData.deadline, if no answer has been accepted after the deadline
-        //  notify and (TBD) finalize with no response
     }
 
     /**
@@ -341,6 +332,44 @@ export class EboActor {
 
         // Any of the disputes not being handled correctly should make the actor fail
         await Promise.all(settledDisputes);
+    }
+
+    private getFinalizableResponse(request: Request, atTimestamp: UnixTimestamp) {
+        this.logger.info("Getting finalizable requests...");
+
+        const proposalDeadline =
+            request.createdAt.timestamp + request.decodedData.responseModuleData.deadline;
+
+        const isProposalWindowOpen = atTimestamp <= proposalDeadline;
+
+        if (isProposalWindowOpen) {
+            this.logger.info(`Proposal window for request ${request.id} not closed yet.`);
+
+            return undefined;
+        }
+
+        return this.getAcceptedResponse(atTimestamp);
+    }
+
+    private async finalizeRequest(request: Request, response: Response) {
+        this.logger.info(`Finalizing request.`);
+        this.logger.debug(stringify({ request: request, response: response }));
+
+        try {
+            await this.protocolProvider.finalize(request.prophetData, response.prophetData);
+        } catch (err) {
+            if (err instanceof CustomContractError) {
+                err.setContext({
+                    request,
+                    response,
+                    registry: this.registry,
+                });
+
+                this.errorHandler.handle(err);
+            } else {
+                throw err;
+            }
+        }
     }
 
     private getActiveDisputes(): Dispute[] {
@@ -386,36 +415,38 @@ export class EboActor {
 
             this.logger.info(`Dispute ${dispute.id} settled.`);
         } catch (err) {
-            if (err instanceof ContractFunctionRevertedError) {
-                const errorName = err.data?.errorName || err.name;
-                this.logger.warn(`Call reverted for dispute ${dispute.id} due to: ${errorName}`);
+            if (err instanceof CustomContractError) {
+                this.logger.warn(`Call reverted for dispute ${dispute.id} due to: ${err.name}`);
 
-                const customError = ErrorFactory.createError(errorName);
-                customError.setContext({
+                err.setContext({
                     request,
                     response,
                     dispute,
                     registry: this.registry,
                 });
 
-                customError.on("BondEscalationModule_ShouldBeEscalated", async () => {
+                err.on("BondEscalationModule_ShouldBeEscalated", async () => {
                     try {
                         await this.protocolProvider.escalateDispute(
                             request.prophetData,
                             response.prophetData,
                             dispute.prophetData,
                         );
+
                         this.logger.info(`Dispute ${dispute.id} escalated.`);
-                        await this.errorHandler.handle(customError);
+
+                        await this.errorHandler.handle(err);
                     } catch (escalationError) {
                         this.logger.error(
                             `Failed to escalate dispute ${dispute.id}: ${escalationError}`,
                         );
+
                         throw escalationError;
                     }
                 });
             } else {
                 this.logger.error(`Failed to escalate dispute ${dispute.id}: ${err}`);
+
                 throw err;
             }
         }
@@ -445,13 +476,14 @@ export class EboActor {
     private isResponseAccepted(response: Response, atTimestamp: UnixTimestamp) {
         const request = this.getActorRequest();
         const dispute = this.registry.getResponseDispute(response);
+
         const disputeWindow =
             response.createdAt.timestamp + request.decodedData.disputeModuleData.disputeWindow;
 
         // Response is still able to be disputed
         if (atTimestamp <= disputeWindow) return false;
 
-        return dispute ? dispute.status === "Lost" : true;
+        return dispute ? ["Lost", "None"].includes(dispute.status) : true;
     }
 
     /**
@@ -598,10 +630,14 @@ export class EboActor {
      * @param chainId the CAIP-2 compliant chain ID
      */
     private async proposeResponse(chainId: Caip2ChainId): Promise<void> {
+        this.logger.info(`Proposing response for ${chainId}`);
+
         const responseBody = await this.buildResponseBody(chainId);
         const request = this.getActorRequest();
 
         if (this.alreadyProposed(responseBody.block)) {
+            this.logger.warn(`Block ${responseBody.block} already proposed`);
+
             throw new ResponseAlreadyProposed(request, responseBody);
         }
 
@@ -615,6 +651,8 @@ export class EboActor {
 
         try {
             await this.protocolProvider.proposeResponse(request.prophetData, response);
+
+            this.logger.info(`Block ${responseBody.block} proposed`);
         } catch (err) {
             if (err instanceof ContractFunctionRevertedError) {
                 const { epoch } = request.decodedData.requestModuleData;
@@ -674,9 +712,10 @@ export class EboActor {
         const dispute: Dispute["prophetData"] = {
             disputer: disputer,
             proposer: proposedResponse.prophetData.proposer,
-            responseId: HexUtils.normalize(event.metadata.responseId) as ResponseId,
+            responseId: event.metadata.responseId,
             requestId: request.id,
         };
+
         try {
             await this.protocolProvider.disputeResponse(
                 request.prophetData,
@@ -761,8 +800,34 @@ export class EboActor {
 
         const isValidDispute = await this.isValidDispute(request, proposedResponse);
 
-        if (isValidDispute) await this.pledgeFor(request, dispute);
-        else await this.pledgeAgainst(request, dispute);
+        if (isValidDispute) {
+            const operations = await Promise.allSettled([
+                this.pledgeFor(request, dispute),
+                (async () => {
+                    try {
+                        const { chainId } = request.decodedData.requestModuleData;
+
+                        this.logger.error("PROPOSING RESPONSE");
+
+                        await this.proposeResponse(chainId);
+                    } catch (err) {
+                        if (err instanceof ResponseAlreadyProposed) {
+                            this.logger.warn(err.message);
+                        } else {
+                            this.logger.error(
+                                `Could not propose a new response after response ${proposedResponse.id} disputal.`,
+                            );
+
+                            throw err;
+                        }
+                    }
+                })(),
+            ]);
+
+            operations.forEach((element) => {
+                if (element.status === "rejected") throw element.reason;
+            });
+        } else await this.pledgeAgainst(request, dispute);
     }
 
     /**
@@ -777,12 +842,8 @@ export class EboActor {
         const { chainId } = request.decodedData.requestModuleData;
 
         const actorResponse = {
-            prophetData: {
-                requestId: request.id,
-            },
-            decodedData: {
-                response: await this.buildResponseBody(chainId),
-            },
+            prophetData: { requestId: request.id },
+            decodedData: { response: await this.buildResponseBody(chainId) },
         };
 
         const equalResponses = this.equalResponses(actorResponse, proposedResponse);

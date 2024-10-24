@@ -1,5 +1,5 @@
 import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { HexUtils, ILogger } from "@ebo-agent/shared";
+import { ILogger } from "@ebo-agent/shared";
 import { Mutex } from "async-mutex";
 
 import { RequestAlreadyHandled } from "../exceptions/index.js";
@@ -22,9 +22,7 @@ export class EboActorsManager {
      * @returns array of normalized request IDs
      */
     public getRequestIds(): RequestId[] {
-        return [...this.requestActorMap.keys()].map(
-            (requestId) => HexUtils.normalize(requestId) as RequestId,
-        );
+        return [...this.requestActorMap.keys()].map((requestId) => requestId);
     }
 
     public getActorsRequests(): ActorRequest[] {

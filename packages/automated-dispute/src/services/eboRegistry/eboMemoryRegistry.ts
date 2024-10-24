@@ -102,6 +102,8 @@ export class EboMemoryRegistry implements EboRegistry {
 
     /** @inheritdoc */
     removeDispute(disputeId: string): boolean {
+        // FIXME: remove also all records in responseDispute (probably adding a reverse map,
+        //  as response<>dispute is a 1 to 1 relationship would be a nice approach)
         return this.disputes.delete(disputeId);
     }
 }

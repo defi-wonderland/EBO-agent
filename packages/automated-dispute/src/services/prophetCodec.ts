@@ -1,7 +1,8 @@
 import { Caip2ChainId } from "@ebo-agent/shared";
 import { Address, decodeAbiParameters, encodeAbiParameters } from "viem";
 
-import { Request, Response } from "../types/prophet.js";
+import { UnknownDisputeStatus } from "../exceptions/unknownDisputeStatus.exception.js";
+import { DisputeStatus, Request, Response } from "../types/prophet.js";
 
 const REQUEST_MODULE_DATA_REQUEST_ABI_FIELDS = [
     {
@@ -47,6 +48,8 @@ const DISPUTE_MODULE_DATA_REQUEST_ABI_FIELDS = [
 ] as const;
 
 const RESPONSE_RESPONSE_ABI_FIELDS = [{ name: "block", type: "uint256" }] as const;
+
+const DISPUTE_STATUS_ENUM: DisputeStatus[] = ["None", "Active", "Won", "Lost", "NoResolution"];
 
 /** Class to encode/decode Prophet's structs into/from a byte array */
 export class ProphetCodec {
@@ -177,5 +180,23 @@ export class ProphetCodec {
         return {
             block: decodedParameters[0],
         };
+    }
+
+    /**
+     * Maps a uint8 value to the corresponding DisputeStatus string.
+     *
+     * The mapping corresponds to the DisputeStatus enum in the Prophet's IOracle.sol:
+     * https://github.com/defi-wonderland/prophet-core/blob/dev/solidity/interfaces/IOracle.sol#L178-L186
+     *
+     * Enums use 0-based indexes (None has index 0, Active has index 1, etc.).
+     *
+     * @param status - The uint8 value representing the dispute status.
+     * @returns The DisputeStatus string corresponding to the input value.
+     */
+    static decodeDisputeStatus(status: number): DisputeStatus {
+        const disputeStatus = DISPUTE_STATUS_ENUM[status];
+
+        if (!disputeStatus) throw new UnknownDisputeStatus(status);
+        else return disputeStatus;
     }
 }

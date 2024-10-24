@@ -6,8 +6,9 @@ import {
     ProphetCodec,
     ProtocolProvider,
 } from "@ebo-agent/automated-dispute";
+import { Request, RequestId } from "@ebo-agent/automated-dispute/dist/types/prophet.js";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId, Logger } from "@ebo-agent/shared";
+import { Caip2ChainId, Logger, UnixTimestamp } from "@ebo-agent/shared";
 import { CreateServerReturnType } from "prool";
 import {
     Account,
@@ -77,6 +78,10 @@ const PROTOCOL_L2_LOCAL_RPC_PORT = 8545;
 const FORK_L2_URL = "https://arbitrum-sepolia.gateway.tenderly.co";
 
 const PROTOCOL_L2_LOCAL_URL = `http://${PROTOCOL_L2_LOCAL_RPC_HOST}:${PROTOCOL_L2_LOCAL_RPC_PORT}/1`;
+
+const newEventAbi = parseAbiItem(
+    "event NewEpoch(uint256 indexed _epoch, string indexed _chainId, uint256 _blockNumber)",
+);
 
 describe.sequential("single agent", () => {
     let l2ProtocolAnvil: CreateServerReturnType;
@@ -258,7 +263,7 @@ describe.sequential("single agent", () => {
             blockTimeout: initBlock + 1000n,
         });
 
-        expect(requestCreatedEvent).toBe(true);
+        expect(requestCreatedEvent).toBeDefined();
 
         const responseProposedAbi = getAbiItem({ abi: oracleAbi, name: "ResponseProposed" });
 
@@ -277,7 +282,7 @@ describe.sequential("single agent", () => {
             blockTimeout: initBlock + 1000n,
         });
 
-        expect(responseProposedEvent).toBe(true);
+        expect(responseProposedEvent).toBeDefined();
 
         await anvilClient.increaseTime({ seconds: 60 * 60 * 24 * 7 * 4 });
 
@@ -306,9 +311,7 @@ describe.sequential("single agent", () => {
                 filter: {
                     address: protocolContracts["EBOFinalityModule"],
                     fromBlock: initBlock,
-                    event: parseAbiItem(
-                        "event NewEpoch(uint256 indexed _epoch, string indexed _chainId, uint256 _blockNumber)",
-                    ),
+                    event: newEventAbi,
                     strict: true,
                 },
                 matcher: (log) => {
@@ -323,6 +326,241 @@ describe.sequential("single agent", () => {
         ]);
 
         expect(oracleRequestFinalizedEvent).toBeDefined();
+        expect(newEpochEvent).toBeDefined();
+    });
+
+    /**
+     * Given:
+     *  - A single agent A1 operating for chain CHAIN1
+     *  - A request REQ1 for E1, a wrong response RESP1(REQ1)
+     *  - Within the RESP1 dispute window
+     *
+     *  When:
+     *  - A1 detects RESP1 is wrong
+     *
+     *  Then:
+     *  - A1 disputes RESP1 with DISP1
+     *      - `ResponseDisputed(RESP1.id, DISP1.id, DISP1)`
+     *  - A1 proposes RESP2
+     *      - `ResponseProposed(REQ1.id, RESP2.id, RESP2)`
+     *  - A1 settles DISP1 and it ends with status `Won`
+     *      - `DisputeStatusUpdated(DISP1.id, DISP1, "Won")`
+     *  - A1 finalizes REQ1 with RESP2
+     *      - `EBOFinalityModule.newEpoch(E1, CHAIN1, RESP2.response)`
+     *      - `OracleRequestFinalized(REQ1.id, RESP2.id, A1.address)`
+     */
+    test("dispute response and propose a new one", { timeout: E2E_TEST_TIMEOUT }, async () => {
+        const logger = Logger.getInstance();
+
+        const protocolProvider = new ProtocolProvider(
+            {
+                l1: {
+                    chainId: PROTOCOL_L2_CHAIN_ID,
+                    // Using the same RPC due to Anvil's arbitrum block number bug
+                    urls: [PROTOCOL_L2_LOCAL_URL],
+                    transactionReceiptConfirmations: 1,
+                    timeout: 1_000,
+                    retryInterval: 500,
+                },
+                l2: {
+                    chainId: PROTOCOL_L2_CHAIN_ID,
+                    urls: [PROTOCOL_L2_LOCAL_URL],
+                    transactionReceiptConfirmations: 1,
+                    timeout: 1_000,
+                    retryInterval: 500,
+                },
+            },
+            {
+                bondEscalationModule: protocolContracts["BondEscalationModule"],
+                eboRequestCreator: protocolContracts["EBORequestCreator"],
+                epochManager: EPOCH_MANAGER_ADDRESS,
+                oracle: protocolContracts["Oracle"],
+                horizonAccountingExtension: protocolContracts["HorizonAccountingExtension"],
+            },
+            accounts[0].privateKey,
+        );
+
+        vi.spyOn(protocolProvider, "getAccountingApprovedModules").mockResolvedValue([
+            protocolContracts["EBORequestModule"],
+            protocolContracts["BondedResponseModule"],
+            protocolContracts["BondEscalationModule"],
+        ]);
+
+        const blockNumberService = new BlockNumberService(
+            new Map<Caip2ChainId, string[]>([[PROTOCOL_L2_CHAIN_ID, [PROTOCOL_L2_LOCAL_URL]]]),
+            {
+                baseUrl: new URL("http://not.needed/"),
+                bearerToken: "not.needed",
+                bearerTokenExpirationWindow: 1000,
+                servicePaths: {
+                    block: "/block",
+                    blockByTime: "/blockByTime",
+                },
+            },
+            logger,
+        );
+
+        const actorsManager = new EboActorsManager();
+
+        const processor = new EboProcessor(
+            {
+                requestModule: protocolContracts["EBORequestModule"],
+                responseModule: protocolContracts["BondedResponseModule"],
+                escalationModule: protocolContracts["BondEscalationModule"],
+            },
+            protocolProvider,
+            blockNumberService,
+            actorsManager,
+            logger,
+            {
+                notifyError: vi.fn(),
+            } as unknown as NotificationService,
+        );
+
+        const anvilClient = createTestClient({
+            mode: "anvil",
+            account: GRT_HOLDER,
+            chain: PROTOCOL_L2_CHAIN,
+            transport: http(PROTOCOL_L2_LOCAL_URL),
+        })
+            .extend(publicActions)
+            .extend(walletActions);
+
+        // Set epoch length to a big enough epoch length as in sepolia is way too short at the moment
+        await setEpochLength({
+            length: 100_000n,
+            client: anvilClient,
+            epochManagerAddress: EPOCH_MANAGER_ADDRESS,
+            governorAddress: GOVERNOR_ADDRESS,
+        });
+
+        const initBlock = await anvilClient.getBlockNumber();
+        const currentEpoch = await protocolProvider.getCurrentEpoch();
+
+        const correctResponse = await blockNumberService.getEpochBlockNumber(
+            currentEpoch.startTimestamp,
+            PROTOCOL_L2_CHAIN_ID,
+        );
+
+        await protocolProvider.createRequest(currentEpoch.number, PROTOCOL_L2_CHAIN_ID);
+
+        const requestCreatedEvent = await waitForEvent({
+            client: anvilClient,
+            filter: {
+                address: protocolContracts["Oracle"],
+                fromBlock: initBlock,
+                event: getAbiItem({ abi: oracleAbi, name: "RequestCreated" }),
+                strict: true,
+            },
+            pollingIntervalMs: 100,
+            blockTimeout: initBlock + 1000n,
+        });
+
+        expect(requestCreatedEvent).toBeDefined();
+
+        await protocolProvider.proposeResponse(requestCreatedEvent.args._request, {
+            proposer: accounts[0].account.address,
+            requestId: requestCreatedEvent.args._requestId as RequestId,
+            response: ProphetCodec.encodeResponse({ block: correctResponse - 1n }),
+        });
+
+        const badResponseProposedEvent = await waitForEvent({
+            client: anvilClient,
+            filter: {
+                address: protocolContracts["Oracle"],
+                fromBlock: initBlock,
+                event: getAbiItem({ abi: oracleAbi, name: "ResponseProposed" }),
+                strict: true,
+            },
+            pollingIntervalMs: 100,
+            blockTimeout: initBlock + 1000n,
+        });
+
+        processor.start(3000);
+
+        const badResponseDisputedEvent = await waitForEvent({
+            client: anvilClient,
+            filter: {
+                address: protocolContracts["Oracle"],
+                fromBlock: initBlock,
+                event: getAbiItem({ abi: oracleAbi, name: "ResponseDisputed" }),
+                strict: true,
+            },
+            matcher: (log) => {
+                return log.args._responseId === badResponseProposedEvent.args._responseId;
+            },
+            pollingIntervalMs: 100,
+            blockTimeout: initBlock + 1000n,
+        });
+
+        expect(badResponseDisputedEvent).toBeDefined();
+
+        const correctResponseProposedEvent = await waitForEvent({
+            client: anvilClient,
+            filter: {
+                address: protocolContracts["Oracle"],
+                fromBlock: initBlock,
+                event: getAbiItem({ abi: oracleAbi, name: "ResponseProposed" }),
+                strict: true,
+            },
+            matcher: (log) => {
+                const responseBlock = ProphetCodec.decodeResponse(
+                    log.args._response.response,
+                ).block;
+
+                return (
+                    log.args._requestId === requestCreatedEvent.args._requestId &&
+                    log.args._responseId !== badResponseProposedEvent.args._responseId &&
+                    responseBlock === correctResponse
+                );
+            },
+            pollingIntervalMs: 100,
+            blockTimeout: initBlock + 1000n,
+        });
+
+        expect(correctResponseProposedEvent).toBeDefined();
+
+        await anvilClient.increaseTime({ seconds: 60 * 60 * 24 * 7 * 4 });
+
+        // FIXME: check for `DisputeStatusUpdated(DISP1.id, DISP1, "Won")`
+        const [requestFinalizedEvent, newEpochEvent] = await Promise.all([
+            waitForEvent({
+                client: anvilClient,
+                filter: {
+                    address: protocolContracts["Oracle"],
+                    fromBlock: initBlock,
+                    event: getAbiItem({ abi: oracleAbi, name: "OracleRequestFinalized" }),
+                    strict: true,
+                },
+                matcher: (log) => {
+                    return (
+                        log.args._requestId === requestCreatedEvent.args._requestId &&
+                        log.args._responseId === correctResponseProposedEvent.args._responseId
+                    );
+                },
+                pollingIntervalMs: 100,
+                blockTimeout: initBlock + 1000n,
+            }),
+            waitForEvent({
+                client: anvilClient,
+                filter: {
+                    address: protocolContracts["EBOFinalityModule"],
+                    fromBlock: initBlock,
+                    event: newEventAbi,
+                    strict: true,
+                },
+                matcher: (log) => {
+                    return (
+                        log.args._chainId === keccak256(toHex(ARBITRUM_SEPOLIA_ID)) &&
+                        log.args._epoch === currentEpoch.number
+                    );
+                },
+                pollingIntervalMs: 100,
+                blockTimeout: initBlock + 1000n,
+            }),
+        ]);
+
+        expect(requestFinalizedEvent).toBeDefined();
         expect(newEpochEvent).toBeDefined();
     });
 });

@@ -307,7 +307,7 @@ const errorStrategiesEntries: [ErrorName, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldReenqueue: true,
+            shouldReenqueue: false,
         },
     ],
     [
@@ -315,7 +315,7 @@ const errorStrategiesEntries: [ErrorName, ErrorHandlingStrategy][] = [
         {
             shouldNotify: false,
             shouldTerminate: false,
-            shouldReenqueue: true,
+            shouldReenqueue: false,
         },
     ],
     [

@@ -1,8 +1,6 @@
-import { HexUtils } from "@ebo-agent/shared";
-
 import { CommandAlreadyRun, CommandNotRun } from "../../../exceptions/index.js";
 import { EboRegistry, EboRegistryCommand } from "../../../interfaces/index.js";
-import { EboEvent, Response, ResponseBody, ResponseId } from "../../../types/index.js";
+import { EboEvent, Response, ResponseBody } from "../../../types/index.js";
 import { ProphetCodec } from "../../prophetCodec.js";
 
 export class AddResponse implements EboRegistryCommand {
@@ -18,7 +16,7 @@ export class AddResponse implements EboRegistryCommand {
         const responseBody: ResponseBody = ProphetCodec.decodeResponse(encodedResponse);
 
         const response: Response = {
-            id: HexUtils.normalize(event.metadata.responseId) as ResponseId,
+            id: event.metadata.responseId,
             createdAt: {
                 timestamp: event.timestamp,
                 blockNumber: event.blockNumber,
