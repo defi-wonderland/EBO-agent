@@ -28,6 +28,9 @@ export interface ErrorContext {
 
 export type ErrorName =
     | "UnknownError"
+    | "Oracle_InvalidProposer"
+    | "Oracle_ResponseAlreadyProposed"
+    | "Oracle_InvalidDisputer"
     | "ValidatorLib_InvalidResponseBody"
     | "BondEscalationAccounting_InsufficientFunds"
     | "BondEscalationAccounting_AlreadySettled"
