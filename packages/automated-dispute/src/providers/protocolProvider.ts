@@ -1,5 +1,5 @@
 import { UnsupportedChain } from "@ebo-agent/blocknumber";
-import { Caip2ChainId, UnixTimestamp } from "@ebo-agent/shared";
+import { Caip2ChainId, HexUtils, UnixTimestamp } from "@ebo-agent/shared";
 import {
     Address,
     BaseError,
@@ -50,6 +50,7 @@ import {
     TransactionExecutionError,
     UnknownDisputeStatus,
 } from "../exceptions/index.js";
+import { ProphetCodec } from "../external.js";
 import {
     IProtocolProvider,
     IReadProvider,
@@ -250,36 +251,6 @@ export class ProtocolProvider implements IProtocolProvider {
     }
 
     /**
-     * Maps a uint8 value to the corresponding DisputeStatus string.
-     *
-     * The mapping corresponds to the DisputeStatus enum in the Prophet's IOracle.sol:
-     * https://github.com/defi-wonderland/prophet-core/blob/dev/solidity/interfaces/IOracle.sol#L178-L186
-     *
-     * Enums use 0-based indexes (None has index 0, Active has index 1, etc.).
-     *
-     * @param status - The uint8 value representing the dispute status.
-     * @returns The DisputeStatus string corresponding to the input value.
-     */
-    private mapDisputeStatus(status: number): DisputeStatus {
-        switch (status) {
-            case 0:
-                return "None";
-            case 1:
-                return "Active";
-            case 2:
-                return "Escalated";
-            case 3:
-                return "Won";
-            case 4:
-                return "Lost";
-            case 5:
-                return "NoResolution";
-            default:
-                throw new UnknownDisputeStatus(status);
-        }
-    }
-
-    /**
      * Returns the address of the account used for transactions.
      *
      * @returns {Address} The account address.
@@ -373,13 +344,13 @@ export class ProtocolProvider implements IProtocolProvider {
                     timestamp: timestamp,
                     rawLog: event,
 
-                    requestId: _requestId as RequestId,
+                    requestId: HexUtils.normalize(_requestId) as RequestId,
                     metadata: {
-                        responseId: _responseId as ResponseId,
-                        requestId: _requestId as RequestId,
+                        responseId: HexUtils.normalize(_responseId) as ResponseId,
+                        requestId: HexUtils.normalize(_requestId) as RequestId,
                         response: {
                             proposer: _response.proposer,
-                            requestId: _response.requestId as RequestId,
+                            requestId: HexUtils.normalize(_response.requestId) as RequestId,
                             response: _response.response,
                         },
                     },
@@ -423,15 +394,15 @@ export class ProtocolProvider implements IProtocolProvider {
                     timestamp: timestamp,
                     rawLog: event,
 
-                    requestId: _dispute.requestId as RequestId,
+                    requestId: HexUtils.normalize(_dispute.requestId) as RequestId,
                     metadata: {
-                        responseId: _responseId as ResponseId,
-                        disputeId: _disputeId as DisputeId,
+                        responseId: HexUtils.normalize(_responseId) as ResponseId,
+                        disputeId: HexUtils.normalize(_disputeId) as DisputeId,
                         dispute: {
                             disputer: _dispute.disputer,
                             proposer: _dispute.proposer,
-                            responseId: _dispute.responseId as ResponseId,
-                            requestId: _dispute.requestId as RequestId,
+                            responseId: HexUtils.normalize(_dispute.responseId) as ResponseId,
+                            requestId: HexUtils.normalize(_dispute.requestId) as RequestId,
                         },
                     },
                 } as EboEvent<"ResponseDisputed">;
@@ -474,16 +445,16 @@ export class ProtocolProvider implements IProtocolProvider {
                     timestamp: timestamp,
                     rawLog: event,
 
-                    requestId: _dispute.requestId as RequestId,
+                    requestId: HexUtils.normalize(_dispute.requestId) as RequestId,
                     metadata: {
-                        disputeId: _disputeId as DisputeId,
+                        disputeId: HexUtils.normalize(_disputeId) as DisputeId,
                         dispute: {
                             disputer: _dispute.disputer,
                             proposer: _dispute.proposer,
-                            responseId: _dispute.responseId as ResponseId,
-                            requestId: _dispute.requestId as RequestId,
+                            responseId: HexUtils.normalize(_dispute.responseId) as ResponseId,
+                            requestId: HexUtils.normalize(_dispute.requestId) as RequestId,
                         },
-                        status: this.mapDisputeStatus(_status),
+                        status: ProphetCodec.decodeDisputeStatus(_status),
                         blockNumber: event.blockNumber,
                     },
                 } as EboEvent<"DisputeStatusUpdated">;
@@ -531,14 +502,14 @@ export class ProtocolProvider implements IProtocolProvider {
                     timestamp: timestamp,
                     rawLog: event,
 
-                    requestId: _dispute.requestId as RequestId,
+                    requestId: HexUtils.normalize(_dispute.requestId) as RequestId,
                     metadata: {
-                        disputeId: _disputeId as DisputeId,
+                        disputeId: HexUtils.normalize(_disputeId) as DisputeId,
                         dispute: {
                             disputer: _dispute.disputer,
                             proposer: _dispute.proposer,
-                            responseId: _dispute.responseId as ResponseId,
-                            requestId: _dispute.requestId as RequestId,
+                            responseId: HexUtils.normalize(_dispute.responseId) as ResponseId,
+                            requestId: HexUtils.normalize(_dispute.requestId) as RequestId,
                         },
                         caller: _caller as Address,
                         blockNumber: event.blockNumber,
@@ -584,10 +555,10 @@ export class ProtocolProvider implements IProtocolProvider {
                     timestamp: timestamp,
                     rawLog: event,
 
-                    requestId: _requestId as RequestId,
+                    requestId: HexUtils.normalize(_requestId) as RequestId,
                     metadata: {
-                        requestId: _requestId as RequestId,
-                        responseId: _responseId as ResponseId,
+                        requestId: HexUtils.normalize(_requestId) as RequestId,
+                        responseId: HexUtils.normalize(_responseId) as ResponseId,
                         caller: _caller as Address,
                         blockNumber: event.blockNumber,
                     },
@@ -679,9 +650,9 @@ export class ProtocolProvider implements IProtocolProvider {
                         timestamp: timestamp,
                         rawLog: event,
 
-                        requestId: event.args._requestId as RequestId,
+                        requestId: HexUtils.normalize(event.args._requestId) as RequestId,
                         metadata: {
-                            requestId: event.args._requestId as RequestId,
+                            requestId: HexUtils.normalize(event.args._requestId) as RequestId,
                             request: event.args._request,
                             ipfsHash: event.args._ipfsHash,
                         },
@@ -977,8 +948,10 @@ export class ProtocolProvider implements IProtocolProvider {
                 const revertError = error.walk(
                     (err) => err instanceof ContractFunctionRevertedError,
                 );
+
                 if (revertError instanceof ContractFunctionRevertedError) {
                     const errorName = revertError.data?.errorName ?? "";
+
                     throw ErrorFactory.createError(errorName);
                 }
             }
@@ -1026,11 +999,14 @@ export class ProtocolProvider implements IProtocolProvider {
                 const revertError = error.walk(
                     (err) => err instanceof ContractFunctionRevertedError,
                 );
+
                 if (revertError instanceof ContractFunctionRevertedError) {
                     const errorName = revertError.data?.errorName ?? "";
+
                     throw ErrorFactory.createError(errorName);
                 }
             }
+
             throw error;
         }
     }

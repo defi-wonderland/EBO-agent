@@ -1,6 +1,13 @@
 import { isNativeError } from "util/types";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
-import { Caip2ChainId, Caip2Utils, HexUtils, ILogger, UnixTimestamp } from "@ebo-agent/shared";
+import {
+    Caip2ChainId,
+    Caip2Utils,
+    HexUtils,
+    ILogger,
+    stringify,
+    UnixTimestamp,
+} from "@ebo-agent/shared";
 import { Block, ContractFunctionRevertedError } from "viem";
 
 import {
@@ -61,6 +68,7 @@ export class EboProcessor {
                 await this.sync();
             } catch (err) {
                 this.logger.error(`Unhandled error during the event loop: ${err}`);
+
                 await this.notifier.notifyError(err as Error, {
                     message: "Unhandled error during the event loop",
                 });
@@ -207,9 +215,8 @@ export class EboProcessor {
 
         const events = await this.protocolProvider.getEvents(fromBlock, toBlock);
 
-        // TODO: add a logger.debug of all the fetched events, super useful during debugging
-
         this.logger.info(`${events.length} events fetched.`);
+        this.logger.debug(stringify(events));
 
         return events;
     }
@@ -225,7 +232,7 @@ export class EboProcessor {
         const groupedEvents = new Map<RequestId, EboEventStream>();
 
         for (const event of events) {
-            const requestId = HexUtils.normalize(event.requestId) as RequestId;
+            const requestId = event.requestId;
             const requestEvents = groupedEvents.get(requestId) || [];
 
             groupedEvents.set(requestId, [...requestEvents, event]);
@@ -245,7 +252,7 @@ export class EboProcessor {
         const actorsRequestIds = this.actorsManager.getRequestIds();
         const uniqueRequestIds = new Set([...eventsRequestIds, ...actorsRequestIds]);
 
-        return [...uniqueRequestIds].map((requestId) => HexUtils.normalize(requestId) as RequestId);
+        return [...uniqueRequestIds].map((requestId) => requestId);
     }
 
     /**
@@ -318,7 +325,7 @@ export class EboProcessor {
             const isChainSupported = Caip2Utils.isSupported(chainId);
 
             if (isChainSupported) {
-                const requestId = HexUtils.normalize(firstEvent.requestId) as RequestId;
+                const requestId = firstEvent.requestId;
 
                 this.logger.info(`Creating a new EboActor to handle request ${requestId}...`);
 
@@ -381,6 +388,7 @@ export class EboProcessor {
      */
     private async createMissingRequests(epoch: Epoch["number"]): Promise<void> {
         try {
+            // TODO: keep requests even when their actors are finalized
             const handledEpochChains = this.actorsManager
                 .getActorsRequests()
                 .reduce((actorRequestMap, actorRequest: ActorRequest) => {
