@@ -1,3 +1,4 @@
+import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/shared";
 import {
     Address,
@@ -27,8 +28,8 @@ import {
     TransactionExecutionError,
     UnknownDisputeStatus,
 } from "../../src/exceptions/index.js";
+import { ProtocolProvider } from "../../src/index.js";
 import { ProtocolContractsAddresses } from "../../src/interfaces/index.js";
-import { ProtocolProvider } from "../../src/providers/index.js";
 import { DisputeStatus, EboEvent } from "../../src/types/index.js";
 import {
     DEFAULT_MOCKED_DISPUTE_DATA,
@@ -52,14 +53,14 @@ vi.mock("viem", async () => {
 describe("ProtocolProvider", () => {
     const mockRpcConfig = {
         l1: {
-            chainId: "eip155:1",
+            chainId: "eip155:1" as Caip2ChainId,
             urls: ["http://localhost:8545"],
             retryInterval: 1,
             timeout: 100,
             transactionReceiptConfirmations: 1,
         },
         l2: {
-            chainId: "eip155:42161",
+            chainId: "eip155:42161" as Caip2ChainId,
             urls: ["http://localhost:8546"],
             retryInterval: 1,
             timeout: 100,
@@ -74,6 +75,10 @@ describe("ProtocolProvider", () => {
         bondEscalationModule: "0x1234567890123456789012345678901234567890",
         horizonAccountingExtension: "0x1234567890123456789012345678901234567890",
     };
+
+    const mockBlockNumberService = {
+        getEpochBlockNumber: vi.fn().mockResolvedValue(100n),
+    } as unknown as BlockNumberService;
 
     beforeEach(() => {
         (getContract as Mock).mockImplementation(({ address, abi }) => {
@@ -165,6 +170,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             expect(createPublicClient).toHaveBeenCalledWith({
@@ -220,6 +226,7 @@ describe("ProtocolProvider", () => {
                         { ...mockRpcConfig, l1: { ...mockRpcConfig.l1, urls: [] } },
                         mockContractAddress,
                         mockedPrivateKey,
+                        mockBlockNumberService,
                     ),
             ).toThrowError(RpcUrlsEmpty);
         });
@@ -231,6 +238,7 @@ describe("ProtocolProvider", () => {
                         { ...mockRpcConfig, l2: { ...mockRpcConfig.l2, urls: [] } },
                         mockContractAddress,
                         mockedPrivateKey,
+                        mockBlockNumberService,
                     ),
             ).toThrowError(RpcUrlsEmpty);
         });
@@ -247,10 +255,15 @@ describe("ProtocolProvider", () => {
             const mockEpochBlock = BigInt(12345);
             const mockEpochTimestamp = BigInt(Date.UTC(2024, 1, 1, 0, 0, 0, 0)) / 1000n;
 
+            const mockBlockNumberService = {
+                getEpochBlockNumber: vi.fn().mockResolvedValue(mockEpochBlock),
+            } as unknown as BlockNumberService;
+
             const protocolProvider = new ProtocolProvider(
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             (protocolProvider["epochManagerContract"].read.currentEpoch as Mock).mockResolvedValue(
@@ -270,6 +283,11 @@ describe("ProtocolProvider", () => {
             expect(result.number).toBe(mockEpoch);
             expect(result.firstBlockNumber).toBe(mockEpochBlock);
             expect(result.startTimestamp).toBe(mockEpochTimestamp);
+
+            expect(mockBlockNumberService.getEpochBlockNumber).toHaveBeenCalledWith(
+                mockEpochTimestamp,
+                mockRpcConfig.l2.chainId,
+            );
         });
 
         it("throws when current epoch request fails", async () => {
@@ -277,6 +295,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
             const error = new Error("Failed to get current epoch");
             const mockEpochBlock = BigInt(12345);
@@ -296,6 +315,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
             const error = new Error("Failed to get current epoch block");
             const mockEpoch = BigInt(12345);
@@ -322,6 +342,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
@@ -337,6 +358,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
@@ -356,6 +378,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             (protocolProvider["l2WriteClient"].writeContract as Mock).mockRejectedValue(
@@ -375,6 +398,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             (protocolProvider["l2ReadClient"].simulateContract as Mock).mockRejectedValue(
@@ -397,6 +421,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockRejectedValue(
@@ -418,6 +443,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
@@ -438,6 +464,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
@@ -464,6 +491,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
@@ -484,6 +512,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
@@ -520,6 +549,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
@@ -535,6 +565,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
@@ -556,6 +587,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             const mockEpoch = 1n;
@@ -591,9 +623,13 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
-            const expectedAddress = privateKeyToAccount(mockedPrivateKey).address;
+            const expectedAddress = privateKeyToAccount(
+                mockedPrivateKey,
+                mockBlockNumberService,
+            ).address;
             expect(protocolProvider.getAccountAddress()).toBe(expectedAddress);
         });
 
@@ -602,6 +638,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             (protocolProvider["l2WriteClient"] as any).account = undefined;
@@ -616,6 +653,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
@@ -631,6 +669,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
@@ -652,6 +691,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
@@ -670,6 +710,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
@@ -694,6 +735,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             const mockRequestProphetData = DEFAULT_MOCKED_REQUEST_CREATED_DATA.prophetData;
@@ -714,6 +756,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
@@ -740,6 +783,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             const mockModuleAddress = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd";
@@ -767,6 +811,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             (protocolProvider["l2ReadClient"].waitForTransactionReceipt as Mock).mockResolvedValue({
@@ -787,6 +832,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             const mockUserAddress = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd";
@@ -812,6 +858,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             const mockUserAddress = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd";
@@ -833,6 +880,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             const mockResponseProposedEvents = [
@@ -897,6 +945,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             // FIXME: types are sketchy here
@@ -1054,6 +1103,7 @@ describe("ProtocolProvider", () => {
                     mockRpcConfig,
                     mockContractAddress,
                     mockedPrivateKey,
+                    mockBlockNumberService,
                 );
 
                 const result = (protocolProvider as any).mapDisputeStatus(input);
@@ -1066,6 +1116,7 @@ describe("ProtocolProvider", () => {
                 mockRpcConfig,
                 mockContractAddress,
                 mockedPrivateKey,
+                mockBlockNumberService,
             );
 
             const invalidStatuses = [-1, 6, 999];

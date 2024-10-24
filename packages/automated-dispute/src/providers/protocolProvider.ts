@@ -1,4 +1,4 @@
-import { UnsupportedChain } from "@ebo-agent/blocknumber";
+import { BlockNumberService, UnsupportedChain } from "@ebo-agent/blocknumber";
 import { Caip2ChainId, UnixTimestamp } from "@ebo-agent/shared";
 import {
     Address,
@@ -76,6 +76,7 @@ export class ProtocolProvider implements IProtocolProvider {
     private l1ReadClient: PublicClient<FallbackTransport<HttpTransport[]>>;
     private l2ReadClient: PublicClient<FallbackTransport<HttpTransport[]>>;
     private l2WriteClient: WalletClient<FallbackTransport<HttpTransport[]>>;
+    private readonly blockNumberService: BlockNumberService;
 
     private oracleContract: GetContractReturnType<
         typeof oracleAbi,
@@ -112,11 +113,13 @@ export class ProtocolProvider implements IProtocolProvider {
      * @param rpcConfig The configuration for RPC connections including URLs, timeout, retry interval, and transaction receipt confirmations
      * @param contracts The addresses of the protocol contracts that will be instantiated
      * @param privateKey The private key of the account that will be used to interact with the contracts
+     * @param blockNumberService The service that will be used to fetch block numbers
      */
     constructor(
         private readonly rpcConfig: ProtocolRpcConfig,
         contracts: ProtocolContractsAddresses,
         privateKey: Hex,
+        blockNumberService: BlockNumberService,
     ) {
         const l1Chain = this.getViemChain(rpcConfig.l1.chainId);
         const l2Chain = this.getViemChain(rpcConfig.l2.chainId);
@@ -124,6 +127,7 @@ export class ProtocolProvider implements IProtocolProvider {
         this.l1ReadClient = this.createReadClient(rpcConfig.l1, l1Chain);
         this.l2ReadClient = this.createReadClient(rpcConfig.l2, l2Chain);
         this.l2WriteClient = this.createWriteClient(rpcConfig.l2, l2Chain, privateKey);
+        this.blockNumberService = blockNumberService;
 
         // Instantiate all the protocol contracts
         this.oracleContract = getContract({
@@ -309,10 +313,18 @@ export class ProtocolProvider implements IProtocolProvider {
             blockNumber: epochFirstBlockNumber,
         });
 
+        const startTimestamp = epochFirstBlock.timestamp as UnixTimestamp;
+
+        const l2ChainId = this.rpcConfig.l2.chainId;
+        const l2FirstBlockNumber = await this.blockNumberService.getEpochBlockNumber(
+            startTimestamp,
+            l2ChainId,
+        );
+
         return {
             number: epoch,
-            firstBlockNumber: epochFirstBlockNumber,
-            startTimestamp: epochFirstBlock.timestamp as UnixTimestamp,
+            firstBlockNumber: l2FirstBlockNumber,
+            startTimestamp: startTimestamp,
         };
     }
 
