@@ -114,11 +114,16 @@ export class EboProcessor {
             const currentEpoch = await this.getCurrentEpoch();
 
             if (!this.lastCheckedBlock) {
-                this.lastCheckedBlock = currentEpoch.firstBlockNumber;
+                // We want to emulate the previous epoch being fully checked
+                this.lastCheckedBlock = currentEpoch.firstBlockNumber - 1n;
             }
 
             const lastBlock = await this.getLastFinalizedBlock();
-            const events = await this.getEvents(this.lastCheckedBlock, lastBlock.number - 1n);
+
+            // Events will sync starting from the block after the last checked one,
+            // making the block interval exclusive on its lower bound:
+            //  (last checked block, last block]
+            const events = await this.getEvents(this.lastCheckedBlock + 1n, lastBlock.number);
 
             const eventsByRequestId = this.groupEventsByRequest(events);
             const synchableRequests = this.calculateSynchableRequests([
@@ -272,7 +277,8 @@ export class EboProcessor {
             } catch (err) {
                 if (err instanceof PastEventEnqueueError) {
                     this.logger.warn(
-                        `Dropping already enqueued event at ${event.blockNumber} block with ${event.logIndex}`,
+                        `Dropping already enqueued event at ${event.blockNumber} block ` +
+                            `with log index ${event.logIndex}`,
                     );
                 } else {
                     throw err;

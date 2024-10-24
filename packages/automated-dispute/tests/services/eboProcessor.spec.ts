@@ -244,7 +244,7 @@ describe("EboProcessor", () => {
 
             expect(mockGetEvents).toHaveBeenCalledWith(
                 currentEpoch.firstBlockNumber,
-                currentBlock.number - 1n,
+                currentBlock.number,
             );
         });
 
@@ -354,7 +354,7 @@ describe("EboProcessor", () => {
             expect(mockProtocolProviderGetEvents).toHaveBeenNthCalledWith(
                 1,
                 currentEpoch.firstBlockNumber,
-                initialCurrentBlock + 10n - 1n,
+                initialCurrentBlock + 10n,
             );
 
             expect(mockProtocolProviderGetEvents).toHaveBeenCalledTimes(1);
@@ -365,7 +365,7 @@ describe("EboProcessor", () => {
             expect(mockProtocolProviderGetEvents).toHaveBeenNthCalledWith(
                 2,
                 currentEpoch.firstBlockNumber,
-                initialCurrentBlock + 20n - 1n,
+                initialCurrentBlock + 20n,
             );
         });
 
@@ -416,14 +416,11 @@ describe("EboProcessor", () => {
             const mockGetEvents = vi.spyOn(protocolProvider, "getEvents");
             mockGetEvents.mockResolvedValue([requestCreatedEvent]);
 
-            processor["lastCheckedBlock"] = mockLastCheckedBlock;
+            processor["lastCheckedBlock"] = mockLastCheckedBlock - 1n;
 
             await processor.start(msBetweenChecks);
 
-            expect(mockGetEvents).toHaveBeenCalledWith(
-                mockLastCheckedBlock,
-                currentBlock.number - 1n,
-            );
+            expect(mockGetEvents).toHaveBeenCalledWith(mockLastCheckedBlock, currentBlock.number);
         });
 
         it("enqueues and process every new event into the actor", async () => {
