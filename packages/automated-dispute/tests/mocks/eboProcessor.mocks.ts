@@ -1,9 +1,10 @@
-import { BlockNumberService, Caip2ChainId } from "@ebo-agent/blocknumber";
-import { ILogger } from "@ebo-agent/shared";
+import { BlockNumberService } from "@ebo-agent/blocknumber";
+import { Caip2ChainId, ILogger } from "@ebo-agent/shared";
 import { vi } from "vitest";
 
+import { NotificationService } from "../../src/index.js";
 import { ProtocolProvider } from "../../src/providers/index.js";
-import { EboProcessor, NotificationService } from "../../src/services";
+import { EboProcessor } from "../../src/services";
 import { EboActorsManager } from "../../src/services/index.js";
 import { AccountingModules } from "../../src/types/prophet.js";
 import {
@@ -20,6 +21,24 @@ export function buildEboProcessor(
     },
     notifier?: NotificationService,
 ) {
+    const blockNumberRpcUrls = new Map<Caip2ChainId, string[]>([
+        ["eip155:1" as Caip2ChainId, ["http://localhost:8539"]],
+    ]);
+
+    const blockNumberService = new BlockNumberService(
+        blockNumberRpcUrls,
+        {
+            baseUrl: new URL("http://localhost"),
+            bearerToken: "secret-token",
+            bearerTokenExpirationWindow: 10,
+            servicePaths: {
+                block: "/block",
+                blockByTime: "/blockbytime",
+            },
+        },
+        logger,
+    );
+
     const protocolProvider = new ProtocolProvider(
         {
             l1: {
@@ -39,23 +58,7 @@ export function buildEboProcessor(
         },
         DEFAULT_MOCKED_PROTOCOL_CONTRACTS,
         mockedPrivateKey,
-    );
-
-    const blockNumberRpcUrls = new Map<Caip2ChainId, string[]>([
-        ["eip155:1" as Caip2ChainId, ["http://localhost:8539"]],
-    ]);
-    const blockNumberService = new BlockNumberService(
-        blockNumberRpcUrls,
-        {
-            baseUrl: new URL("http://localhost"),
-            bearerToken: "secret-token",
-            bearerTokenExpirationWindow: 10,
-            servicePaths: {
-                block: "/block",
-                blockByTime: "/blockbytime",
-            },
-        },
-        logger,
+        blockNumberService,
     );
 
     const actorsManager = new EboActorsManager();

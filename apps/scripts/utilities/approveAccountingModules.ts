@@ -1,4 +1,5 @@
 import { ProtocolProvider } from "@ebo-agent/automated-dispute/src/index.js";
+import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId } from "@ebo-agent/shared";
 import * as dotenv from "dotenv";
 import { Address, Hex, isHex } from "viem";
@@ -100,9 +101,23 @@ const rpcConfig = {
     },
 };
 
+/**
+ * Mocking the BlockNumberService since we don't need it for the script
+ */
+const mockBlockNumberService = {
+    getEpochBlockNumber: async () => {
+        return 0n;
+    },
+} as unknown as BlockNumberService;
+
 const contracts = env.CONTRACTS_ADDRESSES;
 
-const provider = new ProtocolProvider(rpcConfig, contracts, env.PRIVATE_KEY as Hex);
+const provider = new ProtocolProvider(
+    rpcConfig,
+    contracts,
+    env.PRIVATE_KEY as Hex,
+    mockBlockNumberService,
+);
 
 /**
  * Approves the necessary modules by calling approveModule on ProtocolProvider.

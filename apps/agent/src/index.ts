@@ -14,16 +14,17 @@ import { config } from "./config/index.js";
 const logger = Logger.getInstance();
 
 const main = async (): Promise<void> => {
-    const protocolProvider = new ProtocolProvider(
-        config.protocolProvider.rpcsConfig,
-        config.protocolProvider.contracts,
-        config.protocolProvider.privateKey,
-    );
-
     const blockNumberService = new BlockNumberService(
         config.blockNumberService.chainRpcUrls,
         config.blockNumberService.blockmetaConfig,
         logger,
+    );
+
+    const protocolProvider = new ProtocolProvider(
+        config.protocolProvider.rpcsConfig,
+        config.protocolProvider.contracts,
+        config.protocolProvider.privateKey,
+        blockNumberService,
     );
 
     const actorsManager = new EboActorsManager();
