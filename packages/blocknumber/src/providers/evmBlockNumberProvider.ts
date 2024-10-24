@@ -134,7 +134,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
         const timestampDeltaBN = new BigNumber((lastBlock.timestamp - timestamp).toString());
 
         let candidateBlockNumberBN = new BigNumber(lastBlock.number.toString())
-            .dividedBy(timestampDeltaBN.dividedBy(estimatedBlockTimeBN))
+            .minus(timestampDeltaBN.dividedBy(estimatedBlockTimeBN))
             .integerValue();
 
         const baseStepBN = new BigNumber(lastBlock.number.toString())
