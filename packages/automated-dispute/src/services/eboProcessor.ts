@@ -1,9 +1,13 @@
 import { isNativeError } from "util/types";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
 import { Caip2ChainId, Caip2Utils, HexUtils, ILogger, UnixTimestamp } from "@ebo-agent/shared";
-import { Block } from "viem";
+import { Block, ContractFunctionRevertedError } from "viem";
 
-import { PendingModulesApproval, ProcessorAlreadyStarted } from "../exceptions/index.js";
+import {
+    PastEventEnqueueError,
+    PendingModulesApproval,
+    ProcessorAlreadyStarted,
+} from "../exceptions/index.js";
 import { isRequestCreatedEvent } from "../guards.js";
 import { NotificationService } from "../interfaces/index.js";
 import { ProtocolProvider } from "../providers/index.js";
@@ -110,11 +114,16 @@ export class EboProcessor {
             const currentEpoch = await this.getCurrentEpoch();
 
             if (!this.lastCheckedBlock) {
-                this.lastCheckedBlock = currentEpoch.firstBlockNumber;
+                // We want to emulate the previous epoch being fully checked
+                this.lastCheckedBlock = currentEpoch.firstBlockNumber - 1n;
             }
 
             const lastBlock = await this.getLastFinalizedBlock();
-            const events = await this.getEvents(this.lastCheckedBlock, lastBlock.number);
+
+            // Events will sync starting from the block after the last checked one,
+            // making the block interval exclusive on its lower bound:
+            //  (last checked block, last block]
+            const events = await this.getEvents(this.lastCheckedBlock + 1n, lastBlock.number);
 
             const eventsByRequestId = this.groupEventsByRequest(events);
             const synchableRequests = this.calculateSynchableRequests([
@@ -262,7 +271,20 @@ export class EboProcessor {
             return;
         }
 
-        events.forEach((event) => actor.enqueue(event));
+        events.forEach((event) => {
+            try {
+                actor.enqueue(event);
+            } catch (err) {
+                if (err instanceof PastEventEnqueueError) {
+                    this.logger.warn(
+                        `Dropping already enqueued event at ${event.blockNumber} block ` +
+                            `with log index ${event.logIndex}`,
+                    );
+                } else {
+                    throw err;
+                }
+            }
+        });
 
         const lastBlockTimestamp = lastBlock.timestamp as UnixTimestamp;
 
@@ -383,6 +405,12 @@ export class EboProcessor {
                 return !isHandled;
             });
 
+            if (!unhandledEpochChain || unhandledEpochChain.length === 0) {
+                this.logger.info(`No requests to create for epoch ${epoch}`);
+
+                return;
+            }
+
             this.logger.info("Creating missing requests...");
 
             const epochChainRequests = unhandledEpochChain.map(async (chain) => {
@@ -396,7 +424,16 @@ export class EboProcessor {
                     // Request creation must be notified but it's not critical, as it will be
                     // retried during next sync.
 
-                    // TODO: warn when getting a EBORequestCreator_RequestAlreadyCreated
+                    if (err instanceof ContractFunctionRevertedError) {
+                        if (err.name === "EBORequestCreator_RequestAlreadyCreated") {
+                            this.logger.info(
+                                `Request for epoch ${epoch} and chain ${chain} already created`,
+                            );
+
+                            return;
+                        }
+                    }
+
                     this.logger.error(
                         `Could not create a request for epoch ${epoch} and chain ${chain}.`,
                     );

@@ -2,6 +2,8 @@ import {
     EboActorsManager,
     EboProcessor,
     NotificationService,
+    oracleAbi,
+    ProphetCodec,
     ProtocolProvider,
 } from "@ebo-agent/automated-dispute";
 import { BlockNumberService } from "@ebo-agent/blocknumber";
@@ -11,6 +13,7 @@ import {
     Account,
     Address,
     createTestClient,
+    getAbiItem,
     Hex,
     http,
     keccak256,
@@ -25,7 +28,8 @@ import {
 import { arbitrumSepolia } from "viem/chains";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { AnvilClient, DeployContractsOutput } from "../../utils/prophet-e2e-scaffold/index.js";
+import type { DeployContractsOutput } from "../../utils/prophet-e2e-scaffold/index.js";
+import { getCurrentEpoch, setEpochLength } from "../../utils/prophet-e2e-scaffold/epochManager.js";
 import {
     createAnvilServer,
     deployContracts,
@@ -40,9 +44,6 @@ const E2E_TEST_TIMEOUT = 30_000;
 // TODO: it'd be nice to have zod here
 const KEYSTORE_PASSWORD = process.env.KEYSTORE_PASSWORD || "";
 
-// TODO: use env vars here
-const FORK_URL = "https://arbitrum-sepolia.gateway.tenderly.co";
-
 // TODO: probably could be added as a submodule inside the e2e folder
 const EBO_CORE_PATH = "../../../EBO-core/";
 
@@ -53,6 +54,7 @@ const HORIZON_STAKING_ADDRESS = "0x3F53F9f9a5d7F36dCC869f8D2F227499c411c0cf";
 
 // Extracted from https://thegraph.com/docs/en/network/contracts/
 const EPOCH_MANAGER_ADDRESS = "0x7975475801BEf845f10Ce7784DC69aB1e0344f11";
+const GOVERNOR_ADDRESS = "0xadE6B8EB69a49B56929C1d4F4b428d791861dB6f";
 
 // Arbitrum
 // const GRT_HOLDER = "0x00669A4CF01450B64E8A2A20E9b1FCB71E61eF03";
@@ -64,32 +66,32 @@ const EPOCH_MANAGER_ADDRESS = "0x7975475801BEf845f10Ce7784DC69aB1e0344f11";
 // TODO: this is currently hardcoded on the contract's Deploy script, change when defined
 const ARBITRATOR_ADDRESS: Address = padHex("0x100", { dir: "left", size: 20 });
 
-// const ARBITRUM_ID = "eip155:42161";
 const ARBITRUM_SEPOLIA_ID = "eip155:421614";
 
-const PROTOCOL_L1_CHAIN_ID = "eip155:1";
 const PROTOCOL_L2_CHAIN = arbitrumSepolia;
 const PROTOCOL_L2_CHAIN_ID = ARBITRUM_SEPOLIA_ID;
 
 const PROTOCOL_L2_LOCAL_RPC_HOST = "127.0.0.1";
 const PROTOCOL_L2_LOCAL_RPC_PORT = 8545;
 
+const FORK_L2_URL = "https://arbitrum-sepolia.gateway.tenderly.co";
+
 const PROTOCOL_L2_LOCAL_URL = `http://${PROTOCOL_L2_LOCAL_RPC_HOST}:${PROTOCOL_L2_LOCAL_RPC_PORT}/1`;
 
 describe.sequential("single agent", () => {
-    let protocolAnvil: CreateServerReturnType;
+    let l2ProtocolAnvil: CreateServerReturnType;
 
     let protocolContracts: DeployContractsOutput;
     let accounts: { privateKey: Hex; account: Account; walletClient: WalletClient }[];
 
     beforeEach(async () => {
-        protocolAnvil = await createAnvilServer(
+        l2ProtocolAnvil = await createAnvilServer(
             PROTOCOL_L2_LOCAL_RPC_HOST,
             PROTOCOL_L2_LOCAL_RPC_PORT,
             {
-                forkUrl: FORK_URL,
+                forkUrl: FORK_L2_URL,
+                slotsInAnEpoch: 1,
                 blockTime: 0.1,
-                slotsInAnEpoch: 1, // To "finalize" blocks fast enough
             },
         );
 
@@ -111,7 +113,7 @@ describe.sequential("single agent", () => {
                 chain: PROTOCOL_L2_CHAIN,
                 grtHolder: GRT_HOLDER,
                 grtContractAddress: GRT_CONTRACT_ADDRESS,
-                grtFundAmount: parseEther("5"),
+                grtFundAmount: parseEther("50"),
             }),
         ];
 
@@ -121,7 +123,7 @@ describe.sequential("single agent", () => {
             grtAddress: GRT_CONTRACT_ADDRESS,
             horizonStakingAddress: HORIZON_STAKING_ADDRESS,
             chainsToAdd: [PROTOCOL_L2_CHAIN_ID],
-            bondAmount: parseEther("0.5"),
+            grtProvisionAmount: parseEther("45"),
             anvilClient: createTestClient({
                 mode: "anvil",
                 transport: http(PROTOCOL_L2_LOCAL_URL),
@@ -134,7 +136,7 @@ describe.sequential("single agent", () => {
     }, E2E_SCENARIO_SETUP_TIMEOUT);
 
     afterEach(async () => {
-        await protocolAnvil.stop();
+        await l2ProtocolAnvil.stop();
     });
 
     test.skip("basic flow", { timeout: E2E_TEST_TIMEOUT }, async () => {
@@ -143,7 +145,8 @@ describe.sequential("single agent", () => {
         const protocolProvider = new ProtocolProvider(
             {
                 l1: {
-                    chainId: PROTOCOL_L1_CHAIN_ID,
+                    chainId: PROTOCOL_L2_CHAIN_ID,
+                    // Using the same RPC due to Anvil's arbitrum block number bug
                     urls: [PROTOCOL_L2_LOCAL_URL],
                     transactionReceiptConfirmations: 1,
                     timeout: 1_000,
@@ -213,30 +216,113 @@ describe.sequential("single agent", () => {
             .extend(publicActions)
             .extend(walletActions);
 
+        // Set epoch length to a big enough epoch length as in sepolia is way too short at the moment
+        await setEpochLength({
+            length: 100_000n,
+            client: anvilClient,
+            epochManagerAddress: EPOCH_MANAGER_ADDRESS,
+            governorAddress: GOVERNOR_ADDRESS,
+        });
+
         const initBlock = await anvilClient.getBlockNumber();
+        const currentEpoch = await getCurrentEpoch({
+            client: anvilClient,
+            epochManagerAddress: EPOCH_MANAGER_ADDRESS,
+        });
 
         processor.start(3000);
 
-        // TODO: replace by NewEpoch event
-        const requestCreatedAbi = parseAbiItem(
-            "event RequestCreated(bytes32 indexed _requestId, uint256 indexed _epoch, string indexed _chainId)",
-        );
+        const requestCreatedAbi = getAbiItem({ abi: oracleAbi, name: "RequestCreated" });
 
-        const eventFound = await waitForEvent<typeof requestCreatedAbi, AnvilClient>({
+        let chainRequestId: Hex;
+
+        const requestCreatedEvent = await waitForEvent({
             client: anvilClient,
             filter: {
-                address: protocolContracts["EBORequestCreator"],
+                address: protocolContracts["Oracle"],
                 fromBlock: initBlock,
                 event: requestCreatedAbi,
                 strict: true,
             },
             matcher: (log) => {
-                return log.args._chainId === keccak256(toHex(PROTOCOL_L2_CHAIN_ID));
+                const { requestModuleData } = log.args._request;
+                const { chainId } = ProphetCodec.decodeRequestRequestModuleData(requestModuleData);
+
+                if (chainId !== ARBITRUM_SEPOLIA_ID) return false;
+
+                chainRequestId = log.args._requestId;
+
+                return true;
             },
             pollingIntervalMs: 100,
             blockTimeout: initBlock + 1000n,
         });
 
-        expect(eventFound).toBe(true);
+        expect(requestCreatedEvent).toBe(true);
+
+        const responseProposedAbi = getAbiItem({ abi: oracleAbi, name: "ResponseProposed" });
+
+        const responseProposedEvent = await waitForEvent({
+            client: anvilClient,
+            filter: {
+                address: protocolContracts["Oracle"],
+                fromBlock: initBlock,
+                event: responseProposedAbi,
+                strict: true,
+            },
+            matcher: (log) => {
+                return log.args._requestId === chainRequestId;
+            },
+            pollingIntervalMs: 100,
+            blockTimeout: initBlock + 1000n,
+        });
+
+        expect(responseProposedEvent).toBe(true);
+
+        await anvilClient.increaseTime({ seconds: 60 * 60 * 24 * 7 * 4 });
+
+        const oracleRequestFinalizedAbi = getAbiItem({
+            abi: oracleAbi,
+            name: "OracleRequestFinalized",
+        });
+
+        const [oracleRequestFinalizedEvent, newEpochEvent] = await Promise.all([
+            waitForEvent({
+                client: anvilClient,
+                filter: {
+                    address: protocolContracts["Oracle"],
+                    fromBlock: initBlock,
+                    event: oracleRequestFinalizedAbi,
+                    strict: true,
+                },
+                matcher: (log) => {
+                    return log.args._requestId === chainRequestId;
+                },
+                pollingIntervalMs: 100,
+                blockTimeout: initBlock + 1000n,
+            }),
+            waitForEvent({
+                client: anvilClient,
+                filter: {
+                    address: protocolContracts["EBOFinalityModule"],
+                    fromBlock: initBlock,
+                    event: parseAbiItem(
+                        "event NewEpoch(uint256 indexed _epoch, string indexed _chainId, uint256 _blockNumber)",
+                    ),
+                    strict: true,
+                },
+                matcher: (log) => {
+                    return (
+                        log.args._chainId === keccak256(toHex(ARBITRUM_SEPOLIA_ID)) &&
+                        log.args._epoch === currentEpoch
+                    );
+                },
+                pollingIntervalMs: 100,
+                blockTimeout: initBlock + 1000n,
+            }),
+        ]);
+
+        expect(oracleRequestFinalizedEvent).toBeDefined();
+        expect(newEpochEvent).toBeDefined();
     });
 });
