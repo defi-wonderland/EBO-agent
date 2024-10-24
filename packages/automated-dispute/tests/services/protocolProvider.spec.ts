@@ -1049,7 +1049,7 @@ describe("ProtocolProvider", () => {
         ];
 
         testCases.forEach(({ input, expected }) => {
-            it(`should map status ${input} to '${expected}'`, () => {
+            it(`maps status ${input} to '${expected}'`, () => {
                 const protocolProvider = new ProtocolProvider(
                     mockRpcConfig,
                     mockContractAddress,
@@ -1061,7 +1061,7 @@ describe("ProtocolProvider", () => {
             });
         });
 
-        it("should throw UnknownDisputeStatus for invalid status", () => {
+        it("throws UnknownDisputeStatus for invalid status", () => {
             const protocolProvider = new ProtocolProvider(
                 mockRpcConfig,
                 mockContractAddress,

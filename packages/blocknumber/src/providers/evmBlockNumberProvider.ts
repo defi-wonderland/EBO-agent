@@ -134,7 +134,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
         const timestampDeltaBN = new BigNumber((lastBlock.timestamp - timestamp).toString());
 
         let candidateBlockNumberBN = new BigNumber(lastBlock.number.toString())
-            .dividedBy(timestampDeltaBN.dividedBy(estimatedBlockTimeBN))
+            .minus(timestampDeltaBN.dividedBy(estimatedBlockTimeBN))
             .integerValue();
 
         const baseStepBN = new BigNumber(lastBlock.number.toString())
@@ -218,7 +218,7 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
             currentBlockNumber = (high + low) / 2n;
 
             const currentBlock = await this.client.getBlock({ blockNumber: currentBlockNumber });
-            const nextBlock = await this.getNextBlockWithDifferentTimestamp(currentBlock);
+            const nextBlock = await this.searchNextBlockWithDifferentTimestamp(currentBlock);
 
             this.logger.debug(
                 `Analyzing block number #${currentBlock.number} with timestamp ${currentBlock.timestamp}`,
@@ -257,13 +257,13 @@ export class EvmBlockNumberProvider implements BlockNumberProvider {
     }
 
     /**
-     * Get the next block searched moving sequentially and forward which has a different
-     * timestamp from `block`'s timestamp.
+     * Find the next block with a different timestamp than `block`, moving sequentially forward
+     * through the blockchain.
      *
      * @param block a `Block` with a number and a timestamp.
      * @returns a `Block` with a different timestamp, or `null` if no block with different timestamp was found.
      */
-    private async getNextBlockWithDifferentTimestamp(
+    private async searchNextBlockWithDifferentTimestamp(
         block: BlockWithNumber,
     ): Promise<BlockWithNumber | null> {
         let nextBlock: BlockWithNumber = block;
